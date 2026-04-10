@@ -1,0 +1,47 @@
+# PPO on Hopper-v5  (obs=11, act=3)
+# Target return: ~2500 (convergence ~1M steps)
+
+algo: ppo
+
+encoders:
+  - name: state_enc
+    type: mlp
+    input_dim: 11
+    latent_dim: 256
+    layers:
+      - {out_features: 256, activation: tanh, norm: none}
+      - {out_features: 256, activation: tanh, norm: none}
+
+flows:
+  - "state_enc -> actor"
+  - "state_enc -> critic"
+
+actor:
+  name: actor
+  type: gaussian
+  action_dim: 3
+  log_std_init: -1.0
+
+critic:
+  name: critic
+  type: value
+  layers: []
+
+losses:
+  - {name: policy,  weight: 1.0}
+  - {name: value,   weight: 0.5}
+  - {name: entropy, weight: 0.0}
+
+train:
+  total_steps: 1_000_000
+  n_envs: 4
+  n_steps: 2048
+  batch_size: 64
+  n_epochs: 10
+  lr: 3e-4
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  entropy_coef: 0.0
+  vf_coef: 0.5
+  max_grad_norm: 0.5

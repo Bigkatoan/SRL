@@ -40,12 +40,20 @@ Changelog     = "https://github.com/Bigkatoan/SRL/releases"
 
 [project.optional-dependencies]
 mujoco = ["gymnasium[mujoco]>=0.29.0", "mujoco>=3.0.0"]
+box2d = ["box2d>=2.3.10", "pygame>=2.5.0"]
 robotics = ["gymnasium-robotics>=1.2.0"]
-racecar = ["racecar-gym"]
+racecar = [
+    "racecar-gym @ git+https://github.com/axelbr/racecar_gym.git ; python_version < '3.11'",
+    "yamldataclassconfig==1.5.0 ; python_version < '3.11'",
+    "pybullet>=3.2.5",
+]
 all = [
     "gymnasium[mujoco]>=0.29.0",
     "mujoco>=3.0.0",
+    "box2d>=2.3.10",
+    "pygame>=2.5.0",
     "gymnasium-robotics>=1.2.0",
+    "pybullet>=3.2.5",
 ]
 ros2 = []   # rclpy provided by system ROS2 install
 dev = [

@@ -1,0 +1,52 @@
+# PPO on CarRacing-v3  (obs=96x96x3 RGB, act=3)
+# Target return: > 700 (convergence ~5M steps)
+
+algo: ppo
+
+encoders:
+  - name: visual_enc
+    type: cnn
+    input_shape: [3, 96, 96]
+    latent_dim: 256
+    aux_type: autoencoder
+    layers:
+      - [32, 8, 4, relu]
+      - [64, 4, 2, relu]
+      - [64, 3, 1, relu]
+
+flows:
+  - "visual_enc -> actor"
+  - "visual_enc -> critic"
+
+actor:
+  name: actor
+  type: gaussian
+  action_dim: 3
+  layers:
+    - {out_features: 256, activation: relu}
+
+critic:
+  name: critic
+  type: value
+  layers:
+    - {out_features: 256, activation: relu}
+
+losses:
+  - {name: policy,         weight: 1.0}
+  - {name: value,          weight: 0.5}
+  - {name: entropy,        weight: 0.01}
+  - {name: reconstruction, weight: 0.1}
+
+train:
+  total_steps: 5_000_000
+  n_envs: 4
+  n_steps: 1024
+  batch_size: 256
+  n_epochs: 10
+  lr: 3e-4
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  entropy_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5

@@ -1,0 +1,51 @@
+# SAC on FetchReach-v4  (obs_flat=16, act=4)
+# Flat obs = [observation(10) | achieved_goal(3) | desired_goal(3)]
+# Target: success_rate > 0.90 (convergence ~500k steps)
+
+algo: sac
+
+encoders:
+  - name: state_enc
+    type: mlp
+    input_dim: 16
+    latent_dim: 256
+    layers:
+      - {out_features: 256, activation: relu, norm: layer_norm}
+      - {out_features: 256, activation: relu, norm: layer_norm}
+
+flows:
+  - "state_enc -> actor"
+  - "state_enc -> critic"
+
+actor:
+  name: actor
+  type: squashed_gaussian
+  action_dim: 4
+  log_std_min: -5.0
+  log_std_max: 2.0
+
+critic:
+  name: critic
+  type: twin_q
+  action_dim: 4
+
+losses:
+  - {name: sac_q,           weight: 1.0}
+  - {name: sac_policy,      weight: 1.0}
+  - {name: sac_temperature, weight: 1.0}
+
+train:
+  total_steps: 500_000
+  lr_actor: 3e-4
+  lr_critic: 3e-4
+  lr_alpha: 3e-4
+  buffer_size: 1_000_000
+  batch_size: 256
+  gamma: 0.98
+  tau: 0.005
+  learning_starts: 10_000
+  train_freq: 1
+  gradient_steps: 40
+  # GoalEnv settings
+  env_id: "FetchReach-v4"
+  include_goal: true

@@ -1,0 +1,48 @@
+# PPO on Isaac Lab — Isaac-Cartpole-v0  (obs=4, act=1)
+# Requires IsaacLab + IsaacSim
+# Target return: ~400 (convergence ~500k steps)
+
+algo: ppo
+
+encoders:
+  - name: state_enc
+    type: mlp
+    input_dim: 4
+    latent_dim: 64
+    layers:
+      - {out_features: 64, activation: elu, norm: none}
+      - {out_features: 64, activation: elu, norm: none}
+
+flows:
+  - "state_enc -> actor"
+  - "state_enc -> critic"
+
+actor:
+  name: actor
+  type: gaussian
+  action_dim: 1
+  log_std_init: -1.0
+
+critic:
+  name: critic
+  type: value
+  layers: []
+
+losses:
+  - {name: policy,  weight: 1.0}
+  - {name: value,   weight: 1.0}
+  - {name: entropy, weight: 0.01}
+
+train:
+  total_steps: 500_000
+  n_envs: 512
+  n_steps: 16
+  batch_size: 8192
+  n_epochs: 5
+  lr: 5e-4
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  entropy_coef: 0.01
+  vf_coef: 1.0
+  max_grad_norm: 1.0

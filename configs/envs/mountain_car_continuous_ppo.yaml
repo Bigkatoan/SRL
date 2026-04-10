@@ -1,0 +1,47 @@
+# PPO on MountainCarContinuous-v0  (obs=2, act=1)
+# Target return: +90 (convergence ~500k steps)
+
+algo: ppo
+
+encoders:
+  - name: state_enc
+    type: mlp
+    input_dim: 2
+    latent_dim: 64
+    layers:
+      - {out_features: 64, activation: tanh, norm: none}
+      - {out_features: 64, activation: tanh, norm: none}
+
+flows:
+  - "state_enc -> actor"
+  - "state_enc -> critic"
+
+actor:
+  name: actor
+  type: gaussian
+  action_dim: 1
+  log_std_init: 0.0
+
+critic:
+  name: critic
+  type: value
+  layers: []
+
+losses:
+  - {name: policy,  weight: 1.0}
+  - {name: value,   weight: 0.5}
+  - {name: entropy, weight: 0.05}
+
+train:
+  total_steps: 1_000_000
+  n_envs: 8
+  n_steps: 512
+  batch_size: 256
+  n_epochs: 10
+  lr: 3e-4
+  gamma: 0.999
+  gae_lambda: 0.95
+  clip_range: 0.2
+  entropy_coef: 0.05
+  vf_coef: 0.5
+  max_grad_norm: 0.5

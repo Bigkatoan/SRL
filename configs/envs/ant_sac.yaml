@@ -1,0 +1,47 @@
+# SAC on Ant-v5  (obs=105, act=8)
+# Target return: ~4000 (convergence ~3M steps)
+
+algo: sac
+
+encoders:
+  - name: state_enc
+    type: mlp
+    input_dim: 105
+    latent_dim: 256
+    layers:
+      - {out_features: 256, activation: relu, norm: layer_norm}
+      - {out_features: 256, activation: relu, norm: layer_norm}
+
+flows:
+  - "state_enc -> actor"
+  - "state_enc -> critic"
+
+actor:
+  name: actor
+  type: squashed_gaussian
+  action_dim: 8
+  log_std_min: -5.0
+  log_std_max: 2.0
+
+critic:
+  name: critic
+  type: twin_q
+  action_dim: 8
+
+losses:
+  - {name: sac_q,           weight: 1.0}
+  - {name: sac_policy,      weight: 1.0}
+  - {name: sac_temperature, weight: 1.0}
+
+train:
+  total_steps: 3_000_000
+  lr_actor: 3e-4
+  lr_critic: 3e-4
+  lr_alpha: 3e-4
+  buffer_size: 1_000_000
+  batch_size: 256
+  gamma: 0.99
+  tau: 0.005
+  learning_starts: 10_000
+  train_freq: 1
+  gradient_steps: 1

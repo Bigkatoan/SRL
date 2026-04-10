@@ -1,0 +1,98 @@
+site_name: SRL — Simple Reinforcement Learning
+site_description: A modular, pip-installable RL library for continuous action spaces. Supports Gymnasium, IsaacLab, and ROS 2.
+site_url: https://bigkatoan.github.io/SRL/
+repo_url: https://github.com/Bigkatoan/SRL
+repo_name: Bigkatoan/SRL
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    repo: fontawesome/brands/github
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: installation.md
+    - Quick Start: quickstart.md
+  - Environments:
+    - Overview: environments/index.md
+    - Classic Control: environments/classic_control.md
+    - Box2D: environments/box2d.md
+    - MuJoCo: environments/mujoco.md
+    - Gymnasium Robotics: environments/robotics.md
+    - racecar_gym: environments/racecar.md
+    - Isaac Lab: environments/isaaclab.md
+  - Algorithms: algorithms.md
+  - Configuration Reference: config_reference.md
+  - API Reference:
+    - srl.algorithms: api/algorithms.md
+    - srl.envs: api/envs.md
+    - srl.networks: api/networks.md
+    - srl.utils: api/utils.md
+  - ROS 2: ros2.md
+  - Contributing: contributing.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Bigkatoan/SRL
+  analytics:
+    provider: google
+    property: ""
+
+copyright: Copyright &copy; 2024 SRL Contributors

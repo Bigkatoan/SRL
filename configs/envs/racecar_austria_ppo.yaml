@@ -1,0 +1,49 @@
+# PPO on racecar_gym SingleAgentAustria-v0
+# Typical flattened obs dim: 1092 = lidar(1080) + pose(6) + velocity(6)
+# Action dim: 2 = [motor, steering]
+# Target: stable lap completion and positive progress reward
+
+algo: ppo
+
+encoders:
+  - name: state_enc
+    type: mlp
+    input_dim: 1092
+    latent_dim: 256
+    layers:
+      - {out_features: 256, activation: relu, norm: layer_norm}
+      - {out_features: 256, activation: relu, norm: layer_norm}
+
+flows:
+  - "state_enc -> actor"
+  - "state_enc -> critic"
+
+actor:
+  name: actor
+  type: gaussian
+  action_dim: 2
+  log_std_init: -0.5
+
+critic:
+  name: critic
+  type: value
+  layers: []
+
+losses:
+  - {name: policy,  weight: 1.0}
+  - {name: value,   weight: 0.5}
+  - {name: entropy, weight: 0.01}
+
+train:
+  total_steps: 2_000_000
+  n_envs: 4
+  n_steps: 1024
+  batch_size: 256
+  n_epochs: 10
+  lr: 3e-4
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  entropy_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5

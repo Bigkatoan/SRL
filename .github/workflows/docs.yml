@@ -1,0 +1,45 @@
+name: Deploy MkDocs to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install docs dependencies
+        run: |
+          pip install --upgrade pip
+          pip install mkdocs>=1.5.0 \
+                      mkdocs-material>=9.0.0 \
+                      mkdocstrings[python]>=0.24.0
+
+      - name: Install SRL (no heavy extras)
+        run: pip install -e . --no-deps
+
+      - name: Build and deploy docs
+        run: mkdocs gh-deploy --force
