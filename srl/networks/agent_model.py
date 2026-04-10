@@ -82,12 +82,21 @@ class AgentModel(nn.Module):
         latents: dict[str, torch.Tensor] = {}
         new_hidden: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
 
+        # Auto-remap: if obs_dict has different keys than encoder names, try to map them
+        # E.g., if obs has {'state'} and encoder expects {'state_enc'}, auto-map for simplicity
+        _obs_dict = obs_dict
+        if len(obs_dict) == 1 and len(self.encoders) == 1:
+            obs_key = list(obs_dict.keys())[0]
+            enc_name = list(self.encoders.keys())[0]
+            if obs_key != enc_name:
+                _obs_dict = {enc_name: obs_dict[obs_key]}
+
         for node_name in self.flow_graph.execution_order:
             inputs = self.flow_graph.get_inputs(node_name)
 
             if node_name in self.encoders:
                 enc = self.encoders[node_name]
-                obs = obs_dict.get(node_name)
+                obs = _obs_dict.get(node_name)
                 if obs is None:
                     # Upstream encoder — use concatenated upstream latents
                     if inputs:

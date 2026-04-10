@@ -55,7 +55,6 @@ all = [
     "gymnasium-robotics>=1.2.0",
     "pybullet>=3.2.5",
 ]
-ros2 = []   # rclpy provided by system ROS2 install
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",

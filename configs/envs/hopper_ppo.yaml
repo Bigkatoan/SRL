@@ -1,6 +1,9 @@
 # PPO on Hopper-v5  (obs=11, act=3)
 # Target return: ~2500 (convergence ~1M steps)
 
+env_id: "Hopper-v5"
+env_type: "flat"
+
 algo: ppo
 
 encoders:

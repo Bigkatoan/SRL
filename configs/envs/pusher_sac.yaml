@@ -1,6 +1,9 @@
 # SAC on Pusher-v5  (obs=23, act=7)
 # Target return: ~0 (minimize distance, convergence ~500k steps)
 
+env_id: "Pusher-v5"
+env_type: "flat"
+
 algo: sac
 
 encoders:

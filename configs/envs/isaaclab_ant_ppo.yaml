@@ -2,6 +2,9 @@
 # Requires IsaacLab + IsaacSim
 # Target return: ~5000 (convergence ~5M steps)
 
+env_id: "Isaac-Ant-v0"
+env_type: "isaaclab"
+
 algo: ppo
 
 encoders:

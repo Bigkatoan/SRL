@@ -1,6 +1,9 @@
 # PPO on MountainCarContinuous-v0  (obs=2, act=1)
 # Target return: +90 (convergence ~500k steps)
 
+env_id: "MountainCarContinuous-v0"
+env_type: "flat"
+
 algo: ppo
 
 encoders:

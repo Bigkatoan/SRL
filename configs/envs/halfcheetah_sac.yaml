@@ -1,6 +1,9 @@
 # SAC on HalfCheetah-v5  (obs=17, act=6)
 # Target return: ~8000 (convergence ~1M steps)
 
+env_id: "HalfCheetah-v5"
+env_type: "flat"
+
 algo: sac
 
 encoders:

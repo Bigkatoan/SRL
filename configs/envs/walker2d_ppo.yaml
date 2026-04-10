@@ -1,6 +1,9 @@
 # PPO on Walker2d-v5  (obs=17, act=6)
 # Target return: ~3000 (convergence ~2M steps)
 
+env_id: "Walker2d-v5"
+env_type: "flat"
+
 algo: ppo
 
 encoders:

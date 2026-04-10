@@ -2,6 +2,9 @@
 # Requires IsaacLab + IsaacSim
 # Target return: ~400 (convergence ~500k steps)
 
+env_id: "Isaac-Cartpole-v0"
+env_type: "isaaclab"
+
 algo: ppo
 
 encoders:

@@ -1,6 +1,9 @@
 # SAC on FetchPickAndPlace-v4  (obs_flat=31, act=4)
 # Target: success_rate > 0.70 (convergence ~5M steps)
 
+env_id: "FetchPickAndPlace-v4"
+env_type: "goal"
+
 algo: sac
 
 encoders:

@@ -1,6 +1,9 @@
 # PPO on LunarLanderContinuous-v3  (obs=8, act=2)
 # Target return: > 200 (convergence ~1.5M steps)
 
+env_id: "LunarLanderContinuous-v3"
+env_type: "flat"
+
 algo: ppo
 
 encoders:

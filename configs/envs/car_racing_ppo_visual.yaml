@@ -1,6 +1,9 @@
 # PPO on CarRacing-v3  (obs=96x96x3 RGB, act=3)
 # Target return: > 700 (convergence ~5M steps)
 
+env_id: "CarRacing-v3"
+env_type: "flat"
+
 algo: ppo
 
 encoders:

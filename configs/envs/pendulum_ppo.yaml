@@ -1,6 +1,9 @@
 # PPO on Pendulum-v1  (obs=3, act=1)
 # Target return: -200 → -150 (convergence ~100k steps)
 
+env_id: "Pendulum-v1"
+env_type: "flat"
+
 algo: ppo
 
 encoders:

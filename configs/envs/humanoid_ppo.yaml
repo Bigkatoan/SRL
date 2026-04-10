@@ -1,6 +1,9 @@
 # PPO on Humanoid-v5  (obs=348, act=17)
 # Target return: ~5000 (convergence ~10M steps)
 
+env_id: "Humanoid-v5"
+env_type: "flat"
+
 algo: ppo
 
 encoders:

@@ -2,6 +2,9 @@
 # Flat obs = [observation(10) | achieved_goal(3) | desired_goal(3)]
 # Target: success_rate > 0.90 (convergence ~500k steps)
 
+env_id: "FetchReach-v4"
+env_type: "goal"
+
 algo: sac
 
 encoders:

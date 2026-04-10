@@ -1,6 +1,9 @@
 # SAC on Ant-v5  (obs=105, act=8)
 # Target return: ~4000 (convergence ~3M steps)
 
+env_id: "Ant-v5"
+env_type: "flat"
+
 algo: sac
 
 encoders:

@@ -1,15 +1,27 @@
-"""ROS2 inference node for SRL policies.
+"""ROS2 inference node for SRL policies (optional).
 
-Subscribes to one or more sensor topics, runs the policy at a fixed rate,
-and publishes the resulting action.
+Provides a Python API for deploying trained SRL policies as ROS2 nodes.
+Requires rclpy (part of ROS2 install) to use.
 
-Launch with::
+Example usage::
 
-    ros2 run srl rl_inference_node --ros-args -p config_path:=my_agent.yaml
+    from srl.ros2.rl_node import RLInferenceNode
+    from srl.registry.builder import ModelBuilder
+    import rclpy
 
-Or via the provided launch file::
+    model = ModelBuilder.from_yaml("my_config.yaml")
+    model.load_state_dict(...)
 
-    ros2 launch srl rl_agent.launch.py config_path:=my_agent.yaml
+    rclpy.init()
+    node = RLInferenceNode(
+        model=model,
+        obs_topics={
+            "state_enc": "/sensor/state",
+        },
+        action_topic="/robot/cmd_vel",
+        hz=20.0,
+    )
+    node.run()
 """
 
 from __future__ import annotations

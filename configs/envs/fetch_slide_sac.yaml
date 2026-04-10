@@ -1,6 +1,9 @@
 # SAC on FetchSlide-v4  (obs_flat=31, act=4)
 # Target: success_rate > 0.60 (convergence ~5M steps — hardest Fetch task)
 
+env_id: "FetchSlide-v4"
+env_type: "goal"
+
 algo: sac
 
 encoders:

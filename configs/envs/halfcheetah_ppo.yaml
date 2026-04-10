@@ -1,6 +1,9 @@
 # PPO on HalfCheetah-v5  (obs=17, act=6)
 # Target return: ~5000 (convergence ~2M steps)
 
+env_id: "HalfCheetah-v5"
+env_type: "flat"
+
 algo: ppo
 
 encoders:

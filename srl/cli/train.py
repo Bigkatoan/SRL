@@ -155,6 +155,26 @@ def main(argv: list[str] | None = None) -> int:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Helpers for mapping obs keys to encoder names
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _remap_obs_to_encoders(obs_dict: dict, encoder_names: list[str]) -> dict:
+    """Map observation dict keys to encoder input names.
+    
+    If obs_dict has keys like {'state'} and encoders expect {'state_enc'},
+    automatically map them together.
+    """
+    # Simple approach: if obs has 'state' key and we have an encoder, 
+    # rename it to match the first encoder name
+    if len(obs_dict) == 1 and len(encoder_names) == 1:
+        obs_key = list(obs_dict.keys())[0]
+        enc_name = encoder_names[0]
+        if obs_key != enc_name:
+            return {enc_name: obs_dict[obs_key]}
+    return obs_dict
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Training loops
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -165,11 +185,13 @@ def _run_on_policy(agent, env, args, callbacks, logger) -> None:
     n_steps = agent.cfg.n_steps
     obs, _ = env.reset()
     step = 0
+    encoder_names = list(agent.model.encoders.keys())
 
     while step < args.steps:
         for _ in range(n_steps):
+            obs_remapped = _remap_obs_to_encoders(obs, encoder_names)
             obs_t = {k: torch.from_numpy(np.asarray(v)).float().to(agent.device)
-                     for k, v in obs.items()}
+                     for k, v in obs_remapped.items()}
             action, log_prob, value, _ = agent.predict(obs_t)
             action_np = action.cpu().numpy()
             next_obs, reward, done, trunc, _ = env.step(action_np)
@@ -182,8 +204,9 @@ def _run_on_policy(agent, env, args, callbacks, logger) -> None:
             obs = next_obs
             step += getattr(agent.cfg, "num_envs", 1)
 
+        obs_remapped_final = _remap_obs_to_encoders(obs, encoder_names)
         last_t = {k: torch.from_numpy(np.asarray(v)).float().to(agent.device)
-                  for k, v in obs.items()}
+                  for k, v in obs_remapped_final.items()}
         _, _, last_val, _ = agent.predict(last_t)
         agent.buffer.compute_returns_and_advantages(
             last_value=last_val.cpu().numpy() if last_val is not None else 0.0
@@ -199,10 +222,12 @@ def _run_off_policy(agent, env, args, callbacks, logger) -> None:
 
     warmup = getattr(agent.cfg, "learning_starts", 10_000)
     obs, _ = env.reset()
+    encoder_names = list(agent.model.encoders.keys())
 
     for step in range(args.steps):
+        obs_remapped = _remap_obs_to_encoders(obs, encoder_names)
         obs_t = {k: torch.from_numpy(np.asarray(v)).float().unsqueeze(0).to(agent.device)
-                 for k, v in obs.items()}
+                 for k, v in obs_remapped.items()}
         if step < warmup:
             action_np = env.act_space.sample()
         else:

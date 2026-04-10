@@ -1,6 +1,9 @@
 # SAC on Reacher-v5  (obs=10, act=2)
 # Target return: ~-3 (convergence ~200k steps)
 
+env_id: "Reacher-v5"
+env_type: "flat"
+
 algo: sac
 
 encoders:

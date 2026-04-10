@@ -1,6 +1,9 @@
 # SAC on Swimmer-v5  (obs=8, act=2)
 # Target return: ~300 (convergence ~500k steps)
 
+env_id: "Swimmer-v5"
+env_type: "flat"
+
 algo: sac
 
 encoders:

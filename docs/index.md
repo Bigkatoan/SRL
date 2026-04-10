@@ -1,13 +1,6 @@
 # SRL — Simple Reinforcement Learning
 
-<div align="center">
-
-[![PyPI](https://img.shields.io/pypi/v/srl-rl)](https://pypi.org/project/srl-rl/)
-[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue)](https://www.python.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://bigkatoan.github.io/SRL/)
-
-</div>
+[![PyPI](https://img.shields.io/pypi/v/srl-rl)](https://pypi.org/project/srl-rl/) [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue)](https://www.python.org) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://bigkatoan.github.io/SRL/)
 
 **SRL** is a modular, pip-installable reinforcement learning library  
 for continuous action-space environments.

@@ -1,3 +1,143 @@
+# SRL — Simple Reinforcement Learning
+
+**SRL** is a modular, PyTorch-based reinforcement learning library for continuous control. Train agents in Gymnasium, Isaac Lab, or custom environments using YAML configs.
+
+## Features
+
+- **7 algorithms**: PPO, SAC, DDPG, A2C, A3C, TD3, DQN
+- **YAML-driven**: Define network architectures without Python code
+- **Multi-modal**: Support state, pixels, lidar, text inputs
+- **Environments**: Gymnasium, Isaac Lab, racecar_gym
+- **CLI**: `srl-train --config ... --env ... --steps ...`
+- **Goal-conditioned RL**: Fetch robotics via `GoalEnvWrapper`
+
+## Quick Install
+
+```bash
+pip install srl-rl
+
+# With MuJoCo
+pip install "srl-rl[mujoco]"
+
+# With all environments
+pip install "srl-rl[all]"
+
+# Or from GitHub for latest
+pip install git+https://github.com/Bigkatoan/SRL.git
+```
+
+## Quick Start
+
+```bash
+# Train PPO on Pendulum for 100k steps
+srl-train --config configs/envs/pendulum_ppo.yaml \
+          --env Pendulum-v1 \
+          --steps 100000 \
+          --device cuda
+
+# Or train SAC on Fetch  
+srl-train --config configs/envs/fetch_reach_sac.yaml \
+          --env FetchReach-v4 \
+          --steps 500000
+```
+
+## YAML Config Example
+
+```yaml
+encoders:
+  - name: state_enc
+    type: mlp
+    input_dim: 3
+    latent_dim: 64
+    layers:
+      - {out_features: 64, activation: relu}
+      - {out_features: 64, activation: relu}
+
+actor:
+  name: actor
+  type: gaussian
+  action_dim: 1
+
+critic:
+  name: critic
+  type: value
+
+losses:
+  - {name: policy, weight: 1.0}
+  - {name: value, weight: 0.5}
+
+train:
+  total_steps: 100_000
+  lr: 3e-4
+  batch_size: 128
+```
+
+## Supported Environments
+
+| Suite | Envs | Wrapper |
+|-------|------|---------|
+| **Gymnasium** | Pendulum, HalfCheetah, Hopper, etc. | `GymnasiumWrapper` |
+| **Box2D** | BipedalWalker, LunarLander, CarRacing | `GymnasiumWrapper` |
+| **Robotics** | FetchReach, FetchPush, FetchPickAndPlace, FetchSlide | `GoalEnvWrapper` |
+| **Isaac Lab** | Isaac-Cartpole, Isaac-Ant, Isaac-Humanoid | `IsaacLabWrapper` |
+| **racecar_gym** | SingleAgentAustria, SingleAgentBerlin | `RacecarWrapper` |
+
+## Python API Example
+
+```python
+import gymnasium as gym
+import torch
+from srl.registry.builder import ModelBuilder
+from srl.algorithms.ppo import PPO
+from srl.core.config import PPOConfig
+from srl.envs.gymnasium_wrapper import GymnasiumWrapper
+
+# Build model from YAML
+model = ModelBuilder.from_yaml("configs/envs/pendulum_ppo.yaml")
+
+# Create environment
+env = GymnasiumWrapper(gym.make("Pendulum-v1"))
+
+# Create agent
+cfg = PPOConfig(lr=3e-4, n_steps=2048, batch_size=64, n_epochs=10)
+agent = PPO(model, config=cfg, device="cuda")
+
+# Training loop
+obs, _ = env.reset()
+for step in range(10000):
+    obs_t = {k: torch.from_numpy(v).float().cuda() for k, v in obs.items()}
+    action, log_prob, value, _ = agent.predict(obs_t)
+    next_obs, reward, done, trunc, _ = env.step(action.cpu().numpy())
+    agent.buffer.add(obs=obs, action=action.cpu().numpy(),
+                     reward=reward, done=done, log_prob=log_prob.cpu().numpy(),
+                     value=value.cpu().numpy())
+    if done or trunc:
+        obs, _ = env.reset()
+    else:
+        obs = next_obs
+```
+
+## Documentation
+
+- 📖 [Full Docs](https://bigkatoan.github.io/SRL)
+- 🚀 [Installation Guide](https://bigkatoan.github.io/SRL/installation)
+- 💡 [Quickstart](https://bigkatoan.github.io/SRL/quickstart)
+- 🏗️ [Environments](https://bigkatoan.github.io/SRL/environments/)
+- ⚙️ [Config Reference](https://bigkatoan.github.io/SRL/config_reference)
+- 🔌 [API Reference](https://bigkatoan.github.io/SRL/api/)
+
+## Testing
+
+Run environment smoke tests:
+
+```bash
+pytest tests/test_configs_envs.py -v
+pytest tests/test_cli_smoke.py -v
+```
+
+## License
+
+MIT — See [LICENSE](LICENSE)
 # SRL — Simple Reinforcement Learning Library
 
 A lightweight, config-driven reinforcement learning library for continuous action spaces. Train from scratch with PyTorch, deploy on Gymnasium environments, Isaac Lab, or ROS2 robots — all from a single YAML file.

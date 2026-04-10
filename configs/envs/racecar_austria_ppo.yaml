@@ -3,6 +3,9 @@
 # Action dim: 2 = [motor, steering]
 # Target: stable lap completion and positive progress reward
 
+env_id: "SingleAgentAustria-v0"
+env_type: "racecar"
+
 algo: ppo
 
 encoders:
