@@ -120,12 +120,15 @@ class SAC(BaseAgent):
         with torch.no_grad():
             next_result = self.target_model(next_obs)
             next_actor_out = next_result["actor_out"]
-            if isinstance(next_actor_out, tuple):
+            if isinstance(next_actor_out, dict):
+                next_action = next_actor_out.get("action")
+                next_log_prob = next_actor_out.get("log_prob")
+            elif isinstance(next_actor_out, tuple):
                 next_action, next_log_prob = next_actor_out
             else:
                 next_action, next_log_prob = next_actor_out, torch.zeros(rewards.shape, device=self.device)
 
-            next_q = next_result["value"]
+            next_q = self.target_model(next_obs, action=next_action)["value"]
             if isinstance(next_q, tuple):
                 next_q = torch.min(*next_q)
             target_q = (
@@ -147,7 +150,10 @@ class SAC(BaseAgent):
         # --- Actor update ---
         result_actor = self.model(obs)
         actor_out = result_actor["actor_out"]
-        if isinstance(actor_out, tuple):
+        if isinstance(actor_out, dict):
+            new_action = actor_out.get("action")
+            log_prob = actor_out.get("log_prob")
+        elif isinstance(actor_out, tuple):
             new_action, log_prob = actor_out
         else:
             new_action, log_prob = actor_out, torch.zeros(rewards.shape, device=self.device)

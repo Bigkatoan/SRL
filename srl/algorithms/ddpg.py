@@ -108,7 +108,11 @@ class DDPG(BaseAgent):
         dones = batch.dones.to(self.device)
 
         with torch.no_grad():
-            next_action = self.target_model(next_obs)["actor_out"]
+            next_actor_out = self.target_model(next_obs)["actor_out"]
+            if isinstance(next_actor_out, dict):
+                next_action = next_actor_out.get("action")
+            else:
+                next_action = next_actor_out
             next_q = self.target_model(next_obs, action=next_action)["value"]
             target_q = rewards + self.cfg.gamma * (1.0 - dones) * next_q
 
@@ -120,7 +124,11 @@ class DDPG(BaseAgent):
         self.critic_optimizer.step()
 
         # Actor
-        new_action = self.model(obs)["actor_out"]
+        actor_out = self.model(obs)["actor_out"]
+        if isinstance(actor_out, dict):
+            new_action = actor_out.get("action")
+        else:
+            new_action = actor_out
         q_actor = self.model(obs, action=new_action)["value"]
         actor_loss = ddpg_policy_loss(q_actor)
 

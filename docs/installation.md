@@ -11,15 +11,12 @@
 
 ---
 
-## Core installation
+## Install
+
+> **Note**: `srl-rl` is **not yet on PyPI**. Use GitHub install.
 
 ```bash
-pip install srl-rl
-```
-
-## Install from GitHub (bleeding-edge)
-
-```bash
+# From GitHub (recommended)
 pip install git+https://github.com/Bigkatoan/SRL.git
 ```
 
@@ -37,25 +34,22 @@ pip install -e ".[dev]"
 
 ```bash
 # MuJoCo physics environments
-pip install "srl-rl[mujoco]"
+pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[mujoco]"
 
 # Gymnasium Box2D
-pip install "srl-rl[box2d]"
+pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[box2d]"
 
 # gymnasium-robotics (Fetch, AntMaze, …)
-pip install "srl-rl[robotics]"
+pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[robotics]"
 
-# racecar_gym (best effort; currently recommended on Python 3.10)
-pip install "srl-rl[racecar]"
+# racecar_gym (Python 3.10 recommended)
+pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[racecar]"
 
 # Everything at once
-pip install "srl-rl[all]"
-
-# ROS 2 dependencies
-pip install "srl-rl[ros2]"
+pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[all]"
 
 # Development tools (mkdocs, pytest, mypy, …)
-pip install "srl-rl[dev]"
+pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[dev]"
 ```
 
 ---
@@ -67,7 +61,7 @@ then install SRL inside the Isaac Lab Python environment:
 
 ```bash
 # Inside Isaac Lab conda/venv:
-pip install srl-rl
+pip install git+https://github.com/Bigkatoan/SRL.git
 ```
 
 ---

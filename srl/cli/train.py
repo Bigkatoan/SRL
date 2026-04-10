@@ -6,6 +6,25 @@ import argparse
 import sys
 
 
+def _make_cli_env(env_name: str, device: str, n_envs: int):
+    from srl.envs.gymnasium_wrapper import GymnasiumWrapper
+    import gymnasium as gym
+
+    if env_name.startswith("isaaclab:"):
+        from srl.envs.isaac_lab_wrapper import IsaacLabWrapper
+
+        task_name = env_name.split(":", 1)[1]
+        import isaaclab_tasks  # noqa: F401
+        from isaaclab.envs import ManagerBasedRLEnv
+
+        env_cfg = isaaclab_tasks.utils.parse_env_cfg(task_name, device=device, num_envs=n_envs)
+        base_env = ManagerBasedRLEnv(cfg=env_cfg)
+        return IsaacLabWrapper(base_env)
+
+    base = gym.make(env_name)
+    return GymnasiumWrapper(base)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="srl-train",
@@ -73,22 +92,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"[srl-train] Algorithm: {algo_name.upper()}")
 
     # ── build environment ─────────────────────────────────────────────────────
-    from srl.envs.gymnasium_wrapper import GymnasiumWrapper
     from srl.envs.sync_vector_env import SyncVectorEnv
-    import gymnasium as gym
 
     def _make_env(seed_offset=0):
-        if args.env.startswith("isaaclab:"):
-            from srl.envs.isaac_lab_wrapper import IsaacLabWrapper
-            task_name = args.env.split(":", 1)[1]
-            import isaaclab_tasks  # noqa: F401
-            from isaaclab.envs import ManagerBasedRLEnv
-            env_cfg = isaaclab_tasks.utils.parse_env_cfg(task_name, device=device, num_envs=args.n_envs)
-            base_env = ManagerBasedRLEnv(cfg=env_cfg)
-            return IsaacLabWrapper(base_env)
-        else:
-            base = gym.make(args.env)
-            return GymnasiumWrapper(base)
+        return _make_cli_env(args.env, device, args.n_envs)
 
     print(f"[srl-train] Creating {args.n_envs} × {args.env}")
     if algo_name in ("sac", "ddpg") or args.n_envs == 1:
@@ -126,8 +133,13 @@ def main(argv: list[str] | None = None) -> int:
     elif algo_name == "a3c":
         from srl.algorithms.a3c import A3C
         from srl.core.config import A3CConfig
+        from functools import partial
+
         agent = A3C(model, config=A3CConfig(n_workers=args.n_envs), device=device)
-        agent.train(total_timesteps=args.steps, env_fn=_make_env)
+        agent.train(
+            total_timesteps=args.steps,
+            env_fn=partial(_make_cli_env, args.env, device, args.n_envs),
+        )
 
     elif algo_name == "sac":
         from srl.algorithms.sac import SAC

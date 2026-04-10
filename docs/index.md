@@ -1,8 +1,8 @@
 # SRL — Simple Reinforcement Learning
 
-[![PyPI](https://img.shields.io/pypi/v/srl-rl)](https://pypi.org/project/srl-rl/) [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue)](https://www.python.org) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://bigkatoan.github.io/SRL/)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue)](https://www.python.org) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://bigkatoan.github.io/SRL/)
 
-**SRL** is a modular, pip-installable reinforcement learning library  
+**SRL** is a modular reinforcement learning library  
 for continuous action-space environments.
 
 ---
@@ -15,7 +15,7 @@ for continuous action-space environments.
 - **Vectorised training**: `SyncVectorEnv` and `AsyncVectorEnv` for fast data collection
 - **Goal-conditioned RL**: `GoalEnvWrapper` for gymnasium-robotics Fetch tasks
 - **Isaac Lab support**: massively-parallel GPU environments out of the box
-- **ROS 2 node**: deploy trained agents directly as ROS 2 topics/services
+- **ROS 2 Python API**: integrate trained agents into your own ROS 2 code
 - **CLI**: `srl-train --config ... --env ... --algo ...`
 
 ---
@@ -23,26 +23,27 @@ for continuous action-space environments.
 ## Quick install
 
 ```bash
-# Core (CPU / GPU)
-pip install srl-rl
-
-# Install from GitHub (latest)
+# From GitHub (not yet on PyPI)
 pip install git+https://github.com/Bigkatoan/SRL.git
 
+# Or clone locally
+git clone https://github.com/Bigkatoan/SRL.git && cd SRL
+pip install -e .
+
 # With MuJoCo
-pip install "srl-rl[mujoco]"
+pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[mujoco]"
 
 # With Box2D
-pip install "srl-rl[box2d]"
+pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[box2d]"
 
 # With gymnasium-robotics
-pip install "srl-rl[robotics]"
+pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[robotics]"
 
 # With racecar_gym (Python 3.10 recommended)
-pip install "srl-rl[racecar]"
+pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[racecar]"
 
 # Everything
-pip install "srl-rl[all]"
+pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[all]"
 ```
 
 ---

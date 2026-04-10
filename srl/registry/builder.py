@@ -82,7 +82,7 @@ def _build_head(cfg: HeadConfig, input_dim: int):
             log_std_min=cfg.log_std_min,
             log_std_max=cfg.log_std_max,
         )
-    elif head_type in ("value", "twin_q", "q"):
+    elif head_type in ("value", "twin_q", "q", "q_function"):
         from srl.networks.heads.critic_head import build_critic_head
         return build_critic_head(
             head_type=head_type,

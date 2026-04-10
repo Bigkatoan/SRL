@@ -32,7 +32,7 @@ source /path/to/IsaacLab/_isaac_sim/setup_conda_env.sh
 conda activate isaaclab
 
 # Install SRL
-pip install srl-rl
+pip install git+https://github.com/Bigkatoan/SRL.git
 
 # Train
 python examples/envs/train_isaaclab.py --env Isaac-Cartpole-v0  --headless

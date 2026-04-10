@@ -32,6 +32,8 @@ class PPOConfig:
 class A2CConfig:
     lr: float = 7e-4
     n_steps: int = 5
+    num_envs: int = 1
+    batch_size: int = 5
     gamma: float = 0.99
     gae_lambda: float = 1.0
     entropy_coef: float = 0.01
