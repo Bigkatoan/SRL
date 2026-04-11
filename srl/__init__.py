@@ -11,7 +11,17 @@ from importlib import import_module
 from typing import Any
 
 __version__ = "0.1.0"
-__all__ = ["PPO", "SAC", "DDPG", "TD3", "A2C", "A3C", "ModelBuilder"]
+__all__ = [
+	"PPO",
+	"SAC",
+	"DDPG",
+	"TD3",
+	"A2C",
+	"A3C",
+	"ModelBuilder",
+	"BaseAgent",
+	"CheckpointManager",
+]
 
 _EXPORTS = {
 	"PPO": ("srl.algorithms.ppo", "PPO"),
@@ -21,6 +31,8 @@ _EXPORTS = {
 	"A2C": ("srl.algorithms.a2c", "A2C"),
 	"A3C": ("srl.algorithms.a3c", "A3C"),
 	"ModelBuilder": ("srl.registry.builder", "ModelBuilder"),
+	"BaseAgent": ("srl.core.base_agent", "BaseAgent"),
+	"CheckpointManager": ("srl.utils.checkpoint", "CheckpointManager"),
 }
 
 
