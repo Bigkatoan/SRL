@@ -40,6 +40,7 @@ nav:
     - Installation: installation.md
     - Quick Start: quickstart.md
     - YAML Core Guide: yaml_core.md
+    - CLI Reference: cli.md
   - Environments:
     - Overview: environments/index.md
     - Classic Control: environments/classic_control.md
@@ -50,6 +51,7 @@ nav:
     - Isaac Lab: environments/isaaclab.md
   - Algorithms: algorithms.md
   - Configuration Reference: config_reference.md
+  - Limitations: limitations.md
   - API Reference:
     - srl.algorithms: api/algorithms.md
     - srl.envs: api/envs.md

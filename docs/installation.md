@@ -68,6 +68,33 @@ pip install git+https://github.com/Bigkatoan/SRL.git
 
 ## Verify installation
 
+Verify both the Python package and the console scripts in the same environment where you plan to run training.
+
+```bash
+python -m pip show srl-rl
+command -v srl-train
+command -v srl-benchmark
+command -v srl-visualize
+
+srl-train --help
+srl-benchmark --help
+srl-visualize --help
+```
+
+If the console scripts are not present yet, you are usually in one of these situations:
+
+- SRL was not installed into the active environment.
+- The environment was installed but not activated in the current shell.
+- You are using a different Python than the one that owns the installed package.
+
+You can also use the module fallback from source:
+
+```bash
+python -m srl.cli.train --help
+python -m srl.cli.benchmark --help
+python -m srl.cli.visualize --help
+```
+
 ```python
 import srl
 print(srl.__version__)

@@ -26,6 +26,8 @@ robot learning framework built on Isaac Sim.
 
 ## Training
 
+The recommended package workflow is YAML + `srl-train`, not only the standalone example script.
+
 ```bash
 # Activate Isaac Lab environment first
 source /path/to/IsaacLab/_isaac_sim/setup_conda_env.sh
@@ -34,11 +36,35 @@ conda activate isaaclab
 # Install SRL
 pip install git+https://github.com/Bigkatoan/SRL.git
 
-# Train
-python examples/envs/train_isaaclab.py --env Isaac-Cartpole-v0  --headless
-python examples/envs/train_isaaclab.py --env Isaac-Ant-v0       --headless --n-envs 4096
-python examples/envs/train_isaaclab.py --env Isaac-Humanoid-v0  --headless --n-envs 4096
+# Verify CLI in the active Isaac Lab environment
+srl-train --help
+
+# Train with YAML configs
+srl-train --config configs/envs/isaaclab_cartpole_ppo.yaml \
+          --env Isaac-Cartpole-v0 \
+          --algo ppo \
+          --device cuda
+
+srl-train --config configs/envs/isaaclab_ant_ppo.yaml \
+          --env Isaac-Ant-v0 \
+          --algo ppo \
+          --n-envs 4096 \
+          --device cuda
+
+srl-train --config configs/envs/isaaclab_humanoid_ppo.yaml \
+          --env Isaac-Humanoid-v0 \
+          --algo ppo \
+          --n-envs 4096 \
+          --device cuda
 ```
+
+The example script path still exists, but the CLI path matches the package's YAML-first workflow more closely.
+
+## Runtime notes
+
+- Isaac Lab bootstrap must happen from a Python environment where Isaac Lab and Isaac Sim are already activated.
+- Isaac Lab's internal vectorization is distinct from SRL's sync/async Gymnasium vectorization modes.
+- The current integration assumes the task name, config, and observation routing conventions stay aligned with the provided YAML files.
 
 ---
 
@@ -79,3 +105,9 @@ train:
   vf_coef: 1.0
   max_grad_norm: 1.0
 ```
+
+Reference configs in this repo:
+
+- [isaaclab_cartpole_ppo.yaml](/home/ubuntu/antd/SRL/configs/envs/isaaclab_cartpole_ppo.yaml)
+- [isaaclab_ant_ppo.yaml](/home/ubuntu/antd/SRL/configs/envs/isaaclab_ant_ppo.yaml)
+- [isaaclab_humanoid_ppo.yaml](/home/ubuntu/antd/SRL/configs/envs/isaaclab_humanoid_ppo.yaml)

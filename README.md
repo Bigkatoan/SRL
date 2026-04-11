@@ -35,6 +35,16 @@ pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[robotics]"
 pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[all]"
 ```
 
+After install, verify the CLI entry points in the same environment:
+
+```bash
+srl-train --help
+srl-benchmark --help
+srl-visualize --help
+```
+
+If those commands are missing, SRL is not installed into the currently active environment yet. See the installation guide and CLI reference for the fallback `python -m ...` path.
+
 ## Quick start
 
 The most important concept in SRL is the YAML model graph. Treat the config file as the source of truth for model structure, observation routing, and the currently supported declarative parts of training.
@@ -42,6 +52,7 @@ The most important concept in SRL is the YAML model graph. Treat the config file
 Start here before diving into algorithms or CLI flags:
 
 - YAML core guide: https://bigkatoan.github.io/SRL/yaml_core
+- CLI reference: https://bigkatoan.github.io/SRL/cli
 - Config reference: https://bigkatoan.github.io/SRL/config_reference
 - Quick start: https://bigkatoan.github.io/SRL/quickstart
 
@@ -137,8 +148,10 @@ bash run_full_matrix_benchmark.sh --skip-install --python tests/venv/bin/python 
 - Docs home: https://bigkatoan.github.io/SRL
 - Installation: https://bigkatoan.github.io/SRL/installation
 - YAML core guide: https://bigkatoan.github.io/SRL/yaml_core
+- CLI reference: https://bigkatoan.github.io/SRL/cli
 - Environments: https://bigkatoan.github.io/SRL/environments/
 - Config reference: https://bigkatoan.github.io/SRL/config_reference
+- Limitations: https://bigkatoan.github.io/SRL/limitations
 - ROS 2 Python API: https://bigkatoan.github.io/SRL/ros2
 
 ## License
