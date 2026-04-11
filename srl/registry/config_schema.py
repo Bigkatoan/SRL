@@ -179,6 +179,45 @@ class VisualizationConfig:
         )
 
 
+@dataclass
+class ROS2ObservationConfig:
+    topic: str
+    msg_type: str | None = None
+    queue_size: int = 10
+
+    @classmethod
+    def from_any(cls, value: Any) -> "ROS2ObservationConfig":
+        if isinstance(value, str):
+            return cls(topic=value)
+        return cls(
+            topic=value["topic"],
+            msg_type=value.get("msg_type"),
+            queue_size=int(value.get("queue_size", 10)),
+        )
+
+
+@dataclass
+class ROS2Config:
+    observations: dict[str, ROS2ObservationConfig] = field(default_factory=dict)
+    action_topic: str = "/srl/action"
+    action_msg_type: str | None = "Float32MultiArray"
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any] | None) -> "ROS2Config":
+        if not data:
+            return cls()
+        observations_raw = data.get("observations") or data.get("obs_topics") or {}
+        observations = {
+            name: ROS2ObservationConfig.from_any(spec)
+            for name, spec in observations_raw.items()
+        }
+        return cls(
+            observations=observations,
+            action_topic=data.get("action_topic", "/srl/action"),
+            action_msg_type=data.get("action_msg_type", "Float32MultiArray"),
+        )
+
+
 # ---------------------------------------------------------------------------
 # Top-level agent config
 # ---------------------------------------------------------------------------
@@ -231,6 +270,7 @@ class AgentModelConfig:
     critic: HeadConfig | None = None
     losses: list[LossConfig] = field(default_factory=list)
     visualization: VisualizationConfig = field(default_factory=VisualizationConfig)
+    ros2: ROS2Config = field(default_factory=ROS2Config)
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "AgentModelConfig":
@@ -245,6 +285,7 @@ class AgentModelConfig:
 
         losses = [LossConfig.from_dict(l) for l in d.get("losses", [])]
         visualization = VisualizationConfig.from_dict(d.get("visualization"))
+        ros2 = ROS2Config.from_dict(d.get("ros2"))
 
         return cls(
             encoders=encoders,
@@ -253,4 +294,5 @@ class AgentModelConfig:
             critic=critic,
             losses=losses,
             visualization=visualization,
+            ros2=ros2,
         )

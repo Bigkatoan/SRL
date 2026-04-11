@@ -33,6 +33,9 @@ from typing import Any
 
 import numpy as np
 
+from srl.registry.config_schema import AgentModelConfig, ROS2Config
+from srl.utils.obs_remap import apply_obs_remap
+
 # -------------------------------------------------------------------------
 # Guard: rclpy is an optional dependency
 # -------------------------------------------------------------------------
@@ -92,6 +95,8 @@ class RLInferenceNode(Node):
         self.device = torch.device(device)
         self.model.to(self.device)
         self.model.eval()
+        self._encoder_names = list(getattr(self.model, "encoders", {}).keys())
+        self._encoder_input_names = dict(getattr(self.model, "encoder_input_names", {}))
 
         self._hidden: dict[str, Any] = {}
         self._obs_buffers: dict[str, deque] = {
@@ -138,6 +143,12 @@ class RLInferenceNode(Node):
                 if not buf:
                     return  # wait until all observations received
                 obs_dict[name] = buf[-1]
+
+        obs_dict = apply_obs_remap(
+            obs_dict,
+            self._encoder_names,
+            self._encoder_input_names,
+        )
 
         obs_t = {
             k: torch.from_numpy(v).float().unsqueeze(0).to(self.device)
@@ -202,16 +213,20 @@ def main(args=None):
     if not config_path:
         raise ValueError("Must provide config_path parameter.")
 
-    with open(config_path) as f:
-        cfg = yaml.safe_load(f)
+    with open(config_path, "r", encoding="utf-8") as handle:
+        cfg = yaml.safe_load(handle) or {}
+    config = AgentModelConfig.from_dict(cfg)
 
     model = ModelBuilder.from_dict(cfg)
     if ckpt_path:
         ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
         model.load_state_dict(ckpt.get("model", ckpt))
 
-    obs_topics = cfg.get("ros2", {}).get("obs_topics", {})
-    action_topic = cfg.get("ros2", {}).get("action_topic", "/srl/action")
+    ros2_cfg: ROS2Config = config.ros2
+    obs_topics = {name: spec.topic for name, spec in ros2_cfg.observations.items()}
+    if not obs_topics:
+        raise ValueError("ROS2 config must define ros2.observations or ros2.obs_topics.")
+    action_topic = ros2_cfg.action_topic
 
     from std_msgs.msg import Float32MultiArray
     node = RLInferenceNode(

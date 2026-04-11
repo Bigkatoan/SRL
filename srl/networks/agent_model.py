@@ -254,61 +254,13 @@ class AgentModel(nn.Module):
         - If an encoder declares input_name and that obs key is missing → KeyError.
         - If explicit routing leaves obs keys unused → warnings.warn.
         """
-        if not obs_dict:
-            return obs_dict
-        remapped: dict[str, torch.Tensor] = {}
-        used_obs_keys: set[str] = set()
+        from srl.utils.obs_remap import apply_obs_remap
 
-        named_encoders = {
-            enc_name: input_name
-            for enc_name, input_name in self.encoder_input_names.items()
-            if input_name
-        }
-        for enc_name, input_name in named_encoders.items():
-            if input_name not in obs_dict:
-                raise KeyError(
-                    f"Missing observation key '{input_name}' required by encoder '{enc_name}'."
-                )
-            remapped[enc_name] = obs_dict[input_name]
-            used_obs_keys.add(input_name)
-
-        unnamed_encoders = [
-            enc_name for enc_name in self.encoders.keys() if enc_name not in remapped
-        ]
-        remaining_obs = {
-            key: value for key, value in obs_dict.items() if key not in used_obs_keys
-        }
-
-        fallback_mapping: dict[str, torch.Tensor]
-        if not remaining_obs or not unnamed_encoders:
-            fallback_mapping = {}
-        elif any(name in remaining_obs for name in unnamed_encoders):
-            fallback_mapping = remaining_obs
-            used_obs_keys.update(
-                key for key in remaining_obs if key in unnamed_encoders
-            )
-        elif len(remaining_obs) == 1 and len(unnamed_encoders) == 1:
-            obs_value = next(iter(remaining_obs.values()))
-            fallback_mapping = {unnamed_encoders[0]: obs_value}
-            used_obs_keys.update(remaining_obs.keys())
-        elif len(remaining_obs) == len(unnamed_encoders) and len(remaining_obs) > 1:
-            fallback_mapping = dict(zip(unnamed_encoders, remaining_obs.values()))
-            used_obs_keys.update(remaining_obs.keys())
-        else:
-            fallback_mapping = remaining_obs
-
-        remapped.update(fallback_mapping)
-
-        if named_encoders:
-            unused_keys = [key for key in obs_dict.keys() if key not in used_obs_keys]
-            if unused_keys:
-                warnings.warn(
-                    "Unused observation keys after encoder input routing: "
-                    + ", ".join(sorted(unused_keys)),
-                    stacklevel=2,
-                )
-
-        return remapped
+        return apply_obs_remap(
+            obs_dict,
+            list(self.encoders.keys()),
+            self.encoder_input_names,
+        )
 
     def act(
         self,

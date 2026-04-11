@@ -55,7 +55,7 @@ encoders:
         latent_dim: 64
 
 ros2:
-    obs_topics:
+    observations:
         visual_enc: /camera/image_raw
         state_enc: /robot/joint_states
     action_topic: /robot/cmd_vel
@@ -63,7 +63,7 @@ ros2:
 
 This pattern already exists in [sac_multimodal.yaml](/home/ubuntu/antd/SRL/configs/sac_multimodal.yaml).
 
-At the moment, this `ros2` block is consumed directly by [rl_node.py](/home/ubuntu/antd/SRL/srl/ros2/rl_node.py) rather than being validated by the main config schema. The capability exists today, but it is not yet schema-first in the same way as the model graph.
+The current preferred key is `ros2.observations`. Legacy `ros2.obs_topics` remains the backward-compatible fallback for older configs.
 
 ## Message model
 

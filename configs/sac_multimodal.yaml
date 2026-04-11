@@ -57,7 +57,7 @@ losses:
     weight: 0.5
 
 ros2:
-  obs_topics:
+  observations:
     visual_enc: /camera/image_raw
     state_enc:  /robot/joint_states
     lang_enc:   /task/description
