@@ -16,7 +16,7 @@
         <link rel="prev" href="../cli/">
       
       
-        <link rel="next" href="../environments/">
+        <link rel="next" href="../async_runner/">
       
       
         
@@ -813,6 +813,62 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../async_runner/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Async Off-Policy Runner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gpu_replay_buffer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Replay Buffer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1597,7 +1653,7 @@
 
 <h1 id="checkpointing">Checkpointing<a class="headerlink" href="#checkpointing" title="Permanent link">&para;</a></h1>
 <p>SRL checkpointing is intentionally simple: training saves model state, optional optimizer state, the current step, and any metrics attached to that save.</p>
-<p>The source of truth is <a href="/home/ubuntu/antd/SRL/srl/utils/checkpoint.py">srl/utils/checkpoint.py</a>.</p>
+<p>The source of truth is <a href="https://github.com/Bigkatoan/SRL/blob/main/srl/utils/checkpoint.py">srl/utils/checkpoint.py</a>.</p>
 <h2 id="what-gets-saved">What gets saved<a class="headerlink" href="#what-gets-saved" title="Permanent link">&para;</a></h2>
 <p><code>CheckpointManager.save(...)</code> writes a payload with these fields:</p>
 <ul>

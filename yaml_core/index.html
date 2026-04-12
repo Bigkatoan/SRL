@@ -935,6 +935,62 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../async_runner/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Async Off-Policy Runner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gpu_replay_buffer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Replay Buffer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1864,10 +1920,10 @@
 </ol>
 <p>The key implementation anchors are:</p>
 <ul>
-<li><a href="/home/ubuntu/antd/SRL/srl/registry/builder.py">builder.py</a></li>
-<li><a href="/home/ubuntu/antd/SRL/srl/registry/config_schema.py">config_schema.py</a></li>
-<li><a href="/home/ubuntu/antd/SRL/srl/registry/flow_graph.py">flow_graph.py</a></li>
-<li><a href="/home/ubuntu/antd/SRL/srl/networks/agent_model.py">agent_model.py</a></li>
+<li><a href="https://github.com/Bigkatoan/SRL/blob/main/srl/registry/builder.py">builder.py</a></li>
+<li><a href="https://github.com/Bigkatoan/SRL/blob/main/srl/registry/config_schema.py">config_schema.py</a></li>
+<li><a href="https://github.com/Bigkatoan/SRL/blob/main/srl/registry/flow_graph.py">flow_graph.py</a></li>
+<li><a href="https://github.com/Bigkatoan/SRL/blob/main/srl/networks/agent_model.py">agent_model.py</a></li>
 </ul>
 <h2 id="top-level-structure">Top-level structure<a class="headerlink" href="#top-level-structure" title="Permanent link">&para;</a></h2>
 <p>At a high level, a model config is organized like this:</p>
@@ -1923,7 +1979,7 @@
 <li><code>lstm</code> for recurrent vector pipelines</li>
 <li><code>text</code> for character-level text input</li>
 </ul>
-<p>Important encoder fields from <a href="/home/ubuntu/antd/SRL/srl/registry/config_schema.py#L34">config_schema.py</a>:</p>
+<p>Important encoder fields from <a href="https://github.com/Bigkatoan/SRL/blob/main/srl/registry/config_schema.py#L34">config_schema.py</a>:</p>
 <ul>
 <li><code>name</code>: unique node identifier used by the flow graph</li>
 <li><code>type</code>: built-in encoder type or a registry key for a custom encoder</li>
@@ -1951,7 +2007,7 @@
 <a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">128</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">none</span><span class="p p-Indicator">}</span>
 </code></pre></div>
 <h3 id="example-visual-encoder-with-auxiliary-reconstruction">Example: visual encoder with auxiliary reconstruction<a class="headerlink" href="#example-visual-encoder-with-auxiliary-reconstruction" title="Permanent link">&para;</a></h3>
-<p>This pattern already exists in <a href="/home/ubuntu/antd/SRL/configs/envs/car_racing_ppo_visual.yaml">car_racing_ppo_visual.yaml</a>.</p>
+<p>This pattern already exists in <a href="https://github.com/Bigkatoan/SRL/blob/main/configs/envs/car_racing_ppo_visual.yaml">car_racing_ppo_visual.yaml</a>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">encoders</span><span class="p">:</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">visual_enc</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cnn</span>
@@ -1964,7 +2020,7 @@
 <a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">]</span>
 </code></pre></div>
 <h3 id="example-multimodal-encoder-set">Example: multimodal encoder set<a class="headerlink" href="#example-multimodal-encoder-set" title="Permanent link">&para;</a></h3>
-<p>This pattern is close to <a href="/home/ubuntu/antd/SRL/configs/sac_multimodal.yaml">sac_multimodal.yaml</a>.</p>
+<p>This pattern is close to <a href="https://github.com/Bigkatoan/SRL/blob/main/configs/sac_multimodal.yaml">sac_multimodal.yaml</a>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">encoders</span><span class="p">:</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">visual_enc</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cnn</span>
@@ -2009,7 +2065,7 @@
 </ul>
 <p>This is the most reliable setup for multimodal systems because it avoids ambiguous heuristic mapping.</p>
 <h3 id="fallback-routing">Fallback routing<a class="headerlink" href="#fallback-routing" title="Permanent link">&para;</a></h3>
-<p>If <code>input_name</code> is omitted, the runtime falls back to compatibility heuristics in <a href="/home/ubuntu/antd/SRL/srl/networks/agent_model.py">agent_model.py</a>:</p>
+<p>If <code>input_name</code> is omitted, the runtime falls back to compatibility heuristics in <a href="https://github.com/Bigkatoan/SRL/blob/main/srl/networks/agent_model.py">agent_model.py</a>:</p>
 <ul>
 <li>exact key-to-encoder-name matches</li>
 <li>single observation to single encoder remapping</li>
@@ -2087,9 +2143,9 @@
 <p>The CLI also consumes a <code>train:</code> section from the same YAML file.</p>
 <p>Examples already present in the repo include:</p>
 <ul>
-<li><a href="/home/ubuntu/antd/SRL/configs/envs/halfcheetah_sac.yaml">halfcheetah_sac.yaml</a></li>
-<li><a href="/home/ubuntu/antd/SRL/configs/envs/isaaclab_cartpole_ppo.yaml">isaaclab_cartpole_ppo.yaml</a></li>
-<li><a href="/home/ubuntu/antd/SRL/configs/envs/car_racing_ppo_visual.yaml">car_racing_ppo_visual.yaml</a></li>
+<li><a href="https://github.com/Bigkatoan/SRL/blob/main/configs/envs/halfcheetah_sac.yaml">halfcheetah_sac.yaml</a></li>
+<li><a href="https://github.com/Bigkatoan/SRL/blob/main/configs/envs/isaaclab_cartpole_ppo.yaml">isaaclab_cartpole_ppo.yaml</a></li>
+<li><a href="https://github.com/Bigkatoan/SRL/blob/main/configs/envs/car_racing_ppo_visual.yaml">car_racing_ppo_visual.yaml</a></li>
 </ul>
 <p>Typical fields include:</p>
 <ul>
@@ -2101,7 +2157,7 @@
 <li><code>n_steps</code>, <code>n_epochs</code>, <code>clip_range</code></li>
 <li><code>buffer_size</code>, <code>start_steps</code>, <code>update_after</code>, <code>update_every</code></li>
 </ul>
-<p>These fields are mapped by the training CLI into algorithm config dataclasses in <a href="/home/ubuntu/antd/SRL/srl/core/config.py">config.py</a>.</p>
+<p>These fields are mapped by the training CLI into algorithm config dataclasses in <a href="https://github.com/Bigkatoan/SRL/blob/main/srl/core/config.py">config.py</a>.</p>
 <h2 id="current-system-boundary">Current system boundary<a class="headerlink" href="#current-system-boundary" title="Permanent link">&para;</a></h2>
 <p>YAML is the core abstraction of SRL, but it does not yet control every part of training.</p>
 <p>What is already declarative today:</p>
@@ -2130,26 +2186,26 @@
 <p>Read the docs in this order:</p>
 <ol>
 <li>This guide for the mental model.</li>
-<li><a href="/home/ubuntu/antd/SRL/docs/config_reference.md">config_reference.md</a> for exact field-level details.</li>
-<li><a href="/home/ubuntu/antd/SRL/docs/quickstart.md">quickstart.md</a> for end-to-end usage.</li>
-<li><a href="/home/ubuntu/antd/SRL/docs/algorithms.md">algorithms.md</a> for the current training surface and algorithm-side expectations.</li>
+<li><a href="../config_reference/">config_reference.md</a> for exact field-level details.</li>
+<li><a href="../quickstart/">quickstart.md</a> for end-to-end usage.</li>
+<li><a href="../algorithms/">algorithms.md</a> for the current training surface and algorithm-side expectations.</li>
 </ol>
 <h2 id="recommended-config-patterns">Recommended config patterns<a class="headerlink" href="#recommended-config-patterns" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Use one YAML file per experiment family.</li>
 <li>Prefer explicit <code>input_name</code> for multimodal observation dictionaries.</li>
 <li>Keep actor and critic encoders separate when the task benefits from asymmetric representations.</li>
-<li>Use <code>flows</code> to show composition explicitly instead of encoding assumptions in task scripts.</li>
-<li>Treat config files under <a href="/home/ubuntu/antd/SRL/configs">configs</a> as executable examples, not just references.</li>
+<li>Use <code>flows</code> to show composition explicitly instead of encoding assumptions in task scripts.
+-- Treat config files under <a href="https://github.com/Bigkatoan/SRL/tree/main/configs">configs</a> as executable examples, not just references.</li>
 </ul>
 <h2 id="related-files">Related files<a class="headerlink" href="#related-files" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="/home/ubuntu/antd/SRL/docs/config_reference.md">config_reference.md</a></li>
-<li><a href="/home/ubuntu/antd/SRL/docs/quickstart.md">quickstart.md</a></li>
-<li><a href="/home/ubuntu/antd/SRL/docs/algorithms.md">algorithms.md</a></li>
-<li><a href="/home/ubuntu/antd/SRL/configs/envs/halfcheetah_sac.yaml">halfcheetah_sac.yaml</a></li>
-<li><a href="/home/ubuntu/antd/SRL/configs/envs/car_racing_ppo_visual.yaml">car_racing_ppo_visual.yaml</a></li>
-<li><a href="/home/ubuntu/antd/SRL/configs/sac_multimodal.yaml">sac_multimodal.yaml</a></li>
+<li><a href="../config_reference/">config_reference.md</a></li>
+<li><a href="../quickstart/">quickstart.md</a></li>
+<li><a href="../algorithms/">algorithms.md</a></li>
+<li><a href="https://github.com/Bigkatoan/SRL/blob/main/configs/envs/halfcheetah_sac.yaml">halfcheetah_sac.yaml</a></li>
+<li><a href="https://github.com/Bigkatoan/SRL/blob/main/configs/envs/car_racing_ppo_visual.yaml">car_racing_ppo_visual.yaml</a></li>
+<li><a href="https://github.com/Bigkatoan/SRL/blob/main/configs/sac_multimodal.yaml">sac_multimodal.yaml</a></li>
 </ul>
 
 

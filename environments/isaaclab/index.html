@@ -675,6 +675,62 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../async_runner/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Async Off-Policy Runner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gpu_replay_buffer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Replay Buffer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1862,7 +1918,7 @@ robot learning framework built on Isaac Sim.</p>
 <li>Isaac Lab bootstrap must happen from a Python environment where Isaac Lab and Isaac Sim are already activated.</li>
 <li>Isaac Lab's internal vectorization is distinct from SRL's sync/async Gymnasium vectorization modes.</li>
 <li>The current integration assumes the task name, config, and observation routing conventions stay aligned with the provided YAML files.</li>
-<li>Observation groups returned by Isaac Lab are preserved as dict keys by <a href="/home/ubuntu/antd/SRL/srl/envs/isaac_lab_wrapper.py">isaac_lab_wrapper.py</a>. In practice, encoder names or <code>input_name</code> mappings must match those observation-group keys.</li>
+<li>Observation groups returned by Isaac Lab are preserved as dict keys by <a href="https://github.com/Bigkatoan/SRL/blob/main/srl/envs/isaac_lab_wrapper.py">isaac_lab_wrapper.py</a>. In practice, encoder names or <code>input_name</code> mappings must match those observation-group keys.</li>
 <li>Image observations returned as HWC are transposed to CHW to match SRL CNN encoder expectations.</li>
 </ul>
 <h2 id="m3bot-on-this-machine">M3bot on this machine<a class="headerlink" href="#m3bot-on-this-machine" title="Permanent link">&para;</a></h2>
@@ -1925,9 +1981,9 @@ robot learning framework built on Isaac Sim.</p>
 </code></pre></div>
 <p>Reference configs in this repo:</p>
 <ul>
-<li><a href="/home/ubuntu/antd/SRL/configs/envs/isaaclab_cartpole_ppo.yaml">isaaclab_cartpole_ppo.yaml</a></li>
-<li><a href="/home/ubuntu/antd/SRL/configs/envs/isaaclab_ant_ppo.yaml">isaaclab_ant_ppo.yaml</a></li>
-<li><a href="/home/ubuntu/antd/SRL/configs/envs/isaaclab_humanoid_ppo.yaml">isaaclab_humanoid_ppo.yaml</a></li>
+<li><a href="https://github.com/Bigkatoan/SRL/blob/main/configs/envs/isaaclab_cartpole_ppo.yaml">isaaclab_cartpole_ppo.yaml</a></li>
+<li><a href="https://github.com/Bigkatoan/SRL/blob/main/configs/envs/isaaclab_ant_ppo.yaml">isaaclab_ant_ppo.yaml</a></li>
+<li><a href="https://github.com/Bigkatoan/SRL/blob/main/configs/envs/isaaclab_humanoid_ppo.yaml">isaaclab_humanoid_ppo.yaml</a></li>
 </ul>
 <h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
 <h3 id="modulenotfounderror-for-isaac-lab-packages"><code>ModuleNotFoundError</code> for Isaac Lab packages<a class="headerlink" href="#modulenotfounderror-for-isaac-lab-packages" title="Permanent link">&para;</a></h3>

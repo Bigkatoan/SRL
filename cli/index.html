@@ -897,6 +897,62 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../async_runner/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Async Off-Policy Runner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gpu_replay_buffer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Replay Buffer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1770,7 +1826,7 @@
 <li><code>srl-benchmark</code></li>
 <li><code>srl-visualize</code></li>
 </ul>
-<p>These commands are declared in <a href="/home/ubuntu/antd/SRL/pyproject.toml">pyproject.toml</a> and become available after SRL is installed into the active Python environment.</p>
+<p>These commands are declared in <a href="https://github.com/Bigkatoan/SRL/blob/main/pyproject.toml">pyproject.toml</a> and become available after SRL is installed into the active Python environment.</p>
 <h2 id="before-you-run-anything">Before you run anything<a class="headerlink" href="#before-you-run-anything" title="Permanent link">&para;</a></h2>
 <p>The most common CLI failure is not a bug in the command itself. It is usually one of these two cases:</p>
 <ol>
@@ -1801,7 +1857,7 @@
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">          </span>--steps<span class="w"> </span><span class="m">100000</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">          </span>--device<span class="w"> </span>cpu
 </code></pre></div>
-<p>Important flag groups from <a href="/home/ubuntu/antd/SRL/srl/cli/train.py">train.py</a>:</p>
+<p>Important flag groups from <a href="https://github.com/Bigkatoan/SRL/blob/main/srl/cli/train.py">train.py</a>:</p>
 <ul>
 <li>Core inputs: <code>--config</code>, <code>--env</code>, <code>--algo</code>, <code>--steps</code>, <code>--n-envs</code>, <code>--device</code></li>
 <li>Vectorization: <code>--vec-mode auto|sync|async</code></li>
@@ -1844,7 +1900,7 @@
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">              </span>--modes<span class="w"> </span>sync,async<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">              </span>--n-envs<span class="w"> </span><span class="m">4</span>
 </code></pre></div>
-<p>Important flags from <a href="/home/ubuntu/antd/SRL/srl/cli/benchmark.py">benchmark.py</a>:</p>
+<p>Important flags from <a href="https://github.com/Bigkatoan/SRL/blob/main/srl/cli/benchmark.py">benchmark.py</a>:</p>
 <ul>
 <li>Inputs: <code>--config</code>, <code>--env</code>, <code>--algo</code></li>
 <li>Budget and scaling: <code>--steps</code>, <code>--n-envs</code>, <code>--modes</code>, <code>--device</code></li>
@@ -1908,7 +1964,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>srl-visualize<span class="w"> </span>--config<span class="w"> </span>configs/envs/halfcheetah_sac.yaml<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">              </span>--output-dir<span class="w"> </span>runs/pipelines
 </code></pre></div>
-<p>Important flags from <a href="/home/ubuntu/antd/SRL/srl/cli/visualize.py">visualize.py</a>:</p>
+<p>Important flags from <a href="https://github.com/Bigkatoan/SRL/blob/main/srl/cli/visualize.py">visualize.py</a>:</p>
 <ul>
 <li>Inputs: <code>--config</code>, <code>--env</code>, <code>--algo</code></li>
 <li>Output control: <code>--output-dir</code>, <code>--model-output</code>, <code>--training-output</code></li>
@@ -1923,7 +1979,7 @@
 <li><code>training_curves.png</code>: exported plots when plotting is enabled</li>
 <li>checkpoint files under the configured checkpoint directory</li>
 </ul>
-<p>For checkpoint details and retention behavior, see <a href="/home/ubuntu/antd/SRL/docs/checkpointing.md">checkpointing.md</a>.</p>
+<p>For checkpoint details and retention behavior, see <a href="../checkpointing/">checkpointing.md</a>.</p>
 <h2 id="environment-specific-notes">Environment-specific notes<a class="headerlink" href="#environment-specific-notes" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Gymnasium, MuJoCo, Box2D, and robotics configs are normally run through <code>srl-train</code> after standard package installation.</li>
