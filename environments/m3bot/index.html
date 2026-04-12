@@ -1767,10 +1767,10 @@
 <p><code>M3bot</code> is a task suite built on Isaac Lab for a 4-DOF arm + gripper robot with Reach, Lift, Push, and PickPlace tasks in both state-based and vision-augmented variants.</p>
 <p>This page documents how <code>M3bot</code> was validated on the current machine and how it relates to SRL's broader Isaac Lab workflow.</p>
 <h2 id="repository-and-runtime-layout">Repository and runtime layout<a class="headerlink" href="#repository-and-runtime-layout" title="Permanent link">&para;</a></h2>
-<p>Validated local paths on the current machine:</p>
+<p>Validated local paths on the current machine (example placeholders):</p>
 <ul>
-<li>M3bot checkout: <code>/home/ubuntu/antd/tests/M3bot</code></li>
-<li>Isaac runtime interpreter: <code>/home/ubuntu/antd/isaaclab/venv/bin/python</code></li>
+<li>M3bot checkout: <code>tests/M3bot</code> (or /path/to/tests/M3bot)</li>
+<li>Isaac runtime interpreter: <code>/path/to/isaaclab/venv/bin/python</code></li>
 </ul>
 <p>The <code>M3bot</code> repository is separate from the <code>SRL</code> repository. In practice, the working flow on this machine is:</p>
 <ol>
@@ -1780,31 +1780,31 @@
 </ol>
 <h2 id="installation-path-for-m3bot">Installation path for M3bot<a class="headerlink" href="#installation-path-for-m3bot" title="Permanent link">&para;</a></h2>
 <p>Clone the task repo into a separate workspace folder:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span><span class="w"> </span>/home/ubuntu/antd/tests
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span><span class="w"> </span>tests
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/Bigkatoan/M3bot.git
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nb">cd</span><span class="w"> </span>M3bot
 </code></pre></div>
 <p>If the repository depends on an Isaac Lab submodule, make sure it is actually populated:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init<span class="w"> </span>--recursive
 </code></pre></div>
-<p>On the current machine, the verified runtime is the pre-existing Isaac Lab environment at:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>/home/ubuntu/antd/isaaclab/venv/bin/python
+<p>On the current machine, the verified runtime is the pre-existing Isaac Lab environment at (example):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>/path/to/isaaclab/venv/bin/python
 </code></pre></div>
 <p>For non-interactive terminal runs, add:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES
 </code></pre></div>
 <h2 id="verified-local-checks">Verified local checks<a class="headerlink" href="#verified-local-checks" title="Permanent link">&para;</a></h2>
 <h3 id="cheap-validation">Cheap validation<a class="headerlink" href="#cheap-validation" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">cd</span><span class="w"> </span>/home/ubuntu/antd/tests/M3bot
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">cd</span><span class="w"> </span>tests/M3bot
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>python3<span class="w"> </span>tools/validate_source.py
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span>/home/ubuntu/antd/isaaclab/venv/bin/python<span class="w"> </span>train.py<span class="w"> </span>--help
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span>/home/ubuntu/antd/isaaclab/venv/bin/python<span class="w"> </span>play.py<span class="w"> </span>--help
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span>/path/to/isaaclab/venv/bin/python<span class="w"> </span>train.py<span class="w"> </span>--help
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span>/path/to/isaaclab/venv/bin/python<span class="w"> </span>play.py<span class="w"> </span>--help
 </code></pre></div>
 <h3 id="verified-smoke-training">Verified smoke training<a class="headerlink" href="#verified-smoke-training" title="Permanent link">&para;</a></h3>
 <p>The following state-task smoke run completed successfully on this machine:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">cd</span><span class="w"> </span>/home/ubuntu/antd/tests/M3bot
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span>/home/ubuntu/antd/isaaclab/venv/bin/python<span class="w"> </span><span class="se">\</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">cd</span><span class="w"> </span>tests/M3bot
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span>/path/to/isaaclab/venv/bin/python<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>train.py<span class="w"> </span>--task<span class="w"> </span>Isaac-M3-Reach-v0<span class="w"> </span>--headless<span class="w"> </span>--num_envs<span class="w"> </span><span class="m">64</span><span class="w"> </span>--max_iterations<span class="w"> </span><span class="m">1</span>
 </code></pre></div>
 <p>Observed artifacts:</p>
@@ -1815,8 +1815,8 @@
 </ul>
 <h3 id="verified-checkpoint-load-and-export">Verified checkpoint load and export<a class="headerlink" href="#verified-checkpoint-load-and-export" title="Permanent link">&para;</a></h3>
 <p>The following play/export path also completed successfully:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nb">cd</span><span class="w"> </span>/home/ubuntu/antd/tests/M3bot
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span>/home/ubuntu/antd/isaaclab/venv/bin/python<span class="w"> </span><span class="se">\</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nb">cd</span><span class="w"> </span>tests/M3bot
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span>/path/to/isaaclab/venv/bin/python<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>play.py<span class="w"> </span>--task<span class="w"> </span>Isaac-M3-Reach-v0<span class="w"> </span>--headless<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span>--checkpoint<span class="w"> </span>logs/rsl_rl/m3_reach/&lt;timestamp&gt;/model_0.pt<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span>--video<span class="w"> </span>--video_length<span class="w"> </span><span class="m">8</span>
