@@ -29,6 +29,10 @@
          <lastmod>2026-04-12</lastmod>
     </url>
     <url>
+         <loc>https://bigkatoan.github.io/SRL/encoders/</loc>
+         <lastmod>2026-04-12</lastmod>
+    </url>
+    <url>
          <loc>https://bigkatoan.github.io/SRL/gpu_replay_buffer/</loc>
          <lastmod>2026-04-12</lastmod>
     </url>
@@ -98,6 +102,10 @@
     </url>
     <url>
          <loc>https://bigkatoan.github.io/SRL/environments/robotics/</loc>
+         <lastmod>2026-04-12</lastmod>
+    </url>
+    <url>
+         <loc>https://bigkatoan.github.io/SRL/examples/encoder_examples/</loc>
          <lastmod>2026-04-12</lastmod>
     </url>
 </urlset>

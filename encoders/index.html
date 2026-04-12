@@ -10,29 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://bigkatoan.github.io/SRL/">
+        <link rel="canonical" href="https://bigkatoan.github.io/SRL/encoders/">
       
       
+        <link rel="prev" href="../yaml_core/">
       
-        <link rel="next" href="installation/">
+      
+        <link rel="next" href="../cli/">
       
       
         
       
       
-      <link rel="icon" href="assets/images/favicon.png">
+      <link rel="icon" href="../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>SRL — Simple Reinforcement Learning</title>
+        <title>Encoders - SRL — Simple Reinforcement Learning</title>
       
     
     
-      <link rel="stylesheet" href="assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -51,9 +53,9 @@
       
     
     
-      <link rel="stylesheet" href="assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
     
-    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
   
@@ -88,7 +90,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#srl-simple-reinforcement-learning" class="md-skip">
+        <a href="#huong-dan-encoders-thiet-lap-best-practices" class="md-skip">
           Skip to content
         </a>
       
@@ -104,7 +106,7 @@
 
 <header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="." title="SRL — Simple Reinforcement Learning" class="md-header__button md-logo" aria-label="SRL — Simple Reinforcement Learning" data-md-component="logo">
+    <a href=".." title="SRL — Simple Reinforcement Learning" class="md-header__button md-logo" aria-label="SRL — Simple Reinforcement Learning" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -124,7 +126,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Home
+              Encoders
             
           </span>
         </div>
@@ -229,11 +231,9 @@
   
   
   
-    
   
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="." class="md-tabs__link">
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
         
   
   
@@ -250,11 +250,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="installation/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../installation/" class="md-tabs__link">
           
   
   
@@ -274,7 +276,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="environments/" class="md-tabs__link">
+        <a href="../environments/" class="md-tabs__link">
           
   
   
@@ -292,7 +294,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="algorithms/" class="md-tabs__link">
+      <a href="../algorithms/" class="md-tabs__link">
         
   
   
@@ -311,7 +313,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="config_reference/" class="md-tabs__link">
+      <a href="../config_reference/" class="md-tabs__link">
         
   
   
@@ -330,7 +332,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="limitations/" class="md-tabs__link">
+      <a href="../limitations/" class="md-tabs__link">
         
   
   
@@ -351,7 +353,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="api/algorithms/" class="md-tabs__link">
+        <a href="../api/algorithms/" class="md-tabs__link">
           
   
   
@@ -369,7 +371,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="ros2/" class="md-tabs__link">
+      <a href="../ros2/" class="md-tabs__link">
         
   
   
@@ -388,7 +390,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="contributing/" class="md-tabs__link">
+      <a href="../contributing/" class="md-tabs__link">
         
   
   
@@ -429,7 +431,7 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="." title="SRL — Simple Reinforcement Learning" class="md-nav__button md-logo" aria-label="SRL — Simple Reinforcement Learning" data-md-component="logo">
+    <a href=".." title="SRL — Simple Reinforcement Learning" class="md-nav__button md-logo" aria-label="SRL — Simple Reinforcement Learning" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -456,37 +458,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Home
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="." class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
         
   
   
@@ -502,92 +477,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#features" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Features
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#quick-install" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Quick install
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#supported-environments" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Supported environments
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#five-minute-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Five-minute example
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#cli" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CLI
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#read-this-next" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Read this next
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -596,28 +485,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
             
   
   
@@ -635,7 +527,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -653,7 +545,7 @@
   
   
     <li class="md-nav__item">
-      <a href="installation/" class="md-nav__link">
+      <a href="../installation/" class="md-nav__link">
         
   
   
@@ -681,7 +573,7 @@
   
   
     <li class="md-nav__item">
-      <a href="quickstart/" class="md-nav__link">
+      <a href="../quickstart/" class="md-nav__link">
         
   
   
@@ -709,7 +601,7 @@
   
   
     <li class="md-nav__item">
-      <a href="yaml_core/" class="md-nav__link">
+      <a href="../yaml_core/" class="md-nav__link">
         
   
   
@@ -734,10 +626,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="encoders/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Encoders
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -753,6 +672,147 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-tong-quan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Tổng quan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-khi-nao-dung-loai-encoder-nao" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Khi nào dùng loại encoder nào
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-cac-truong-cau-hinh-quan-trong-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Các trường cấu hình quan trọng (schema)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-vi-du-cau-hinh-yaml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Ví dụ cấu hình YAML
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-optimizer-update-policy-cho-encoder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Optimizer &amp; update policy cho encoder
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-auxiliary-representation-learning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Auxiliary representation learning
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-ket-noi-voi-actorcritic-flows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Kết nối với actor/critic (flows)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-kiem-thu-debug-nhanh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Kiểm thử &amp; debug nhanh
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-best-practices-tham-khao-nvidia-cong-nghiep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Best practices (tham khảo NVIDIA &amp; công nghiệp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-lien-ket-nhanh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Liên kết nhanh
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#vi-du-va-huong-dan-them" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ví dụ và hướng dẫn thêm
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -765,7 +825,7 @@
   
   
     <li class="md-nav__item">
-      <a href="cli/" class="md-nav__link">
+      <a href="../cli/" class="md-nav__link">
         
   
   
@@ -793,7 +853,7 @@
   
   
     <li class="md-nav__item">
-      <a href="checkpointing/" class="md-nav__link">
+      <a href="../checkpointing/" class="md-nav__link">
         
   
   
@@ -821,7 +881,7 @@
   
   
     <li class="md-nav__item">
-      <a href="async_runner/" class="md-nav__link">
+      <a href="../async_runner/" class="md-nav__link">
         
   
   
@@ -849,7 +909,7 @@
   
   
     <li class="md-nav__item">
-      <a href="gpu_replay_buffer/" class="md-nav__link">
+      <a href="../gpu_replay_buffer/" class="md-nav__link">
         
   
   
@@ -938,7 +998,7 @@
   
   
     <li class="md-nav__item">
-      <a href="environments/" class="md-nav__link">
+      <a href="../environments/" class="md-nav__link">
         
   
   
@@ -966,7 +1026,7 @@
   
   
     <li class="md-nav__item">
-      <a href="environments/classic_control/" class="md-nav__link">
+      <a href="../environments/classic_control/" class="md-nav__link">
         
   
   
@@ -994,7 +1054,7 @@
   
   
     <li class="md-nav__item">
-      <a href="environments/box2d/" class="md-nav__link">
+      <a href="../environments/box2d/" class="md-nav__link">
         
   
   
@@ -1022,7 +1082,7 @@
   
   
     <li class="md-nav__item">
-      <a href="environments/mujoco/" class="md-nav__link">
+      <a href="../environments/mujoco/" class="md-nav__link">
         
   
   
@@ -1050,7 +1110,7 @@
   
   
     <li class="md-nav__item">
-      <a href="environments/robotics/" class="md-nav__link">
+      <a href="../environments/robotics/" class="md-nav__link">
         
   
   
@@ -1078,7 +1138,7 @@
   
   
     <li class="md-nav__item">
-      <a href="environments/racecar/" class="md-nav__link">
+      <a href="../environments/racecar/" class="md-nav__link">
         
   
   
@@ -1106,7 +1166,7 @@
   
   
     <li class="md-nav__item">
-      <a href="environments/isaaclab/" class="md-nav__link">
+      <a href="../environments/isaaclab/" class="md-nav__link">
         
   
   
@@ -1134,7 +1194,7 @@
   
   
     <li class="md-nav__item">
-      <a href="environments/m3bot/" class="md-nav__link">
+      <a href="../environments/m3bot/" class="md-nav__link">
         
   
   
@@ -1169,7 +1229,7 @@
   
   
     <li class="md-nav__item">
-      <a href="algorithms/" class="md-nav__link">
+      <a href="../algorithms/" class="md-nav__link">
         
   
   
@@ -1196,7 +1256,7 @@
   
   
     <li class="md-nav__item">
-      <a href="config_reference/" class="md-nav__link">
+      <a href="../config_reference/" class="md-nav__link">
         
   
   
@@ -1223,7 +1283,7 @@
   
   
     <li class="md-nav__item">
-      <a href="limitations/" class="md-nav__link">
+      <a href="../limitations/" class="md-nav__link">
         
   
   
@@ -1304,7 +1364,7 @@
   
   
     <li class="md-nav__item">
-      <a href="api/algorithms/" class="md-nav__link">
+      <a href="../api/algorithms/" class="md-nav__link">
         
   
   
@@ -1332,7 +1392,7 @@
   
   
     <li class="md-nav__item">
-      <a href="api/envs/" class="md-nav__link">
+      <a href="../api/envs/" class="md-nav__link">
         
   
   
@@ -1360,7 +1420,7 @@
   
   
     <li class="md-nav__item">
-      <a href="api/networks/" class="md-nav__link">
+      <a href="../api/networks/" class="md-nav__link">
         
   
   
@@ -1388,7 +1448,7 @@
   
   
     <li class="md-nav__item">
-      <a href="api/utils/" class="md-nav__link">
+      <a href="../api/utils/" class="md-nav__link">
         
   
   
@@ -1423,7 +1483,7 @@
   
   
     <li class="md-nav__item">
-      <a href="ros2/" class="md-nav__link">
+      <a href="../ros2/" class="md-nav__link">
         
   
   
@@ -1450,7 +1510,7 @@
   
   
     <li class="md-nav__item">
-      <a href="contributing/" class="md-nav__link">
+      <a href="../contributing/" class="md-nav__link">
         
   
   
@@ -1497,10 +1557,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#features" class="md-nav__link">
+  <a href="#1-tong-quan" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Features
+        1. Tổng quan
       
     </span>
   </a>
@@ -1508,10 +1568,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#quick-install" class="md-nav__link">
+  <a href="#2-khi-nao-dung-loai-encoder-nao" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Quick install
+        2. Khi nào dùng loại encoder nào
       
     </span>
   </a>
@@ -1519,10 +1579,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#supported-environments" class="md-nav__link">
+  <a href="#3-cac-truong-cau-hinh-quan-trong-schema" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Supported environments
+        3. Các trường cấu hình quan trọng (schema)
       
     </span>
   </a>
@@ -1530,10 +1590,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#five-minute-example" class="md-nav__link">
+  <a href="#4-vi-du-cau-hinh-yaml" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Five-minute example
+        4. Ví dụ cấu hình YAML
       
     </span>
   </a>
@@ -1541,10 +1601,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#cli" class="md-nav__link">
+  <a href="#5-optimizer-update-policy-cho-encoder" class="md-nav__link">
     <span class="md-ellipsis">
       
-        CLI
+        5. Optimizer &amp; update policy cho encoder
       
     </span>
   </a>
@@ -1552,10 +1612,65 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#read-this-next" class="md-nav__link">
+  <a href="#6-auxiliary-representation-learning" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Read this next
+        6. Auxiliary representation learning
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-ket-noi-voi-actorcritic-flows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Kết nối với actor/critic (flows)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-kiem-thu-debug-nhanh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Kiểm thử &amp; debug nhanh
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-best-practices-tham-khao-nvidia-cong-nghiep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Best practices (tham khảo NVIDIA &amp; công nghiệp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-lien-ket-nhanh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Liên kết nhanh
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#vi-du-va-huong-dan-them" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ví dụ và hướng dẫn thêm
       
     </span>
   </a>
@@ -1580,6 +1695,46 @@
   
 
 
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href=".." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../installation/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Getting Started
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
               
               <article class="md-content__inner md-typeset">
                 
@@ -1590,143 +1745,117 @@
   
 
 
-<h1 id="srl-simple-reinforcement-learning">SRL — Simple Reinforcement Learning<a class="headerlink" href="#srl-simple-reinforcement-learning" title="Permanent link">&para;</a></h1>
-<p><a href="https://www.python.org"><img alt="Python" src="https://img.shields.io/badge/python-3.10%20%7C%203.11-blue" /></a> <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg" /></a> <a href="https://bigkatoan.github.io/SRL/"><img alt="Docs" src="https://img.shields.io/badge/docs-GitHub%20Pages-blue" /></a></p>
-<p><strong>SRL</strong> is a modular reinforcement learning library<br />
-for continuous action-space environments.</p>
-<blockquote>
-<p><strong>Install note</strong>: <code>srl-rl</code> is not published on PyPI yet. Do not use <code>pip install srl-rl</code>.
-Install from GitHub instead.</p>
-</blockquote>
-<hr />
-<h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
+<h1 id="huong-dan-encoders-thiet-lap-best-practices">Hướng dẫn Encoders (Thiết lập &amp; Best Practices)<a class="headerlink" href="#huong-dan-encoders-thiet-lap-best-practices" title="Permanent link">&para;</a></h1>
+<p>Tóm tắt ngắn: trang này mô tả vai trò của <code>encoder</code> trong pipeline SRL, các kiểu encoder tích hợp, các trường cấu hình quan trọng, ví dụ YAML, lời khuyên tối ưu hóa và bước kiểm thử đơn giản.</p>
+<h2 id="1-tong-quan">1. Tổng quan<a class="headerlink" href="#1-tong-quan" title="Permanent link">&para;</a></h2>
+<p>Encoder là module chuyển đổi observation (ảnh, vector, text, ...) thành latent vectors dùng cho actor/critic.
+Encoder ở lớp giới hạn giữa môi trường và các head chính — chọn và cấu hình encoder đúng là bước quyết định cho hiệu năng.</p>
+<h2 id="2-khi-nao-dung-loai-encoder-nao">2. Khi nào dùng loại encoder nào<a class="headerlink" href="#2-khi-nao-dung-loai-encoder-nao" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Algorithms</strong>: PPO, SAC, DDPG, TD3, A2C, A3C — all supporting continuous actions</li>
-<li><strong>YAML-first model system</strong>: declare encoders, heads, flows, and multimodal routing as data</li>
-<li><strong>Multi-modal inputs</strong>: state, pixels, lidar, text — all in one model</li>
-<li><strong>Vectorised training</strong>: <code>SyncVectorEnv</code> and <code>AsyncVectorEnv</code> for fast data collection</li>
-<li><strong>Goal-conditioned RL</strong>: <code>GoalEnvWrapper</code> for gymnasium-robotics Fetch tasks</li>
-<li><strong>Isaac Lab support</strong>: headless testing and training for PPO, A2C, SAC, DDPG, and TD3</li>
-<li><strong>ROS 2 Python API</strong>: integrate trained agents into your own ROS 2 code</li>
-<li><strong>CLI</strong>: <code>srl-train --config ... --env ... --algo ...</code></li>
-<li><strong>Async off-policy runner</strong>: decoupled collector/trainer threads for Isaac Lab throughput</li>
-<li><strong>GPU replay buffer</strong>: zero-copy CUDA circular buffer for pixel-based Isaac Lab tasks</li>
-<li><strong>Stable visual RL</strong>: separate encoder optimizer, <code>encoder_update_freq</code>, and 8 encoder loss modes</li>
+<li>mlp: dữ liệu vector/low-dim (state). Nhẹ, nhanh.</li>
+<li>cnn: ảnh (vision). Tránh quá sâu nếu dùng realtime/Isaac Lab.</li>
+<li>lstm: chuỗi/độ trễ/stacked frames với phụ thuộc thời gian.</li>
+<li>text: input kí tự hoặc embedding cho ngôn ngữ.</li>
 </ul>
-<hr />
-<h2 id="quick-install">Quick install<a class="headerlink" href="#quick-install" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># From GitHub (not yet on PyPI)</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/Bigkatoan/SRL.git
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Or clone locally</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/Bigkatoan/SRL.git<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>SRL
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="c1"># With MuJoCo</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[mujoco]&quot;</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># With Box2D</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[box2d]&quot;</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="c1"># With gymnasium-robotics</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[robotics]&quot;</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="c1"># With racecar_gym (Python 3.10 recommended)</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[racecar]&quot;</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="c1"># Everything</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[all]&quot;</span>
-</code></pre></div>
-<hr />
-<h2 id="supported-environments">Supported environments<a class="headerlink" href="#supported-environments" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Suite</th>
-<th>Environments</th>
-<th>Algorithm</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Gymnasium Classic</td>
-<td>Pendulum, MountainCarContinuous</td>
-<td>PPO</td>
-</tr>
-<tr>
-<td>Gymnasium Box2D</td>
-<td>BipedalWalker, LunarLanderContinuous, CarRacing</td>
-<td>PPO</td>
-</tr>
-<tr>
-<td>Gymnasium MuJoCo</td>
-<td>HalfCheetah, Ant, Hopper, Walker2d, Humanoid, Swimmer, Pusher, Reacher</td>
-<td>PPO / SAC</td>
-</tr>
-<tr>
-<td>Gymnasium Robotics</td>
-<td>FetchReach, FetchPush, FetchPickAndPlace, FetchSlide</td>
-<td>SAC</td>
-</tr>
-<tr>
-<td>racecar_gym</td>
-<td>SingleAgentAustria, SingleAgentBerlin, SingleAgentMontreal, SingleAgentTorino</td>
-<td>PPO</td>
-</tr>
-<tr>
-<td>Isaac Lab</td>
-<td>Cartpole, Ant, Humanoid</td>
-<td>PPO / A2C / SAC / DDPG</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="five-minute-example">Five-minute example<a class="headerlink" href="#five-minute-example" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">gymnasium</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gym</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">srl.algorithms.ppo</span><span class="w"> </span><span class="kn">import</span> <span class="n">PPO</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">srl.core.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">PPOConfig</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">srl.envs.gymnasium_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">GymnasiumWrapper</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">srl.envs.sync_vector_env</span><span class="w"> </span><span class="kn">import</span> <span class="n">SyncVectorEnv</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="kn">from</span><span class="w"> </span><span class="nn">srl.registry.builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelBuilder</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">model</span> <span class="o">=</span> <span class="n">ModelBuilder</span><span class="o">.</span><span class="n">from_yaml</span><span class="p">(</span><span class="s2">&quot;configs/envs/pendulum_ppo.yaml&quot;</span><span class="p">)</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">env</span>   <span class="o">=</span> <span class="n">SyncVectorEnv</span><span class="p">([</span><span class="k">lambda</span><span class="p">:</span> <span class="n">GymnasiumWrapper</span><span class="p">(</span><span class="n">gym</span><span class="o">.</span><span class="n">make</span><span class="p">(</span><span class="s2">&quot;Pendulum-v1&quot;</span><span class="p">))]</span> <span class="o">*</span> <span class="mi">4</span><span class="p">)</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">PPO</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">PPOConfig</span><span class="p">(</span><span class="n">n_steps</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">num_envs</span><span class="o">=</span><span class="mi">4</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda&quot;</span><span class="p">)</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="n">obs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">200_000</span> <span class="o">//</span> <span class="mi">512</span><span class="p">):</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">512</span><span class="p">):</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>        <span class="n">obs_t</span>  <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">cuda</span><span class="p">()</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">obs</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>        <span class="n">action</span><span class="p">,</span> <span class="n">log_prob</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">obs_t</span><span class="p">)</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>        <span class="n">obs</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">done</span><span class="p">,</span> <span class="n">trunc</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">action</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>        <span class="n">agent</span><span class="o">.</span><span class="n">buffer</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">obs</span><span class="o">=</span><span class="n">obs</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">action</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>                         <span class="n">reward</span><span class="o">=</span><span class="n">reward</span><span class="p">,</span> <span class="n">done</span><span class="o">=</span><span class="n">done</span><span class="p">,</span> <span class="n">truncated</span><span class="o">=</span><span class="n">trunc</span><span class="p">,</span>
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>                         <span class="n">log_prob</span><span class="o">=</span><span class="n">log_prob</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span>
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>                         <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
-<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>    <span class="n">agent</span><span class="o">.</span><span class="n">buffer</span><span class="o">.</span><span class="n">compute_returns_and_advantages</span><span class="p">()</span>
-<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>    <span class="n">agent</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
-</code></pre></div>
-<hr />
-<h2 id="cli">CLI<a class="headerlink" href="#cli" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>srl-train<span class="w"> </span>--config<span class="w"> </span>configs/envs/halfcheetah_sac.yaml<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">          </span>--env<span class="w"> </span>HalfCheetah-v5<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">          </span>--algo<span class="w"> </span>sac<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">          </span>--steps<span class="w"> </span><span class="m">1000000</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">          </span>--device<span class="w"> </span>cuda<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">          </span>--log-interval<span class="w"> </span><span class="m">5000</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">          </span>--episode-window<span class="w"> </span><span class="m">25</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">          </span>--plot-metrics<span class="w"> </span>train/score_mean,sac/critic_loss
-</code></pre></div>
-<p>Each run writes compact terminal summaries during training and stores <code>summary.json</code>, <code>history.csv</code>, <code>metrics.jsonl</code>, and <code>training_curves.svg</code> in the run directory. Use <code>--no-plots</code>, <code>--plot-metrics</code>, <code>--log-interval</code>, <code>--episode-window</code>, and <code>--console-metrics</code> to customize the logging layout and exported curves.</p>
-<hr />
-<h2 id="read-this-next">Read this next<a class="headerlink" href="#read-this-next" title="Permanent link">&para;</a></h2>
-<p>If you want to understand SRL properly, start from the YAML layer rather than the algorithm pages.</p>
+<h2 id="3-cac-truong-cau-hinh-quan-trong-schema">3. Các trường cấu hình quan trọng (schema)<a class="headerlink" href="#3-cac-truong-cau-hinh-quan-trong-schema" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="yaml_core/">YAML Core Guide</a> explains the declarative model graph, observation routing, and current system boundary.</li>
-<li><a href="config_reference/">Configuration Reference</a> lists the supported schema fields in detail.</li>
-<li><a href="quickstart/">Quick Start</a> shows how the same YAML file is consumed by the CLI and Python API.</li>
+<li><code>name</code> — id của encoder trong <code>flows</code></li>
+<li><code>type</code> — <code>mlp</code>, <code>cnn</code>, <code>lstm</code>, <code>text</code>, hoặc key registry</li>
+<li><code>input_name</code> — tên key trong observation dict (khuyến nghị luôn khai báo)</li>
+<li><code>input_dim</code> / <code>input_shape</code> — kích thước input</li>
+<li><code>latent_dim</code> — kích thước output latent</li>
+<li><code>layers</code> — cấu trúc lớp (builder-driven)</li>
+<li><code>aux_type</code>, <code>aux_latent_dim</code> — nếu dùng auxiliary heads (ae, vae, byol, contrastive...)</li>
+<li><code>use_momentum</code>, <code>momentum_tau</code> — bật momentum encoder cho contrastive/BYOL</li>
+<li><code>recurrent</code>, <code>lstm_hidden</code>, <code>frame_stack</code></li>
 </ul>
+<p>Tham khảo schema chi tiết: <a href="https://github.com/Bigkatoan/SRL/blob/main/srl/registry/config_schema.py">srl/registry/config_schema.py</a></p>
+<h2 id="4-vi-du-cau-hinh-yaml">4. Ví dụ cấu hình YAML<a class="headerlink" href="#4-vi-du-cau-hinh-yaml" title="Permanent link">&para;</a></h2>
+<p>Ví dụ MLP (state):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">encoders</span><span class="p">:</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">state_enc</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mlp</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">input_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">24</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="nt">layers</span><span class="p">:</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">128</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">}</span>
+</code></pre></div>
+<p>Ví dụ CNN (vision) với auxiliary reconstruction:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">encoders</span><span class="p">:</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">image_enc</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cnn</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">input_shape</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">96</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">96</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">aux_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">autoencoder</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="nt">aux_latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nt">layers</span><span class="p">:</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">32</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">8</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">2</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">]</span>
+</code></pre></div>
+<h2 id="5-optimizer-update-policy-cho-encoder">5. Optimizer &amp; update policy cho encoder<a class="headerlink" href="#5-optimizer-update-policy-cho-encoder" title="Permanent link">&para;</a></h2>
+<p>Đề xuất cấu hình train liên quan tới encoder:</p>
+<ul>
+<li>Tách <code>encoder_optimizer</code> riêng (tránh cập nhật kép khi actor/critic backward đều chứa encoder params).</li>
+<li><code>encoder_update_freq</code> — cập nhật encoder mỗi N bước critic; thường <code>2</code> cho vision.</li>
+<li><code>encoder_optimize_with_critic</code> — nếu true, critic loss sẽ cập nhật encoder (thay vì actor).</li>
+</ul>
+<p>Ví dụ (train block):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">train</span><span class="p">:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">total_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1_000_000</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">encoder_update_freq</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">encoder_optimize_with_critic</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">lr_encoder</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3e-4</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="nt">lr_actor</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3e-4</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">lr_critic</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3e-4</span>
+</code></pre></div>
+<h2 id="6-auxiliary-representation-learning">6. Auxiliary representation learning<a class="headerlink" href="#6-auxiliary-representation-learning" title="Permanent link">&para;</a></h2>
+<p>Các kiểu phụ trợ: <code>autoencoder</code>, <code>vae</code>, <code>contrastive</code>, <code>byol</code>, <code>drq</code>, <code>spr</code>, <code>barlow</code>.</p>
+<ul>
+<li>Dùng <code>use_momentum=true</code> khi cấu hình BYOL hoặc contrastive momentum.</li>
+<li>Projection head thường có <code>aux_latent_dim</code> nhỏ hơn latent chính.</li>
+<li>Lưu ý: augmentations và batch size có ảnh hưởng lớn tới chất lượng contrastive.</li>
+</ul>
+<h2 id="7-ket-noi-voi-actorcritic-flows">7. Kết nối với actor/critic (<code>flows</code>)<a class="headerlink" href="#7-ket-noi-voi-actorcritic-flows" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Định nghĩa rõ <code>flows</code> để actor/critic nhận đúng encoder:</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">flows</span><span class="p">:</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;image_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;image_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
+</code></pre></div>
+<ul>
+<li>Khuyến nghị: nếu actor và critic cần biểu diễn khác nhau, tách encoder cho từng branch.</li>
+</ul>
+<h2 id="8-kiem-thu-debug-nhanh">8. Kiểm thử &amp; debug nhanh<a class="headerlink" href="#8-kiem-thu-debug-nhanh" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Nếu gặp lỗi shape, kiểm tra <code>input_shape</code> / <code>input_dim</code> và <code>input_name</code> mapping.</li>
+<li>Khởi tạo model bằng <code>ModelBuilder.from_yaml(...)</code> và in <code>builder.summary()</code> để xem kích thước latent.</li>
+<li>Chạy smoke test:</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># module fallback từ source</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>python<span class="w"> </span>-m<span class="w"> </span>srl.cli.train<span class="w"> </span>--config<span class="w"> </span>configs/envs/halfcheetah_sac.yaml<span class="w"> </span>--device<span class="w"> </span>cpu<span class="w"> </span>--seed<span class="w"> </span><span class="m">0</span><span class="w"> </span>--no-plots
+</code></pre></div>
+<h2 id="9-best-practices-tham-khao-nvidia-cong-nghiep">9. Best practices (tham khảo NVIDIA &amp; công nghiệp)<a class="headerlink" href="#9-best-practices-tham-khao-nvidia-cong-nghiep" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Với vision/Isaac: tận dụng momentum encoder cho contrastive/BYOL; dùng mixed-precision nếu có GPU.</li>
+<li>Tránh mạng quá sâu cho realtime; ưu tiên batch lớn + augment cho contrastive.</li>
+<li>Tách optimizer để điều chỉnh lr riêng cho encoder khi cần fine-tune.</li>
+<li>Kiểm tra pipeline bằng small end-to-end smoke test trước khi scale.</li>
+</ul>
+<p>Tham khảo tài liệu NVIDIA Isaac/Isaac Sim khi làm tích hợp môi trường GPU: https://docs.omniverse.nvidia.com/isaac/ (tài liệu tham khảo cấu trúc và best-practices về môi trường GPU).</p>
+<h2 id="10-lien-ket-nhanh">10. Liên kết nhanh<a class="headerlink" href="#10-lien-ket-nhanh" title="Permanent link">&para;</a></h2>
+<p>Nếu bạn đồng ý, tôi sẽ:</p>
+<h2 id="vi-du-va-huong-dan-them">Ví dụ và hướng dẫn thêm<a class="headerlink" href="#vi-du-va-huong-dan-them" title="Permanent link">&para;</a></h2>
+<p>Xem các ví dụ cấu hình và các bước kiểm thử nhanh tại: <a href="../examples/encoder_examples/">Examples: encoder examples</a></p>
+<p>Nếu bạn muốn tôi triển khai thêm, tôi có thể:
+- mở rộng các cấu hình ví dụ thành file YAML đầy đủ trong <code>configs/examples/</code>
+- thêm hướng dẫn kiểm thử CI/smoke tests
+- tổ chức lại nav theo mẫu NVIDIA (Architecture → Encoders → Deployment)
+Bạn muốn tôi triển khai tiếp phần nào trước?</p>
 
 
 
@@ -1804,10 +1933,10 @@ Install from GitHub instead.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>
