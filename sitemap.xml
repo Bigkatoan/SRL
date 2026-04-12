@@ -108,4 +108,52 @@
          <loc>https://bigkatoan.github.io/SRL/examples/encoder_examples/</loc>
          <lastmod>2026-04-12</lastmod>
     </url>
+    <url>
+         <loc>https://bigkatoan.github.io/SRL/integrations/</loc>
+         <lastmod>2026-04-12</lastmod>
+    </url>
+    <url>
+         <loc>https://bigkatoan.github.io/SRL/integrations/gymnasium/</loc>
+         <lastmod>2026-04-12</lastmod>
+    </url>
+    <url>
+         <loc>https://bigkatoan.github.io/SRL/integrations/isaaclab/</loc>
+         <lastmod>2026-04-12</lastmod>
+    </url>
+    <url>
+         <loc>https://bigkatoan.github.io/SRL/training/</loc>
+         <lastmod>2026-04-12</lastmod>
+    </url>
+    <url>
+         <loc>https://bigkatoan.github.io/SRL/training/algorithms/</loc>
+         <lastmod>2026-04-12</lastmod>
+    </url>
+    <url>
+         <loc>https://bigkatoan.github.io/SRL/training/buffers/</loc>
+         <lastmod>2026-04-12</lastmod>
+    </url>
+    <url>
+         <loc>https://bigkatoan.github.io/SRL/training/runners/</loc>
+         <lastmod>2026-04-12</lastmod>
+    </url>
+    <url>
+         <loc>https://bigkatoan.github.io/SRL/yaml/</loc>
+         <lastmod>2026-04-12</lastmod>
+    </url>
+    <url>
+         <loc>https://bigkatoan.github.io/SRL/yaml/auxiliary/</loc>
+         <lastmod>2026-04-12</lastmod>
+    </url>
+    <url>
+         <loc>https://bigkatoan.github.io/SRL/yaml/encoders/</loc>
+         <lastmod>2026-04-12</lastmod>
+    </url>
+    <url>
+         <loc>https://bigkatoan.github.io/SRL/yaml/heads_flows/</loc>
+         <lastmod>2026-04-12</lastmod>
+    </url>
+    <url>
+         <loc>https://bigkatoan.github.io/SRL/yaml/training_block/</loc>
+         <lastmod>2026-04-12</lastmod>
+    </url>
 </urlset>

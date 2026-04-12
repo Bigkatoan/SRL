@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://bigkatoan.github.io/SRL/quickstart/">
+        <link rel="canonical" href="https://bigkatoan.github.io/SRL/yaml/">
       
       
-        <link rel="prev" href="../installation/">
+        <link rel="prev" href="../cli/">
       
       
-        <link rel="next" href="../cli/">
+        <link rel="next" href="encoders/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Quick Start - SRL — Simple Reinforcement Learning</title>
+        <title>Overview - SRL — Simple Reinforcement Learning</title>
       
     
     
@@ -90,7 +90,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#quick-start" class="md-skip">
+        <a href="#yaml-configuration-system" class="md-skip">
           Skip to content
         </a>
       
@@ -126,7 +126,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Quick Start
+              Overview
             
           </span>
         </div>
@@ -250,12 +250,10 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
+      <li class="md-tabs__item">
         <a href="../installation/" class="md-tabs__link">
           
   
@@ -272,11 +270,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../yaml/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
           
   
   
@@ -470,31 +470,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
             
   
   
@@ -512,7 +509,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -555,37 +552,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Quick Start
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
         
   
   
@@ -601,81 +571,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#1-install" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Install
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#2-pick-a-config" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Pick a config
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-train-with-the-cli" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Train with the CLI
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-train-via-python-api" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Train via Python API
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-load-a-checkpoint" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Load a checkpoint
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -720,28 +615,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
             
   
   
@@ -759,7 +657,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -774,10 +672,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../yaml/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -793,6 +718,81 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#tai-sao-srl-dung-yaml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tại sao SRL dùng YAML
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#build-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build pipeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-yaml-co-ban" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File YAML cơ bản
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cac-trang-trong-phan-nay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Các trang trong phần này
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#xem-them" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Xem thêm
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -805,7 +805,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../yaml/encoders/" class="md-nav__link">
+      <a href="encoders/" class="md-nav__link">
         
   
   
@@ -833,7 +833,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../yaml/heads_flows/" class="md-nav__link">
+      <a href="heads_flows/" class="md-nav__link">
         
   
   
@@ -861,7 +861,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../yaml/auxiliary/" class="md-nav__link">
+      <a href="auxiliary/" class="md-nav__link">
         
   
   
@@ -889,7 +889,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../yaml/training_block/" class="md-nav__link">
+      <a href="training_block/" class="md-nav__link">
         
   
   
@@ -1921,10 +1921,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-install" class="md-nav__link">
+  <a href="#tai-sao-srl-dung-yaml" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Install
+        Tại sao SRL dùng YAML
       
     </span>
   </a>
@@ -1932,10 +1932,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-pick-a-config" class="md-nav__link">
+  <a href="#build-pipeline" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Pick a config
+        Build pipeline
       
     </span>
   </a>
@@ -1943,10 +1943,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-train-with-the-cli" class="md-nav__link">
+  <a href="#file-yaml-co-ban" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Train with the CLI
+        File YAML cơ bản
       
     </span>
   </a>
@@ -1954,10 +1954,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-train-via-python-api" class="md-nav__link">
+  <a href="#cac-trang-trong-phan-nay" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Train via Python API
+        Các trang trong phần này
       
     </span>
   </a>
@@ -1965,10 +1965,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-load-a-checkpoint" class="md-nav__link">
+  <a href="#xem-them" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. Load a checkpoint
+        Xem thêm
       
     </span>
   </a>
@@ -2018,10 +2018,10 @@
     
     
       <li class="md-path__item">
-        <a href="../installation/" class="md-path__link">
+        <a href="./" class="md-path__link">
           
   <span class="md-ellipsis">
-    Getting Started
+    YAML Configuration
   </span>
 
         </a>
@@ -2043,96 +2043,95 @@
   
 
 
-<h1 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h1>
-<p>This page walks you through the full workflow in ~30 lines of code.</p>
-<hr />
-<h2 id="1-install">1. Install<a class="headerlink" href="#1-install" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[mujoco]&quot;</span>
+<h1 id="yaml-configuration-system">YAML Configuration System<a class="headerlink" href="#yaml-configuration-system" title="Permanent link">&para;</a></h1>
+<p>YAML là ngôn ngữ cấu hình trung tâm của SRL. Toàn bộ kiến trúc mô hình — encoder, flows, actor/critic heads, losses, và training hyperparameters — được khai báo trong một file YAML duy nhất, sau đó được materialize thành runtime model graph bởi <code>ModelBuilder</code>.</p>
+<h2 id="tai-sao-srl-dung-yaml">Tại sao SRL dùng YAML<a class="headerlink" href="#tai-sao-srl-dung-yaml" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Không dùng YAML</th>
+<th>Dùng SRL + YAML</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Viết <code>nn.Module</code> thủ công</td>
+<td>Khai báo encoder type và layers</td>
+</tr>
+<tr>
+<td>Hard-code observation routing trong <code>forward()</code></td>
+<td>Khai báo <code>flows</code> graph</td>
+</tr>
+<tr>
+<td>Copy hyperparameters giữa nhiều script</td>
+<td>Một file YAML dùng cho cả CLI, viz, benchmark</td>
+</tr>
+<tr>
+<td>Khó tái lập thí nghiệm</td>
+<td>Config file = source of truth</td>
+</tr>
+</tbody>
+</table>
+<h2 id="build-pipeline">Build pipeline<a class="headerlink" href="#build-pipeline" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>YAML file
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  ↓ ModelBuilder.from_yaml(path)
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  ↓ parse → EncoderConfig, HeadConfig, LossConfig
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  ↓ instantiate encoders + heads
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>  ↓ FlowGraph.from_edges(flows)
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>  ↓
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>AgentModel (runtime)
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>  ↓ observation → encoder graph → latent concat → head dispatch
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>  ↓
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>actor(·), critic(·), aux_modules(·)
 </code></pre></div>
-<hr />
-<h2 id="2-pick-a-config">2. Pick a config<a class="headerlink" href="#2-pick-a-config" title="Permanent link">&para;</a></h2>
-<p>SRL uses YAML as the primary control plane for model structure. The config file is not just a convenience layer; it is the main way you declare encoders, graph connectivity, heads, and the training knobs currently supported by the CLI.</p>
-<p>Read the <a href="../yaml_core/">YAML Core Guide</a> if you want the full mental model. The example below shows the basic shape:</p>
+<h2 id="file-yaml-co-ban">File YAML cơ bản<a class="headerlink" href="#file-yaml-co-ban" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># configs/envs/halfcheetah_sac.yaml</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">algo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sac</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">encoders</span><span class="p">:</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">state_enc</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mlp</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">input_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">17</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nt">layers</span><span class="p">:</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">layer_norm</span><span class="p p-Indicator">}</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">layer_norm</span><span class="p p-Indicator">}</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="nt">flows</span><span class="p">:</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="nt">actor</span><span class="p">:</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">squashed_gaussian</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">  </span><span class="nt">action_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="nt">critic</span><span class="p">:</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">critic</span>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">twin_q</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">env_id</span><span class="p">:</span><span class="w">   </span><span class="l l-Scalar l-Scalar-Plain">HalfCheetah-v5</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">env_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">flat</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nt">algo</span><span class="p">:</span><span class="w">     </span><span class="l l-Scalar l-Scalar-Plain">sac</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="nt">encoders</span><span class="p">:</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">state_enc</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mlp</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="nt">input_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">17</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="nt">layers</span><span class="p">:</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">layer_norm</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="nt">flows</span><span class="p">:</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="nt">actor</span><span class="p">:</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">squashed_gaussian</span>
 <a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">  </span><span class="nt">action_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="nt">critic</span><span class="p">:</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">critic</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">twin_q</span>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="w">  </span><span class="nt">action_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6</span>
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="nt">train</span><span class="p">:</span>
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="w">  </span><span class="nt">total_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1_000_000</span>
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a><span class="w">  </span><span class="nt">lr</span><span class="p">:</span><span class="w">          </span><span class="l l-Scalar l-Scalar-Plain">3e-4</span>
 </code></pre></div>
-<hr />
-<h2 id="3-train-with-the-cli">3. Train with the CLI<a class="headerlink" href="#3-train-with-the-cli" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>srl-train<span class="w"> </span>--config<span class="w"> </span>configs/envs/halfcheetah_sac.yaml<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">          </span>--env<span class="w"> </span>HalfCheetah-v5<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">          </span>--algo<span class="w"> </span>sac<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">          </span>--steps<span class="w"> </span><span class="m">1000000</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">          </span>--log-interval<span class="w"> </span><span class="m">5000</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">          </span>--episode-window<span class="w"> </span><span class="m">25</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">          </span>--plot-metrics<span class="w"> </span>train/score_mean,sac/critic_loss
+<p>Chạy:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>srl-train<span class="w"> </span>--config<span class="w"> </span>configs/envs/halfcheetah_sac.yaml
 </code></pre></div>
-<p>The CLI prints compact training summaries to the terminal and writes <code>summary.json</code>, <code>history.csv</code>, <code>metrics.jsonl</code>, and <code>training_curves.svg</code> into the selected run directory. Use <code>--no-plots</code>, <code>--plot-metrics</code>, <code>--log-interval</code>, <code>--episode-window</code>, and <code>--console-metrics</code> to customize the output.</p>
-<p>The important design point is that the CLI is consuming the same declarative YAML that <code>ModelBuilder</code> consumes. In other words, the config file is the core representation shared by training, visualization, and reproducible experiments.</p>
-<hr />
-<h2 id="4-train-via-python-api">4. Train via Python API<a class="headerlink" href="#4-train-via-python-api" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">gymnasium</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gym</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">srl.algorithms.sac</span><span class="w"> </span><span class="kn">import</span> <span class="n">SAC</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">srl.core.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">SACConfig</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">srl.envs.gymnasium_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">GymnasiumWrapper</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="kn">from</span><span class="w"> </span><span class="nn">srl.registry.builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelBuilder</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">DEVICE</span> <span class="o">=</span> <span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">model</span>  <span class="o">=</span> <span class="n">ModelBuilder</span><span class="o">.</span><span class="n">from_yaml</span><span class="p">(</span><span class="s2">&quot;configs/envs/halfcheetah_sac.yaml&quot;</span><span class="p">)</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="n">target</span> <span class="o">=</span> <span class="n">ModelBuilder</span><span class="o">.</span><span class="n">from_yaml</span><span class="p">(</span><span class="s2">&quot;configs/envs/halfcheetah_sac.yaml&quot;</span><span class="p">)</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="n">cfg</span> <span class="o">=</span> <span class="n">SACConfig</span><span class="p">(</span><span class="n">action_dim</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">buffer_size</span><span class="o">=</span><span class="mi">1_000_000</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>                <span class="n">learning_starts</span><span class="o">=</span><span class="mi">10_000</span><span class="p">)</span>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">SAC</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">cfg</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">DEVICE</span><span class="p">)</span>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="n">env</span> <span class="o">=</span> <span class="n">GymnasiumWrapper</span><span class="p">(</span><span class="n">gym</span><span class="o">.</span><span class="n">make</span><span class="p">(</span><span class="s2">&quot;HalfCheetah-v5&quot;</span><span class="p">))</span>
-<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="n">obs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
-<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>
-<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1_000_000</span><span class="p">):</span>
-<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>    <span class="n">obs_t</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">DEVICE</span><span class="p">)</span>
-<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>             <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">obs</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
-<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>    <span class="k">if</span> <span class="n">step</span> <span class="o">&lt;</span> <span class="n">cfg</span><span class="o">.</span><span class="n">learning_starts</span><span class="p">:</span>
-<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>        <span class="n">action_np</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">act_space</span><span class="o">.</span><span class="n">sample</span><span class="p">()</span>
-<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>        <span class="n">action</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">obs_t</span><span class="p">)</span>
-<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a>        <span class="n">action_np</span> <span class="o">=</span> <span class="n">action</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
-<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a>
-<a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a>    <span class="n">obs</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">done</span><span class="p">,</span> <span class="n">truncated</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">action_np</span><span class="p">)</span>
-<a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a>    <span class="n">agent</span><span class="o">.</span><span class="n">buffer</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">obs</span><span class="o">=</span><span class="n">obs</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">action_np</span><span class="p">,</span>
-<a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a>                     <span class="n">reward</span><span class="o">=</span><span class="p">[</span><span class="n">reward</span><span class="p">],</span> <span class="n">done</span><span class="o">=</span><span class="p">[</span><span class="n">done</span><span class="p">],</span> <span class="n">truncated</span><span class="o">=</span><span class="p">[</span><span class="n">truncated</span><span class="p">],</span>
-<a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a>                     <span class="n">next_obs</span><span class="o">=</span><span class="n">obs</span><span class="p">)</span>
-<a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a>    <span class="k">if</span> <span class="n">done</span> <span class="ow">or</span> <span class="n">truncated</span><span class="p">:</span>
-<a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a>        <span class="n">obs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
-<a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a>
-<a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a>    <span class="k">if</span> <span class="n">step</span> <span class="o">&gt;=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">learning_starts</span><span class="p">:</span>
-<a id="__codelineno-3-37" name="__codelineno-3-37" href="#__codelineno-3-37"></a>        <span class="n">agent</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
-</code></pre></div>
-<hr />
-<h2 id="5-load-a-checkpoint">5. Load a checkpoint<a class="headerlink" href="#5-load-a-checkpoint" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">srl.utils.checkpoint</span><span class="w"> </span><span class="kn">import</span> <span class="n">CheckpointManager</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">cm</span> <span class="o">=</span> <span class="n">CheckpointManager</span><span class="p">(</span><span class="s2">&quot;checkpoints/sac_halfcheetah_v5&quot;</span><span class="p">)</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">cm</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="s2">&quot;latest&quot;</span><span class="p">)</span>
-</code></pre></div>
+<h2 id="cac-trang-trong-phan-nay">Các trang trong phần này<a class="headerlink" href="#cac-trang-trong-phan-nay" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="encoders/">Encoders</a> — khai báo và cấu hình feature extractors (MLP, CNN, LSTM, text)</li>
+<li><a href="heads_flows/">Heads &amp; Flows</a> — actor/critic heads và routing graph</li>
+<li><a href="auxiliary/">Auxiliary Representation Learning</a> — autoencoder, BYOL, CURL, DrQ, SPR, Barlow</li>
+<li><a href="training_block/">Training Block Reference</a> — tất cả các trường trong block <code>train:</code></li>
+</ul>
+<h2 id="xem-them">Xem thêm<a class="headerlink" href="#xem-them" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../training/">Training System</a> — trainer, runner, optimizer patterns</li>
+<li><a href="../config_reference/">Config Reference</a> — field-level reference đầy đủ</li>
+</ul>
 
 
 
