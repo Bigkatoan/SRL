@@ -26,6 +26,14 @@ Auto-generated API reference for algorithm implementations.
       members:
         - DDPG
 
+## TD3
+
+::: srl.algorithms.td3
+    options:
+      show_root_heading: true
+      members:
+        - TD3
+
 ## A2C
 
 ::: srl.algorithms.a2c

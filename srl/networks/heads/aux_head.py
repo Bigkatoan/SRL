@@ -58,3 +58,67 @@ class ConvDecoderHead(nn.Module):
         B = z.size(0)
         x = self.fc(z).view(B, self.stem_channels, self.stem_h, self.stem_w)
         return self.deconv(x)
+
+
+class VAEHead(nn.Module):
+    """Variational reparameterization head for VAE auxiliary loss.
+
+    Takes a CNN encoder output and maps it to a (mu, log_var) pair.
+    The caller is responsible for:
+    1. Sampling ``z = mu + eps * std``  (use :func:`srl.algorithms.sac._reparameterize`)
+    2. Passing ``z`` through a :class:`ConvDecoderHead` for reconstruction.
+    3. Computing :func:`srl.losses.aux_losses.vae_loss`.
+
+    Shape::
+
+        z_det  (B, latent_dim)  →  mu     (B, vae_dim)
+                                    log_var (B, vae_dim)
+    """
+
+    type_name = "vae"
+
+    def __init__(self, input_dim: int, vae_dim: int | None = None) -> None:
+        super().__init__()
+        out_dim = vae_dim or input_dim
+        self.fc_mu = nn.Linear(input_dim, out_dim)
+        self.fc_log_var = nn.Linear(input_dim, out_dim)
+
+    def forward(self, z: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return ``(mu, log_var)`` from deterministic encoder output ``z``."""
+        return self.fc_mu(z), self.fc_log_var(z)
+
+
+class LatentTransitionModel(nn.Module):
+    """Lightweight MLP forward model for SPR (Self-Predictive Representations).
+
+    Predicts ``z_{t+1}`` from the current latent ``z_t`` and the action taken.
+    Used by :func:`srl.losses.aux_losses.spr_loss` to provide a self-supervised
+    latent prediction signal without requiring next-observation rendering.
+
+    Shape::
+
+        (z_t: (B, latent_dim), action: (B, action_dim))  →  z_{t+1}: (B, latent_dim)
+    """
+
+    type_name = "latent_transition"
+
+    def __init__(
+        self,
+        latent_dim: int,
+        action_dim: int,
+        hidden_dim: int | None = None,
+    ) -> None:
+        super().__init__()
+        h = hidden_dim or latent_dim
+        self.net = nn.Sequential(
+            nn.Linear(latent_dim + action_dim, h),
+            nn.LayerNorm(h),
+            nn.ReLU(),
+            nn.Linear(h, latent_dim),
+        )
+
+    def forward(self, z: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
+        if action.dim() == 1:
+            action = action.unsqueeze(0).expand(z.size(0), -1)
+        x = torch.cat([z, action], dim=-1)
+        return self.net(x)

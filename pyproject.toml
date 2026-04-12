@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "srl-rl"
-version = "0.1.0"
+version = "0.2.0"
 description = "Simple Reinforcement Learning Library — continuous action spaces, multi-modal, config-driven"
 readme = "README.md"
 license = { file = "LICENSE" }

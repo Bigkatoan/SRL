@@ -6,7 +6,15 @@ from srl.losses.rl_losses import (
     sac_policy_loss, sac_q_loss, sac_temperature_loss,
     ddpg_policy_loss, ddpg_q_loss, td_error,
 )
-from srl.losses.aux_losses import info_nce_loss, reconstruction_loss, byol_loss
+from srl.losses.aux_losses import (
+    info_nce_loss,
+    reconstruction_loss,
+    byol_loss,
+    vae_loss,
+    drq_aug_loss,
+    spr_loss,
+    barlow_twins_loss,
+)
 from srl.losses.loss_composer import LossComposer
 
 __all__ = [
@@ -15,5 +23,6 @@ __all__ = [
     "sac_policy_loss", "sac_q_loss", "sac_temperature_loss",
     "ddpg_policy_loss", "ddpg_q_loss", "td_error",
     "info_nce_loss", "reconstruction_loss", "byol_loss",
+    "vae_loss", "drq_aug_loss", "spr_loss", "barlow_twins_loss",
     "LossComposer",
 ]

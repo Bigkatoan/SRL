@@ -201,6 +201,7 @@ class ROS2Config:
     observations: dict[str, ROS2ObservationConfig] = field(default_factory=dict)
     action_topic: str = "/srl/action"
     action_msg_type: str | None = "Float32MultiArray"
+    action_queue_size: int = 10
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> "ROS2Config":
@@ -215,6 +216,7 @@ class ROS2Config:
             observations=observations,
             action_topic=data.get("action_topic", "/srl/action"),
             action_msg_type=data.get("action_msg_type", "Float32MultiArray"),
+            action_queue_size=int(data.get("action_queue_size", 10)),
         )
 
 

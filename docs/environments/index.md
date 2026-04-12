@@ -2,6 +2,8 @@
 
 SRL supports all **continuous action space** environments across four suites.
 
+If you are working with a separate Isaac Lab task repository such as `M3bot`, see the dedicated [M3bot](m3bot.md) page for the verified machine-specific setup and runtime notes.
+
 ---
 
 ## Summary table
@@ -30,6 +32,10 @@ SRL supports all **continuous action space** environments across four suites.
 | Isaac-Cartpole-v0 | Isaac Lab | PPO | 4 | 1 | ~500k |
 | Isaac-Ant-v0 | Isaac Lab | PPO | 60 | 8 | ~5M |
 | Isaac-Humanoid-v0 | Isaac Lab | PPO | 87 | 21 | ~10M |
+| Isaac-M3-Reach-v0 | M3bot / Isaac Lab | PPO | 19 | 4 | smoke-validated |
+| Isaac-M3-Lift-v0 | M3bot / Isaac Lab | PPO | 28 | 5 | not yet locally verified |
+| Isaac-M3-Push-v0 | M3bot / Isaac Lab | PPO | 22 | 4 | not yet locally verified |
+| Isaac-M3-PickPlace-v0 | M3bot / Isaac Lab | PPO | 27 | 5 | not yet locally verified |
 
 \* Flat concatenation: `[observation | achieved_goal | desired_goal]`  
 \** Exact flattened obs dimension may vary by racecar_gym build/config.
@@ -47,3 +53,5 @@ SRL supports all **continuous action space** environments across four suites.
 | `IsaacLabWrapper` | `srl/envs/isaac_lab_wrapper.py` | Isaac Lab GPU envs |
 | `SyncVectorEnv` | `srl/envs/sync_vector_env.py` | Multiple envs, sequential |
 | `AsyncVectorEnv` | `srl/envs/async_vector_env.py` | Multiple envs, parallel |
+
+`M3bot` itself is not bundled into SRL as a built-in environment package. It is documented here because it is an active Isaac Lab task repo validated alongside SRL on the same machine.

@@ -83,6 +83,9 @@ class SACConfig:
     use_fp16: bool = False
     replay_n_step: int = 1
     replay_num_envs: int = 1
+    # Encoder update frequency: encoder_optimizer steps every N critic updates.
+    # 1 = every critic step (default, same as pre-v0.2 behaviour for state tasks).
+    encoder_update_freq: int = 1
 
 
 @dataclass
@@ -106,6 +109,7 @@ class DDPGConfig:
     use_fp16: bool = False
     replay_n_step: int = 1
     replay_num_envs: int = 1
+    encoder_update_freq: int = 1
 
 
 @dataclass
@@ -117,6 +121,7 @@ class TD3Config:
     gamma: float = 0.99
     tau: float = 0.005
     action_dim: int = 0
+    encoder_update_freq: int = 1
     learning_starts: int = 10_000
     start_steps: int | None = None
     update_after: int | None = None
@@ -148,11 +153,38 @@ class VisualPPOConfig(PPOConfig):
 @dataclass
 class VisualSACConfig(SACConfig):
     encoder_lr: float = 1e-4
+    # Encoder update frequency for vision SAC defaults to 2 (DrQ-v2 style).
+    encoder_update_freq: int = 2
+    # When True, encoder receives gradients from critic loss in addition to aux
+    # loss.  When False, encoder is detached from critic backward pass and
+    # learns *only* through the selected aux_loss_type.
+    encoder_optimize_with_critic: bool = True
+    # Unsupervised / self-supervised auxiliary loss for the visual encoder.
+    # "none"    – no aux loss (pure RL signal via critic when
+    #             encoder_optimize_with_critic=True)
+    # "ae"      – pixel reconstruction (autoencoder, MSE)
+    # "vae"     – variational autoencoder (MSE recon + KL divergence)
+    # "curl"    – contrastive InfoNCE with momentum encoder (CURL)
+    # "byol"    – BYOL bootstrap + momentum encoder
+    # "drq"     – augmented Q-consistency (DrQ-v2)
+    # "spr"     – self-predictive latent forward model (SPR)
+    # "barlow"  – Barlow Twins redundancy reduction
     aux_loss_type: str = "curl"
     aux_weight: float = 0.1
-    augmentation_mode: str = "curl"
+    augmentation_mode: str = "curl"  # "drq" | "curl" | "aggressive"
     latent_dim: int = 256
-    momentum_tau: float = 0.99   # momentum encoder update rate
+    momentum_tau: float = 0.99   # momentum encoder EMA rate
+
+
+@dataclass
+class AsyncRunnerConfig:
+    """Optional async data-collection / training separation."""
+    use_async: bool = False
+    use_gpu_buffer: bool = False
+    # Number of transitions the collector pre-fills before starting updates.
+    prefill_steps: int = 0
+    # Internal queue depth between collector and trainer (async mode only).
+    queue_maxsize: int = 2
 
 
 @dataclass

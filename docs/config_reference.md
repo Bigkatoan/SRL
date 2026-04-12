@@ -225,6 +225,15 @@ Common `HeadConfig` fields:
 | `sac_temperature` | Alpha auto-tuning | SAC |
 | `ddpg_critic` | Bellman MSE | DDPG |
 | `ddpg_actor` | Deterministic policy | DDPG |
+| `td3_critic` | Bellman MSE (twin) | TD3 |
+| `td3_actor` | Deterministic policy | TD3 |
+| `aux_reconstruction` | Autoencoder MSE reconstruction | SAC (ae / vae) |
+| `aux_curl` | InfoNCE contrastive loss | SAC (curl) |
+| `aux_byol` | BYOL self-prediction loss | SAC (byol) |
+| `aux_vae` | VAE MSE + KL divergence | SAC (vae) |
+| `aux_drq` | DrQ Q-value augmentation consistency | SAC (drq) |
+| `aux_spr` | SPR latent forward-prediction | SAC (spr) |
+| `aux_barlow` | Barlow Twins redundancy reduction | SAC (barlow) |
 
 Loss entries also support a `schedule` field with the current built-in options `constant`, `linear_decay`, and `cosine`.
 
@@ -274,3 +283,47 @@ flows:
   - "lidar_enc -> actor"
   - "lidar_enc -> critic"
 ```
+
+---
+
+## Encoder optimizer fields (v0.2.0)
+
+These fields appear on `SACConfig`, `DDPGConfig`, `TD3Config`, and `VisualSACConfig`.
+
+| Field | Type | Default | Meaning |
+|---|---|---|---|
+| `encoder_update_freq` | `int` | `1` (state), `2` (visual) | Step the encoder optimizer every N critic updates |
+
+`VisualSACConfig`-only fields:
+
+| Field | Type | Default | Meaning |
+|---|---|---|---|
+| `encoder_optimize_with_critic` | `bool` | `True` | Allow critic gradients to flow into the encoder |
+| `aux_loss_type` | `str` | `"curl"` | Auxiliary encoder loss: `none \| ae \| vae \| curl \| byol \| drq \| spr \| barlow` |
+| `lr_encoder` | `float` | `1e-4` | Learning rate for the dedicated encoder optimizer |
+
+---
+
+## AsyncRunnerConfig (v0.2.0)
+
+Controls `AsyncOffPolicyRunner`. Pass an instance under `runner_cfg` to the CLI or
+construct it directly.
+
+| Field | Type | Default | Meaning |
+|---|---|---|---|
+| `use_async` | `bool` | `False` | Split collection and training into separate threads |
+| `use_gpu_buffer` | `bool` | `False` | Replace the CPU replay buffer with `GPUReplayBuffer` |
+| `prefill_steps` | `int` | `1000` | Random-action prefill before gradient updates start |
+| `queue_maxsize` | `int` | `4` | Max transitions queued between collector and trainer |
+
+```python
+from srl.core.config import AsyncRunnerConfig
+
+runner_cfg = AsyncRunnerConfig(
+    use_async      = True,
+    use_gpu_buffer = True,
+    prefill_steps  = 5000,
+)
+```
+
+See [async_runner.md](async_runner.md) for the full runner API.

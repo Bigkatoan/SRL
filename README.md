@@ -11,6 +11,7 @@ SRL is a modular reinforcement learning library for continuous-control environme
 - Pipeline visualization export for model graphs and training graphs
 - Checkpoint save and resume support from the training CLI
 - Optional ROS 2 Python API for inference
+- **v0.2.0** — encoder optimizer fix, async off-policy runner, GPU replay buffer, expanded encoder loss modes (AE/VAE/CURL/BYOL/DrQ/SPR/Barlow Twins)
 
 ## Install
 
@@ -44,6 +45,11 @@ srl-visualize --help
 ```
 
 If those commands are missing, SRL is not installed into the currently active environment yet. See the installation guide and CLI reference for the fallback `python -m ...` path.
+
+If you are also working with the separate `M3bot` Isaac Lab task repository on this machine, see the SRL docs pages for the verified environment layout and task-specific setup:
+
+- Installation note: https://bigkatoan.github.io/SRL/installation
+- M3bot environment guide: https://bigkatoan.github.io/SRL/environments/m3bot
 
 ## Quick start
 
@@ -110,6 +116,7 @@ srl-benchmark --config configs/envs/halfcheetah_sac.yaml \
 | MuJoCo | HalfCheetah, Ant, Hopper, Walker2d, Humanoid, Swimmer, Pusher, Reacher | `GymnasiumWrapper` |
 | Robotics | FetchReach, FetchPush, FetchPickAndPlace, FetchSlide | `GoalEnvWrapper` |
 | Isaac Lab | Isaac-Cartpole, Isaac-Ant, Isaac-Humanoid | `IsaacLabWrapper` |
+| M3bot task repo | Isaac-M3-Reach, Isaac-M3-Lift, Isaac-M3-Push, Isaac-M3-PickPlace | external Isaac Lab task repo |
 | racecar_gym | SingleAgentAustria | `RacecarWrapper` |
 
 ## Testing
@@ -150,6 +157,7 @@ bash run_full_matrix_benchmark.sh --skip-install --python tests/venv/bin/python 
 - YAML core guide: https://bigkatoan.github.io/SRL/yaml_core
 - CLI reference: https://bigkatoan.github.io/SRL/cli
 - Environments: https://bigkatoan.github.io/SRL/environments/
+- M3bot environment guide: https://bigkatoan.github.io/SRL/environments/m3bot
 - Config reference: https://bigkatoan.github.io/SRL/config_reference
 - Limitations: https://bigkatoan.github.io/SRL/limitations
 - ROS 2 Python API: https://bigkatoan.github.io/SRL/ros2

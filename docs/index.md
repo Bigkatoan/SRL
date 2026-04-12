@@ -12,14 +12,17 @@ for continuous action-space environments.
 
 ## Features
 
-- **Algorithms**: PPO, SAC, DDPG, A2C, A3C — all supporting continuous actions
+- **Algorithms**: PPO, SAC, DDPG, TD3, A2C, A3C — all supporting continuous actions
 - **YAML-first model system**: declare encoders, heads, flows, and multimodal routing as data
 - **Multi-modal inputs**: state, pixels, lidar, text — all in one model
 - **Vectorised training**: `SyncVectorEnv` and `AsyncVectorEnv` for fast data collection
 - **Goal-conditioned RL**: `GoalEnvWrapper` for gymnasium-robotics Fetch tasks
-- **Isaac Lab support**: headless testing and training for PPO, A2C, SAC, and DDPG
+- **Isaac Lab support**: headless testing and training for PPO, A2C, SAC, DDPG, and TD3
 - **ROS 2 Python API**: integrate trained agents into your own ROS 2 code
 - **CLI**: `srl-train --config ... --env ... --algo ...`
+- **Async off-policy runner**: decoupled collector/trainer threads for Isaac Lab throughput
+- **GPU replay buffer**: zero-copy CUDA circular buffer for pixel-based Isaac Lab tasks
+- **Stable visual RL**: separate encoder optimizer, `encoder_update_freq`, and 8 encoder loss modes
 
 ---
 

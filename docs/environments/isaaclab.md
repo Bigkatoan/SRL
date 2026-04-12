@@ -60,11 +60,67 @@ srl-train --config configs/envs/isaaclab_humanoid_ppo.yaml \
 
 The example script path still exists, but the CLI path matches the package's YAML-first workflow more closely.
 
+## Bootstrap order
+
+Isaac Lab is sensitive to import order and active environment selection. The stable order is:
+
+1. Activate the Isaac Sim / Isaac Lab environment
+2. Confirm `python -c "import isaaclab"` works in that shell
+3. Install SRL into that same environment
+4. Run `srl-train` from that same shell
+
+If you install SRL into one Python environment and activate Isaac Lab in another, the CLI may exist but imports will still fail at runtime.
+
+## Env-id normalization
+
+The training CLI normalizes Isaac Lab names to the internal `isaaclab:<task>` form when the environment family is Isaac Lab.
+
+That means these user-facing values are treated as equivalent in the CLI path:
+
+- `Isaac-Cartpole-v0`
+- `isaaclab:Isaac-Cartpole-v0`
+
+Use the plain task name in docs and commands unless you are debugging lower-level environment bootstrapping.
+
 ## Runtime notes
 
 - Isaac Lab bootstrap must happen from a Python environment where Isaac Lab and Isaac Sim are already activated.
 - Isaac Lab's internal vectorization is distinct from SRL's sync/async Gymnasium vectorization modes.
 - The current integration assumes the task name, config, and observation routing conventions stay aligned with the provided YAML files.
+- Observation groups returned by Isaac Lab are preserved as dict keys by [isaac_lab_wrapper.py](/home/ubuntu/antd/SRL/srl/envs/isaac_lab_wrapper.py). In practice, encoder names or `input_name` mappings must match those observation-group keys.
+- Image observations returned as HWC are transposed to CHW to match SRL CNN encoder expectations.
+
+## M3bot on this machine
+
+The separate `M3bot` task repository has also been validated locally against an Isaac Lab runtime on this machine.
+
+Verified paths:
+
+- M3bot repo: `/home/ubuntu/antd/tests/M3bot`
+- Isaac runtime: `/home/ubuntu/antd/isaaclab/venv/bin/python`
+
+Verified commands:
+
+```bash
+cd /home/ubuntu/antd/tests/M3bot
+python3 tools/validate_source.py
+
+OMNI_KIT_ACCEPT_EULA=YES /home/ubuntu/antd/isaaclab/venv/bin/python \
+  train.py --task Isaac-M3-Reach-v0 --headless --num_envs 64 --max_iterations 1
+
+OMNI_KIT_ACCEPT_EULA=YES /home/ubuntu/antd/isaaclab/venv/bin/python \
+  play.py --task Isaac-M3-Reach-v0 --headless \
+  --checkpoint logs/rsl_rl/m3_reach/<timestamp>/model_0.pt \
+  --video --video_length 8
+```
+
+Current local status:
+
+- state tasks: verified runnable
+- checkpoint load + JIT/ONNX export: verified runnable
+- vision tasks: not yet verified on the current Isaac runtime because the local `isaaclab_rl.rsl_rl` API does not expose the model-config classes expected by the `M3bot` vision PPO configs
+
+For the full task-specific installation and validation notes, see [M3bot](m3bot.md).
 
 ---
 
@@ -111,3 +167,25 @@ Reference configs in this repo:
 - [isaaclab_cartpole_ppo.yaml](/home/ubuntu/antd/SRL/configs/envs/isaaclab_cartpole_ppo.yaml)
 - [isaaclab_ant_ppo.yaml](/home/ubuntu/antd/SRL/configs/envs/isaaclab_ant_ppo.yaml)
 - [isaaclab_humanoid_ppo.yaml](/home/ubuntu/antd/SRL/configs/envs/isaaclab_humanoid_ppo.yaml)
+
+## Troubleshooting
+
+### `ModuleNotFoundError` for Isaac Lab packages
+
+You are not running inside the Isaac Lab Python environment, or SRL was installed into a different interpreter.
+
+### CLI works but training still fails during startup
+
+That usually means the console script exists, but Isaac Sim or Isaac Lab dependencies are not importable in the active shell.
+
+### Wrong observation routing
+
+Inspect the observation-group keys returned by the environment and ensure your YAML encoder names or explicit `input_name` values line up with those keys.
+
+### Large `n_envs` is unstable on your machine
+
+Reduce `n_envs`, batch size, and rollout length together. Isaac Lab configs assume substantial GPU memory and fast device-side stepping.
+
+### M3bot state tasks run but vision tasks fail during config import
+
+That usually means your local Isaac Lab runtime does not expose the newer `isaaclab_rl.rsl_rl` vision model-config API expected by the task repository. In that case, keep state-task validation separate from vision-task readiness and either upgrade the Isaac runtime or migrate the vision PPO config layer.

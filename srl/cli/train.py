@@ -723,6 +723,50 @@ def _run_on_policy(agent, env, args, callbacks, logger, *, start_step: int = 0, 
 def _run_off_policy(agent, env, args, callbacks, logger, *, start_step: int = 0, device: str = "cpu") -> None:
     import torch, numpy as np
 
+    # ------------------------------------------------------------------
+    # Async / GPU-buffer fast path (v0.2.0)
+    # Activated when train config carries AsyncRunnerConfig with
+    # use_async=True or use_gpu_buffer=True.
+    # ------------------------------------------------------------------
+    _runner_cfg = getattr(args, "runner_cfg", None)
+    if _runner_cfg is None:
+        # Check if algo_config dict has runner_cfg keys
+        _algo_cfg = getattr(args, "algo_config", {}) or {}
+        if isinstance(_algo_cfg, dict) and (_algo_cfg.get("use_async") or _algo_cfg.get("use_gpu_buffer")):
+            from srl.core.config import AsyncRunnerConfig
+            _runner_cfg = AsyncRunnerConfig(
+                use_async=bool(_algo_cfg.get("use_async", False)),
+                use_gpu_buffer=bool(_algo_cfg.get("use_gpu_buffer", False)),
+            )
+
+    if _runner_cfg is not None and (_runner_cfg.use_async or _runner_cfg.use_gpu_buffer):
+        from srl.runners import AsyncOffPolicyRunner
+        _random_steps = getattr(agent.cfg, "start_steps", None) or getattr(agent.cfg, "learning_starts", 10_000)
+        _update_after = getattr(agent.cfg, "update_after", None) or getattr(agent.cfg, "learning_starts", 10_000)
+        _update_every = getattr(agent.cfg, "update_every", None) or getattr(agent.cfg, "train_freq", 1)
+        _gradient_steps = max(int(getattr(agent.cfg, "gradient_steps", 1)), 1)
+
+        def _log_fn(step: int, metrics: dict) -> None:
+            logger.set_step(step)
+            logger.record_metrics(metrics, step=step, total_steps=args.steps)
+            for cb in callbacks:
+                cb.on_step_end(step, metrics)
+
+        runner = AsyncOffPolicyRunner(
+            agent=agent,
+            env=env,
+            total_steps=args.steps - start_step,
+            runner_cfg=_runner_cfg,
+            log_fn=_log_fn,
+            device=device,
+            random_steps=int(_random_steps),
+            update_after=int(_update_after),
+            update_every=int(_update_every),
+            gradient_steps=_gradient_steps,
+        )
+        runner.run()
+        return
+
     random_steps = getattr(agent.cfg, "start_steps", None)
     if random_steps is None:
         random_steps = getattr(agent.cfg, "learning_starts", 10_000)

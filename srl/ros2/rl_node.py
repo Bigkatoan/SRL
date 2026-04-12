@@ -34,6 +34,7 @@ from typing import Any
 import numpy as np
 
 from srl.registry.config_schema import AgentModelConfig, ROS2Config
+from srl.ros2.message_resolver import resolve_msg_type
 from srl.utils.obs_remap import apply_obs_remap
 
 # -------------------------------------------------------------------------
@@ -77,9 +78,12 @@ class RLInferenceNode(Node):
         self,
         model: Any,
         obs_topics: dict[str, str],
+        obs_msg_types: dict[str, Any] | None = None,
+        obs_queue_sizes: dict[str, int] | None = None,
         action_topic: str = "/srl/action",
         action_msg_type: Any = None,
         obs_msg_type: Any = None,
+        action_queue_size: int = 10,
         hz: float = 20.0,
         device: str = "cpu",
     ) -> None:
@@ -99,6 +103,8 @@ class RLInferenceNode(Node):
         self._encoder_input_names = dict(getattr(self.model, "encoder_input_names", {}))
 
         self._hidden: dict[str, Any] = {}
+        obs_msg_types = obs_msg_types or {}
+        obs_queue_sizes = obs_queue_sizes or {}
         self._obs_buffers: dict[str, deque] = {
             name: deque(maxlen=1) for name in obs_topics
         }
@@ -106,18 +112,24 @@ class RLInferenceNode(Node):
 
         # Register subscribers
         for enc_name, topic in obs_topics.items():
-            if obs_msg_type is not None:
+            resolved_obs_msg_type = obs_msg_types.get(enc_name, obs_msg_type)
+            resolved_queue_size = int(obs_queue_sizes.get(enc_name, 10))
+            if resolved_obs_msg_type is not None:
                 self.create_subscription(
-                    obs_msg_type,
+                    resolved_obs_msg_type,
                     topic,
                     lambda msg, n=enc_name: self._obs_callback(n, msg),
-                    10,
+                    resolved_queue_size,
                 )
 
         # Action publisher
         self._action_pub = None
         if action_msg_type is not None:
-            self._action_pub = self.create_publisher(action_msg_type, action_topic, 10)
+            self._action_pub = self.create_publisher(
+                action_msg_type,
+                action_topic,
+                int(action_queue_size),
+            )
 
         # Main inference timer
         period = 1.0 / hz
@@ -229,12 +241,24 @@ def main(args=None):
     action_topic = ros2_cfg.action_topic
 
     from std_msgs.msg import Float32MultiArray
+    obs_msg_types = {
+        name: resolve_msg_type(spec.msg_type, Float32MultiArray)
+        for name, spec in ros2_cfg.observations.items()
+    }
+    obs_queue_sizes = {
+        name: spec.queue_size
+        for name, spec in ros2_cfg.observations.items()
+    }
+    action_msg_type = resolve_msg_type(ros2_cfg.action_msg_type, Float32MultiArray)
     node = RLInferenceNode(
         model=model,
         obs_topics=obs_topics,
+        obs_msg_types=obs_msg_types,
+        obs_queue_sizes=obs_queue_sizes,
         action_topic=action_topic,
-        action_msg_type=Float32MultiArray,
+        action_msg_type=action_msg_type,
         obs_msg_type=Float32MultiArray,
+        action_queue_size=ros2_cfg.action_queue_size,
         hz=hz,
         device=device,
     )

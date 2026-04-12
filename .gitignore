@@ -210,8 +210,7 @@ __marimo__/
 tests/
 !tests/
 tests/*
-!tests/test_obs_remap.py
-!tests/test_ros2_config.py
+!tests/test_*.py
 venv/
 *.pt
 *.safetensors

@@ -41,6 +41,7 @@ nav:
     - Quick Start: quickstart.md
     - YAML Core Guide: yaml_core.md
     - CLI Reference: cli.md
+    - Checkpointing: checkpointing.md
   - Environments:
     - Overview: environments/index.md
     - Classic Control: environments/classic_control.md
@@ -49,6 +50,7 @@ nav:
     - Gymnasium Robotics: environments/robotics.md
     - racecar_gym: environments/racecar.md
     - Isaac Lab: environments/isaaclab.md
+    - M3bot: environments/m3bot.md
   - Algorithms: algorithms.md
   - Configuration Reference: config_reference.md
   - Limitations: limitations.md

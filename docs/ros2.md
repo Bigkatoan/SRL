@@ -1,6 +1,6 @@
 # ROS 2 Python API
 
-SRL exposes ROS 2 integration as an optional Python API. It is not a ROS 2 package and it does not ship launch files.
+SRL exposes ROS 2 integration as an optional Python API. The runtime node is still Python-first, but the repo now also includes an `ament` starter template under `templates/ros2/srl_inference_pkg/`.
 
 ## What it provides
 
@@ -9,6 +9,7 @@ SRL exposes ROS 2 integration as an optional Python API. It is not a ROS 2 packa
 - Action publication from model output
 - Optional integration when `rclpy` is available in the local ROS 2 installation
 - YAML-driven topic configuration through a top-level `ros2` block consumed by the current inference node
+- Configurable per-topic message types and queue sizes for the current inference node
 
 ## Usage
 
@@ -23,7 +24,7 @@ rclpy.init()
 
 model = ModelBuilder.from_yaml("configs/envs/halfcheetah_sac.yaml")
 checkpoint = torch.load("checkpoint.pt", map_location="cpu", weights_only=False)
-model.load_state_dict(checkpoint["model"])
+model.load_state_dict(checkpoint["model_state"])
 
 node = RLInferenceNode(
     model=model,
@@ -56,14 +57,32 @@ encoders:
 
 ros2:
     observations:
-        visual_enc: /camera/image_raw
-        state_enc: /robot/joint_states
+        visual_enc:
+            topic: /camera/image_raw
+            msg_type: sensor_msgs/Image
+            queue_size: 2
+        state_enc:
+            topic: /robot/joint_states
+            msg_type: std_msgs/Float32MultiArray
+            queue_size: 10
     action_topic: /robot/cmd_vel
+    action_msg_type: std_msgs/Float32MultiArray
+    action_queue_size: 10
 ```
 
 This pattern already exists in [sac_multimodal.yaml](/home/ubuntu/antd/SRL/configs/sac_multimodal.yaml).
 
 The current preferred key is `ros2.observations`. Legacy `ros2.obs_topics` remains the backward-compatible fallback for older configs.
+
+Each observation entry may be either:
+
+- a plain topic string
+- or a structured mapping with `topic`, optional `msg_type`, and optional `queue_size`
+
+`msg_type` accepts either:
+
+- ROS short names such as `std_msgs/Float32MultiArray`
+- or dotted Python import paths such as `std_msgs.msg.Float32MultiArray`
 
 ## Message model
 
@@ -73,6 +92,29 @@ The current preferred key is `ros2.observations`. Legacy `ros2.obs_topics` remai
 | Action | `std_msgs/Float32MultiArray` | Continuous action vector |
 
 The current default path is best suited for flattened vector observations. More complex message types such as camera images or richer robot state messages still need careful adaptation or subclassing.
+
+Queue sizing is also configurable from YAML:
+
+- per observation via `ros2.observations.<name>.queue_size`
+- for the action publisher via `ros2.action_queue_size`
+
+If queue sizes are omitted, the node falls back to its default queue settings.
+
+## Deployment path
+
+There are now two supported starting points:
+
+1. Direct Python embedding with `RLInferenceNode`
+2. The `ament_python` starter package template in `templates/ros2/srl_inference_pkg/`
+
+The template includes:
+
+- `package.xml`
+- `setup.py` / `setup.cfg`
+- a launch file
+- a small launcher node that loads the SRL YAML config and checkpoint from ROS parameters
+
+This is still a starter path, not a fully productized ROS 2 distribution.
 
 ## Dependency model
 
@@ -87,7 +129,7 @@ If `rclpy` is unavailable, the ROS 2 API remains optional and the rest of SRL st
 
 ## Current limitations
 
-- SRL is not yet distributed as an `ament` ROS 2 package.
-- The current node is Python-API-first and does not ship launch files.
-- Topic routing exists in YAML, but that section is not yet validated by `config_schema.py`.
-- The inference node still needs stronger parity with the observation remapping logic used during training and normal runtime model execution.
+- SRL itself is not yet distributed as an installable `ament` ROS 2 package.
+- The starter template is intentionally minimal and expects you to adapt package naming, dependencies, and launch behavior.
+- The built-in node assumes observation messages can be converted into arrays that match the model input contract.
+- Complex message decoding, image preprocessing, transforms, and robot-specific adapters are still deployment-side work.

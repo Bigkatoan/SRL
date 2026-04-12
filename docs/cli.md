@@ -59,6 +59,22 @@ Important flag groups from [train.py](/home/ubuntu/antd/SRL/srl/cli/train.py):
 - Pipeline export: `--save-model-pipeline`, `--save-training-pipeline`, `--export-pipeline-only`
 - Evaluation: `--eval-freq`, `--eval-episodes`, `--render`
 
+### Evaluation semantics
+
+The evaluation flags schedule periodic evaluation phases inside the training run:
+
+- `--eval-freq 0` disables evaluation entirely
+- `--eval-freq N` requests evaluation every `N` counted training steps
+- `--eval-episodes K` controls how many episodes are rolled out per evaluation phase
+
+Evaluation metrics are written into the same run artifacts as training metrics. The most important keys are typically:
+
+- `eval/score_mean`
+- `eval/score_std`
+- `eval/episode_length_mean`
+
+Whether all of these appear depends on the environment and the current training loop, so treat `summary.json` as the source of truth for a specific run.
+
 Example: resume from a checkpoint.
 
 ```bash
@@ -105,6 +121,61 @@ Supported modes:
 
 `srl-benchmark` is useful for comparing throughput and basic training behavior, not for replacing long-form experiment tracking.
 
+### Benchmark output JSON schema
+
+If `--output` is provided, `srl-benchmark` writes one JSON array entry per benchmark mode.
+
+Each case has this shape:
+
+```json
+[
+    {
+        "mode": "sync",
+        "returncode": 0,
+        "elapsed_sec": 12.34,
+        "metrics": {
+            "train/fps": 1543.2,
+            "eval/score_mean": 87.5
+        },
+        "stdout": "...",
+        "stderr": "...",
+        "judge": {
+            "status": "pass",
+            "target": {"eval_score_min": 50.0},
+            "eval_score": 87.5
+        }
+    }
+]
+```
+
+Notes:
+
+- `metrics` is a merged view of parsed console metrics and `summary.json` metrics when a summary file exists
+- `stdout` and `stderr` are the raw captured outputs for that benchmark case
+- `judge` is included after optional target-file comparison
+
+### Target-file YAML schema
+
+If `--target-file` is provided, it should be a YAML mapping keyed by config stem.
+
+Example:
+
+```yaml
+halfcheetah_sac:
+    eval_score_min: 1000.0
+
+pendulum_ppo:
+    eval_score_min: -300.0
+```
+
+Judging is currently minimal:
+
+- the benchmark looks up the current config stem in the target file
+- it compares `eval/score_mean` against `eval_score_min`
+- result status becomes `pass`, `fail`, `no_target`, or `incomplete_target`
+
+This is an operational guardrail, not a full experiment validation system.
+
 ## `srl-visualize`
 
 `srl-visualize` renders model and training pipeline PNGs from a YAML config without launching a training run.
@@ -120,6 +191,18 @@ Important flags from [visualize.py](/home/ubuntu/antd/SRL/srl/cli/visualize.py):
 - Output control: `--output-dir`, `--model-output`, `--training-output`
 
 This command is the fastest way to inspect whether a YAML graph says what you think it says.
+
+## Run artifacts
+
+Training and benchmark runs can produce these operational artifacts under the selected log directory:
+
+- `summary.json`: final run summary and `last_metrics`
+- `metrics.jsonl`: append-only metric events
+- `history.csv`: flattened metric history table
+- `training_curves.png`: exported plots when plotting is enabled
+- checkpoint files under the configured checkpoint directory
+
+For checkpoint details and retention behavior, see [checkpointing.md](/home/ubuntu/antd/SRL/docs/checkpointing.md).
 
 ## Environment-specific notes
 

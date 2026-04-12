@@ -1,4 +1,12 @@
-"""DDPG (Deep Deterministic Policy Gradient) — off-policy, deterministic."""
+"""DDPG (Deep Deterministic Policy Gradient) — off-policy, deterministic.
+
+Changes in v0.2.0
+-----------------
+* Three separate optimizers: critic_optimizer, actor_optimizer, encoder_optimizer.
+  Encoder is updated only through critic backward — actor backward never touches
+  encoder weights, eliminating the effective 2× encoder LR bug.
+* encoder_update_freq (DDPGConfig): encoder_optimizer steps every N critic updates.
+"""
 
 from __future__ import annotations
 
@@ -80,14 +88,26 @@ class DDPG(BaseAgent):
 
         actor_encoder_params = _encoder_params_for_head(self.model, "actor")
         critic_encoder_params = _encoder_params_for_head(self.model, "critic")
+
+        # ------------------------------------------------------------------
+        # Three-optimizer design (v0.2.0): encoder separated from heads
+        # ------------------------------------------------------------------
+        self._encoder_param_list: list[nn.Parameter] = _unique_encoder_params(self.model)
+        _encoder_lr = getattr(self.cfg, "encoder_lr", self.cfg.lr_critic)
+        self.encoder_optimizer: torch.optim.Optimizer | None = (
+            torch.optim.Adam(self._encoder_param_list, lr=_encoder_lr)
+            if self._encoder_param_list
+            else None
+        )
         self.actor_optimizer = torch.optim.Adam(
-            list(self.model.actor.parameters()) + actor_encoder_params,
+            list(self.model.actor.parameters()),
             lr=self.cfg.lr_actor,
         )
         self.critic_optimizer = torch.optim.Adam(
-            list(self.model.critic.parameters()) + critic_encoder_params,
+            list(self.model.critic.parameters()),
             lr=self.cfg.lr_critic,
         )
+        self._encoder_update_counter: int = 0
 
         action_dim = self.cfg.action_dim or 1
         if self.cfg.action_noise == "ou":
@@ -157,9 +177,20 @@ class DDPG(BaseAgent):
             critic_loss = ddpg_q_loss(q_raw, target_q)
             q_for_log = q_raw
 
+        if self.encoder_optimizer is not None:
+            self.encoder_optimizer.zero_grad()
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
+
+        # Encoder step — every encoder_update_freq critic updates
+        self._encoder_update_counter += 1
+        freq = self.cfg.encoder_update_freq
+        if self.encoder_optimizer is not None and (self._encoder_update_counter % freq == 0):
+            self.encoder_optimizer.step()
+
+        # Zero encoder grads before actor backward
+        _zero_param_grads(self._encoder_param_list)
 
         # Actor
         actor_out = self.model(obs)["actor_out"]
@@ -175,6 +206,9 @@ class DDPG(BaseAgent):
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
+
+        # Zero encoder grads again — clean for next update() call
+        _zero_param_grads(self._encoder_param_list)
 
         _soft_update(self.model, self.target_model, self.cfg.tau)
         self._global_step += 1
@@ -192,14 +226,18 @@ class DDPG(BaseAgent):
         self.load_checkpoint_payload(ckpt)
 
     def checkpoint_payload(self) -> dict[str, object]:
-        return {
+        payload = {
             "model_state": self.model.state_dict(),
             "target_model_state": self.target_model.state_dict(),
             "actor_optimizer_state": self.actor_optimizer.state_dict(),
             "critic_optimizer_state": self.critic_optimizer.state_dict(),
             "replay_buffer_state": self.buffer.state_dict(),
             "algo_step": self._global_step,
+            "encoder_update_counter": self._encoder_update_counter,
         }
+        if self.encoder_optimizer is not None:
+            payload["encoder_optimizer_state"] = self.encoder_optimizer.state_dict()
+        return payload
 
     def load_checkpoint_payload(self, payload: dict[str, object]) -> None:
         model_state = payload.get("model_state", payload.get("model"))
@@ -218,11 +256,34 @@ class DDPG(BaseAgent):
         if replay_buffer_state is not None:
             self.buffer.load_state_dict(replay_buffer_state)
         self._global_step = int(payload.get("algo_step", payload.get("step", 0)))
+        self._encoder_update_counter = int(payload.get("encoder_update_counter", 0))
+        enc_opt = payload.get("encoder_optimizer_state")
+        if self.encoder_optimizer is not None and enc_opt is not None:
+            self.encoder_optimizer.load_state_dict(enc_opt)
 
 
 def _soft_update(src, tgt, tau):
     for sp, tp in zip(src.parameters(), tgt.parameters()):
         tp.data.mul_(1.0 - tau).add_(sp.data * tau)
+
+
+def _unique_encoder_params(model: nn.Module) -> list[nn.Parameter]:
+    seen: set[int] = set()
+    params: list[nn.Parameter] = []
+    encoders = getattr(model, "encoders", {})
+    for enc in encoders.values():
+        for p in enc.parameters():
+            if id(p) not in seen:
+                seen.add(id(p))
+                params.append(p)
+    return params
+
+
+def _zero_param_grads(params: list[nn.Parameter]) -> None:
+    for p in params:
+        if p.grad is not None:
+            p.grad.detach_()
+            p.grad.zero_()
 
 
 def _encoder_params_for_head(model: nn.Module, head_name: str) -> list[nn.Parameter]:
