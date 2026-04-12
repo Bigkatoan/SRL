@@ -40,6 +40,7 @@ nav:
     - Installation: installation.md
     - Quick Start: quickstart.md
     - YAML Core Guide: yaml_core.md
+    - Encoders: encoders.md
     - CLI Reference: cli.md
     - Checkpointing: checkpointing.md
     - Async Off-Policy Runner: async_runner.md
