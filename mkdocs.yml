@@ -91,6 +91,17 @@ plugins:
             docstring_style: google
             show_source: true
             show_root_heading: true
+  - i18n:
+      docs_structure: folder
+      languages:
+        - locale: en
+          name: English
+          default: true
+          link: /
+        - locale: vi
+          name: Tiếng Việt
+          link: /vi/
+      nav_translations: true
 
 markdown_extensions:
   - admonition
