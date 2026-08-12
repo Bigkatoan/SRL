@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 import torch
@@ -71,7 +72,12 @@ class PPO(BaseAgent):
                 for aux_name in self.model.aux_modules.keys():
                     if aux_name.endswith("_aux"):
                         enc_name = aux_name[:-4]
-                        enc = self.model.encoders.get(enc_name)
+                        # nn.ModuleDict has no .get() -- membership + indexing instead.
+                        enc = (
+                            self.model.encoders[enc_name]
+                            if enc_name in self.model.encoders
+                            else None
+                        )
                         if enc is not None:
                             aux_params += list(enc.parameters())
             if aux_params:
@@ -149,26 +155,33 @@ class PPO(BaseAgent):
         for _ in range(self.cfg.n_epochs):
             for mini in self.buffer.get_batches(self.cfg.batch_size):
                 obs = {k: v.to(self.device) for k, v in mini.obs.items()}
+                actions = mini.actions.to(self.device)
                 # Detach encoder latents so policy/value updates do not backpropagate
                 # into encoder parameters (encoders are updated only via aux optimizer).
-                result = self.model(obs, detach_encoders=True)
+                # actor_action=actions: re-evaluate the SAME action taken during
+                # rollout under the current policy (via the actor head's
+                # evaluate_actions()) instead of a freshly resampled one -- the
+                # PPO ratio exp(new_log_prob - old_log_prob) is only meaningful
+                # when both log-probs refer to the same action.
+                result = self.model(obs, detach_encoders=True, actor_action=actions)
                 actor_out = result["actor_out"]
 
                 if isinstance(actor_out, dict):
                     log_prob_eval = actor_out.get("log_prob")
-                    ent_raw = torch.zeros(1, device=self.device)
+                    ent_raw = actor_out.get("entropy")
+                    if ent_raw is None:
+                        dist = actor_out.get("dist")
+                        ent_raw = (
+                            dist.entropy()
+                            if dist is not None
+                            else torch.zeros(1, device=self.device)
+                        )
                 elif isinstance(actor_out, tuple):
                     _, log_prob_eval = actor_out
                     ent_raw = torch.zeros(1, device=self.device)
                 else:
                     log_prob_eval = actor_out
                     ent_raw = torch.zeros(1, device=self.device)
-
-                # Try to get entropy from distribution if available
-                if hasattr(self.model, "actor") and hasattr(self.model.actor, "get_distribution"):
-                    dist = self.model.actor.get_distribution(result.get("actor_latent", obs))
-                    if dist is not None:
-                        ent_raw = dist.entropy().mean()
                 ent = ent_raw
 
                 adv = mini.advantages.to(self.device)
@@ -209,8 +222,13 @@ class PPO(BaseAgent):
                 # Clip grads only for head params
                 try:
                     nn.utils.clip_grad_norm_(self._head_params, self.cfg.max_grad_norm)
-                except Exception:
+                except Exception as exc:
                     # Fallback to full model params if head list unavailable
+                    warnings.warn(
+                        f"Gradient clipping on _head_params failed ({exc!r}); "
+                        "clipping all model parameters instead.",
+                        stacklevel=2,
+                    )
                     nn.utils.clip_grad_norm_(self.model.parameters(), self.cfg.max_grad_norm)
                 self.optimizer.step()
 
@@ -250,7 +268,12 @@ class PPO(BaseAgent):
                         continue
                     obs_tensor = obs_tensor.to(self.device)
                     # Encoder forward (will create grads for encoder parameters)
-                    enc = self.model.encoders.get(enc_name) if enc_name else None
+                    # nn.ModuleDict has no .get() -- membership + indexing instead.
+                    enc = (
+                        self.model.encoders[enc_name]
+                        if enc_name and enc_name in self.model.encoders
+                        else None
+                    )
                     if enc is None:
                         continue
                     latent = enc(obs_tensor)
@@ -259,8 +282,13 @@ class PPO(BaseAgent):
                     # Try compute reconstruction loss if shapes match
                     try:
                         loss = reconstruction_loss(recon, obs_tensor)
-                    except Exception:
-                        # Unsupported aux head / loss combination — skip
+                    except Exception as exc:
+                        warnings.warn(
+                            f"Skipping aux loss for '{aux_name}': reconstruction_loss "
+                            f"raised {exc!r} (unsupported aux head / loss combination, "
+                            "or a shape mismatch worth checking).",
+                            stacklevel=2,
+                        )
                         continue
                     aux_loss = loss if aux_loss is None else aux_loss + loss
 
@@ -273,8 +301,15 @@ class PPO(BaseAgent):
                     try:
                         enc_params = self.encoder_optimizer.param_groups[0]["params"]
                         nn.utils.clip_grad_norm_(enc_params, self.cfg.max_grad_norm)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        # Not fatal (the un-clipped step below still runs), but
+                        # worth surfacing -- an unclipped encoder step can let
+                        # gradient explosions go unnoticed.
+                        warnings.warn(
+                            f"Gradient clipping on encoder_optimizer params failed "
+                            f"({exc!r}); proceeding with an unclipped encoder step.",
+                            stacklevel=2,
+                        )
                     self.encoder_optimizer.step()
 
         self.buffer.reset()

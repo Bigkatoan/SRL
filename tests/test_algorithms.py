@@ -10,13 +10,18 @@ run on every CI push.
 
 from __future__ import annotations
 
+import warnings
+from pathlib import Path
+
 import numpy as np
 import torch
+import yaml
 
 from srl.registry.builder import ModelBuilder
 
 OBS_DIM = 3
 ACTION_DIM = 2
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _param_sum(model: torch.nn.Module) -> float:
@@ -287,6 +292,54 @@ def test_td3_one_gradient_step_is_finite_and_moves_params() -> None:
     before = _param_sum(agent.model)
     _fill_replay_buffer(agent, n_transitions=16, rng=rng)
     metrics = agent.update()
+    after = _param_sum(agent.model)
+
+    _assert_finite_metrics(metrics)
+    assert before != after
+
+
+def test_ppo_visual_aux_loss_gradient_step_is_finite_and_moves_params() -> None:
+    """Regression test: PPO's __init__ and update() both called
+    nn.ModuleDict.get(), which doesn't exist (ModuleDict has no .get()) --
+    constructing a VisualPPOConfig agent for ANY aux-loss config (autoencoder/
+    contrastive/byol) crashed immediately, before a single gradient step.
+    Uses the repo's own shipped example config as the fixture, since the bug
+    is specifically about the encoder/aux-module wiring a real config
+    produces, not something easy to fake with a toy dict."""
+    from srl.algorithms.ppo import PPO
+    from srl.core.config import VisualPPOConfig
+
+    config_path = REPO_ROOT / "configs" / "envs" / "car_racing_ppo_visual.yaml"
+    with open(config_path) as f:
+        raw_cfg = yaml.safe_load(f)
+    input_shape = raw_cfg["encoders"][0]["input_shape"]
+    action_dim = raw_cfg["actor"]["action_dim"]
+
+    model = ModelBuilder.from_yaml(config_path)
+    agent = PPO(
+        model,
+        config=VisualPPOConfig(n_steps=4, num_envs=1, batch_size=4, n_epochs=1),
+        device="cpu",
+    )
+    assert agent.encoder_optimizer is not None
+
+    rng = np.random.default_rng(0)
+    for _ in range(4):
+        obs = {"policy": rng.standard_normal((1, *input_shape)).astype(np.float32)}
+        agent.buffer.add(
+            obs=obs,
+            action=rng.standard_normal((1, action_dim)).astype(np.float32),
+            reward=np.array([1.0], dtype=np.float32),
+            done=np.array([False]),
+            value=np.array([[0.0]], dtype=np.float32),
+            log_prob=np.array([0.0], dtype=np.float32),
+        )
+    agent.buffer.compute_returns_and_advantages(last_value=np.zeros(1, dtype=np.float32))
+
+    before = _param_sum(agent.model)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        metrics = agent.update()
     after = _param_sum(agent.model)
 
     _assert_finite_metrics(metrics)

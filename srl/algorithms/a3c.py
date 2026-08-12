@@ -127,19 +127,27 @@ def _worker_fn(
         }
         for mini in buffer.get_batches(config.batch_size):
             obs_b = {k: v for k, v in mini.obs.items()}
-            result = local_model(obs_b)
+            # actor_action=mini.actions: re-evaluate the action actually taken,
+            # not a freshly resampled one -- see PPO.update()'s comment on the
+            # same mechanism (AgentModel.forward's evaluate_actions() path).
+            result = local_model(obs_b, actor_action=mini.actions)
             actor_out = result["actor_out"]
             if isinstance(actor_out, dict):
                 log_prob = actor_out.get("log_prob")
+                ent = actor_out.get("entropy")
+                if ent is None:
+                    dist = actor_out.get("dist")
+                    ent = dist.entropy() if dist is not None else torch.zeros(1)
             elif isinstance(actor_out, tuple):
                 _, log_prob = actor_out
+                ent = torch.zeros(1)
             else:
                 log_prob = actor_out
+                ent = torch.zeros(1)
 
             adv = mini.advantages
             pol_loss = a2c_policy_loss(log_prob, adv)
             val_loss = a2c_value_loss(result["value"].squeeze(-1), mini.returns)
-            ent = torch.zeros(1)
             ent_loss = entropy_loss(ent)
             total = pol_loss + config.vf_coef * val_loss + config.entropy_coef * ent_loss
             losses.append(total)
