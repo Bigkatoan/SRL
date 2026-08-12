@@ -17,20 +17,38 @@ import yaml
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="srl-benchmark",
-        description="Benchmark SRL training throughput across sync / async / internal vectorization modes.",
+        description=(
+            "Benchmark SRL training throughput across sync / async / internal "
+            "vectorization modes."
+        ),
     )
     parser.add_argument("--config", required=True, help="Path to YAML config")
     parser.add_argument("--env", required=True, help="Gymnasium env id or isaaclab:<task>")
     parser.add_argument("--algo", default=None, help="Algorithm override")
-    parser.add_argument("--steps", type=int, default=12_000, help="Training steps per benchmark case")
+    parser.add_argument(
+        "--steps", type=int, default=12_000, help="Training steps per benchmark case"
+    )
     parser.add_argument("--n-envs", type=int, default=None, help="Parallel environments to request")
     parser.add_argument("--device", default="auto", help="cpu|cuda|auto")
-    parser.add_argument("--modes", default="sync,async", help="Comma-separated modes: single,sync,async,isaac")
+    parser.add_argument(
+        "--modes", default="sync,async", help="Comma-separated modes: single,sync,async,isaac"
+    )
     parser.add_argument("--log-interval", type=int, default=4_000, help="Progress logging interval")
     parser.add_argument("--episode-window", type=int, default=25, help="Rolling episode window")
-    parser.add_argument("--eval-freq", type=int, default=0, help="Evaluation frequency in counted steps (0 disables eval)")
-    parser.add_argument("--eval-episodes", type=int, default=5, help="Evaluation episodes per eval phase")
-    parser.add_argument("--target-file", default="", help="Optional YAML file with config targets for pass/fail judging")
+    parser.add_argument(
+        "--eval-freq",
+        type=int,
+        default=0,
+        help="Evaluation frequency in counted steps (0 disables eval)",
+    )
+    parser.add_argument(
+        "--eval-episodes", type=int, default=5, help="Evaluation episodes per eval phase"
+    )
+    parser.add_argument(
+        "--target-file",
+        default="",
+        help="Optional YAML file with config targets for pass/fail judging",
+    )
     parser.add_argument("--output", default="", help="Optional JSON output path")
     return parser
 
@@ -125,7 +143,9 @@ def _load_summary_metrics(logdir: Path, config_path: str, algo: str | None) -> d
         return {}
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     last_metrics = summary.get("last_metrics", {}) or {}
-    return {key: float(value) for key, value in last_metrics.items() if isinstance(value, (int, float))}
+    return {
+        key: float(value) for key, value in last_metrics.items() if isinstance(value, (int, float))
+    }
 
 
 def _infer_algo_name(config_path: str) -> str:
@@ -147,7 +167,9 @@ def _load_targets(target_file: str) -> dict[str, dict[str, float]]:
     return {str(key): value for key, value in data.items() if isinstance(value, dict)}
 
 
-def _judge_case(case: dict[str, object], targets: dict[str, dict[str, float]], config_path: str) -> dict[str, object]:
+def _judge_case(
+    case: dict[str, object], targets: dict[str, dict[str, float]], config_path: str
+) -> dict[str, object]:
     target = targets.get(Path(config_path).stem)
     if not target:
         return {"status": "no_target"}
@@ -178,7 +200,8 @@ def _print_summary(cases: list[dict[str, object]]) -> None:
             utd_ratio = metrics.get("train/utd_ratio")
         print(
             f"{case['mode']:<9} {case['returncode']!s:<7} {case['elapsed_sec']:<10.2f} "
-            f"{_fmt(fps):<8} {_fmt(eval_score):<11} {_fmt(critic_loss):<12} {_fmt(utd_ratio):<10} {judge.get('status', '-') }"
+            f"{_fmt(fps):<8} {_fmt(eval_score):<11} {_fmt(critic_loss):<12} "
+            f"{_fmt(utd_ratio):<10} {judge.get('status', '-')}"
         )
 
 

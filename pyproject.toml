@@ -58,8 +58,13 @@ all = [
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
-    "black>=23.0.0",
-    "ruff>=0.1.0",
+    # Pinned exactly (not >=): both tools' default/inferred rule sets have
+    # changed across releases in ways that silently changed what CI enforces
+    # (see [tool.ruff.lint] select below for the same reasoning applied to
+    # ruff's rule selection). Bump deliberately, not as a side effect of a
+    # routine `pip install -U`.
+    "black==26.5.1",
+    "ruff==0.16.2",
     "mypy>=1.8.0",
     "mkdocs>=1.5.0",
     "mkdocs-material>=9.0.0",
@@ -80,6 +85,18 @@ include = ["srl*"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint]
+# Explicit select so the enforced rule set is pinned by this file, not by
+# whatever ruff's "default" happens to be for the installed version -- ruff's
+# default rule set has changed across releases, which silently changed what
+# CI enforced. E/F/I/UP/B is a conventional, low-noise baseline (pycodestyle
+# errors, pyflakes, isort, pyupgrade, bugbear); intentionally excludes
+# flake8-bandit (S) and pylint (PLR) -- those flag legitimate patterns used
+# throughout this codebase (broad except around optional/GPU-only imports,
+# `import torch.nn as nn`) and would need per-call-site judgement, not a
+# mechanical fix.
+select = ["E", "F", "I", "UP", "B"]
 
 [tool.black]
 line-length = 100

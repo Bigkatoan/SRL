@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
 import warnings
+from typing import Any
 
 
 def apply_obs_remap(
@@ -74,7 +74,7 @@ def apply_obs_remap(
         fallback_mapping = {name: value for name in unnamed_encoders}
         used_obs_keys.update(remaining_obs.keys())
     elif len(remaining_obs) == len(unnamed_encoders) and len(remaining_obs) > 1:
-        fallback_mapping = dict(zip(unnamed_encoders, remaining_obs.values()))
+        fallback_mapping = dict(zip(unnamed_encoders, remaining_obs.values(), strict=True))
         used_obs_keys.update(remaining_obs.keys())
     else:
         fallback_mapping = remaining_obs

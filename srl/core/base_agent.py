@@ -21,7 +21,7 @@ class BaseAgent(abc.ABC):
     # ------------------------------------------------------------------
 
     @abc.abstractmethod
-    def learn(self, total_steps: int, callback=None) -> "BaseAgent":
+    def learn(self, total_steps: int, callback=None) -> BaseAgent:
         """Run the main training loop for *total_steps* environment steps."""
 
     @abc.abstractmethod
@@ -44,7 +44,7 @@ class BaseAgent(abc.ABC):
         path = Path(path)
         CheckpointManager(path.parent).save(self, tag=path.stem)
 
-    def load(self, path: str | Path) -> "BaseAgent":
+    def load(self, path: str | Path) -> BaseAgent:
         """Load checkpoint in-place and return *self*."""
         from srl.utils.checkpoint import CheckpointManager
 
@@ -55,11 +55,13 @@ class BaseAgent(abc.ABC):
     # Optional hooks
     # ------------------------------------------------------------------
 
-    def _on_step(self) -> None:
+    def _on_step(self) -> None:  # noqa: B027 (intentional no-op hook)
         """Called after every environment step. Override for custom logic."""
+        pass
 
-    def _on_episode_end(self) -> None:
+    def _on_episode_end(self) -> None:  # noqa: B027 -- see _on_step
         """Called at episode boundaries. Override for custom logic."""
+        pass
 
     # ------------------------------------------------------------------
     # Utilities

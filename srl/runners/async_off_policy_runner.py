@@ -47,9 +47,9 @@ Usage::
 
 from __future__ import annotations
 
-import time
 import threading
-from typing import Callable
+import time
+from collections.abc import Callable
 
 import torch
 
@@ -125,6 +125,7 @@ class AsyncOffPolicyRunner:
         # ------------------------------------------------------------------
         if self.cfg.use_gpu_buffer:
             from srl.core.gpu_replay_buffer import GPUReplayBuffer
+
             old_buf = agent.buffer
             agent.buffer = GPUReplayBuffer(
                 capacity=old_buf.capacity,
@@ -140,15 +141,13 @@ class AsyncOffPolicyRunner:
         # ------------------------------------------------------------------
         self._train_cond = threading.Condition(threading.Lock())
         self._stop_event = threading.Event()
-        self._pending_updates: int = 0       # number of update() calls queued
+        self._pending_updates: int = 0  # number of update() calls queued
         self._metrics_lock = threading.Lock()
         self._latest_metrics: dict[str, float] = {}
 
         # Trainer CUDA stream (separate from default stream used by collector)
         self._train_stream: torch.cuda.Stream | None = (
-            torch.cuda.Stream(device=self.device)
-            if self.device.type == "cuda"
-            else None
+            torch.cuda.Stream(device=self.device) if self.device.type == "cuda" else None
         )
 
     # ------------------------------------------------------------------
@@ -191,7 +190,9 @@ class AsyncOffPolicyRunner:
                 action = action_t.cpu().numpy() if hasattr(action_t, "cpu") else action_t
 
             result = self.env.step(action)
-            next_obs, reward, terminated, truncated, info = result if len(result) == 5 else (*result[:4], False)
+            next_obs, reward, terminated, truncated, info = (
+                result if len(result) == 5 else (*result[:4], False)
+            )
             done = terminated
 
             # Add to buffer — GPU buffer accepts CUDA tensors directly.
@@ -204,12 +205,20 @@ class AsyncOffPolicyRunner:
             # with `truncated` -- see replay_buffer.py's ReplayBatch
             # docstring for why SAC/DDPG/TD3's bootstrap target needs that.
             self.agent.buffer.add(
-                obs=obs_t, action=action_t, reward=reward, next_obs=self._obs_to_tensor(next_obs, self.device),
-                done=done, truncated=truncated,
+                obs=obs_t,
+                action=action_t,
+                reward=reward,
+                next_obs=self._obs_to_tensor(next_obs, self.device),
+                done=done,
+                truncated=truncated,
             )
 
             obs = next_obs
-            if isinstance(terminated, (bool,)) and terminated or (hasattr(terminated, "any") and terminated.any()):
+            if (
+                isinstance(terminated, (bool,))
+                and terminated
+                or (hasattr(terminated, "any") and terminated.any())
+            ):
                 obs, _ = self.env.reset()
 
             step += 1
@@ -245,7 +254,6 @@ class AsyncOffPolicyRunner:
         since_last_update = 0
         t_start = time.perf_counter()
         collect_steps = 0
-        train_steps_logged = 0
 
         try:
             while step < self.total_steps:
@@ -257,22 +265,32 @@ class AsyncOffPolicyRunner:
                     action_t = torch.as_tensor(action, dtype=torch.float32, device=self.device)
                 else:
                     action_t, _, _, _ = self.agent.predict(obs_t, deterministic=False)
-                    action = action_t.detach().cpu().numpy() if hasattr(action_t, "cpu") else action_t
+                    action = (
+                        action_t.detach().cpu().numpy() if hasattr(action_t, "cpu") else action_t
+                    )
 
                 result = self.env.step(action)
-                next_obs, reward, terminated, truncated, info = result if len(result) == 5 else (*result[:4], False)
+                next_obs, reward, terminated, truncated, info = (
+                    result if len(result) == 5 else (*result[:4], False)
+                )
                 done = terminated
 
                 # Keyword args -- see _run_sync's comment on the same call
                 # for why (ReplayBuffer/GPUReplayBuffer positional orders
                 # differ, and `done` must stay true-termination-only).
                 self.agent.buffer.add(
-                    obs=obs_t, action=action_t, reward=reward, next_obs=self._obs_to_tensor(next_obs, self.device),
-                    done=done, truncated=truncated,
+                    obs=obs_t,
+                    action=action_t,
+                    reward=reward,
+                    next_obs=self._obs_to_tensor(next_obs, self.device),
+                    done=done,
+                    truncated=truncated,
                 )
 
                 obs = next_obs
-                is_done = bool(terminated) if isinstance(terminated, bool) else bool(terminated.any())
+                is_done = (
+                    bool(terminated) if isinstance(terminated, bool) else bool(terminated.any())
+                )
                 if is_done:
                     obs, _ = self.env.reset()
 
@@ -306,9 +324,7 @@ class AsyncOffPolicyRunner:
     def _trainer_loop(self) -> None:
         """Background daemon: wait for signal, run gradient_steps updates."""
         stream_ctx = (
-            torch.cuda.stream(self._train_stream)
-            if self._train_stream is not None
-            else _nullctx()
+            torch.cuda.stream(self._train_stream) if self._train_stream is not None else _nullctx()
         )
         with stream_ctx:
             while not self._stop_event.is_set():
@@ -351,5 +367,9 @@ class AsyncOffPolicyRunner:
 
 class _nullctx:
     """No-op context manager for non-CUDA devices."""
-    def __enter__(self): return self
-    def __exit__(self, *_): pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        pass

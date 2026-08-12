@@ -17,7 +17,6 @@ Changes in v0.2.0
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING
 
 import torch
 import torch.nn as nn
@@ -26,22 +25,21 @@ import torch.nn.functional as F
 from srl.core.base_agent import BaseAgent
 from srl.core.config import SACConfig, VisualSACConfig
 from srl.core.replay_buffer import ReplayBuffer
+from srl.losses.aux_losses import (
+    barlow_twins_loss,
+    byol_loss,
+    drq_aug_loss,
+    info_nce_loss,
+    reconstruction_loss,
+    spr_loss,
+    vae_loss,
+)
 from srl.losses.rl_losses import (
     sac_policy_loss,
     sac_q_loss,
     sac_temperature_loss,
 )
-from srl.losses.aux_losses import (
-    info_nce_loss,
-    reconstruction_loss,
-    byol_loss,
-    vae_loss,
-    drq_aug_loss,
-    spr_loss,
-    barlow_twins_loss,
-)
 from srl.networks.encoders.augmentations import augment
-from srl.utils.checkpoint import CheckpointManager
 
 
 class SAC(BaseAgent):
@@ -169,7 +167,11 @@ class SAC(BaseAgent):
             result = self.model(obs, hidden_states=hidden)
         actor_out = result["actor_out"]
         if isinstance(actor_out, dict):
-            action = actor_out.get("mean", actor_out.get("action")) if deterministic else actor_out.get("action")
+            action = (
+                actor_out.get("mean", actor_out.get("action"))
+                if deterministic
+                else actor_out.get("action")
+            )
             log_prob = actor_out.get("log_prob")
         elif isinstance(actor_out, tuple):
             action, log_prob = actor_out
@@ -214,13 +216,15 @@ class SAC(BaseAgent):
             elif isinstance(next_actor_out, tuple):
                 next_action, next_log_prob = next_actor_out
             else:
-                next_action, next_log_prob = next_actor_out, torch.zeros(rewards.shape, device=self.device)
+                next_action, next_log_prob = next_actor_out, torch.zeros(
+                    rewards.shape, device=self.device
+                )
 
             next_q = self.target_model(next_obs, action=next_action)["value"]
             if isinstance(next_q, tuple):
                 next_q = torch.min(*next_q)
-            target_q = (
-                rewards + self.cfg.gamma * (1.0 - dones) * (next_q - self.alpha.detach() * next_log_prob)
+            target_q = rewards + self.cfg.gamma * (1.0 - dones) * (
+                next_q - self.alpha.detach() * next_log_prob
             )
 
         # When encoder should NOT receive gradients from critic, detach obs
@@ -397,8 +401,12 @@ class SAC(BaseAgent):
 
         elif mode == "drq":
             # DrQ: augmented Q-consistency (critic loss on two augmented views)
-            aug1 = {k: augment(v.float(), mode="drq") if v.dim() == 4 else v for k, v in obs.items()}
-            aug2 = {k: augment(v.float(), mode="drq") if v.dim() == 4 else v for k, v in obs.items()}
+            aug1 = {
+                k: augment(v.float(), mode="drq") if v.dim() == 4 else v for k, v in obs.items()
+            }
+            aug2 = {
+                k: augment(v.float(), mode="drq") if v.dim() == 4 else v for k, v in obs.items()
+            }
             q1_aug = self.model(aug1, action=actions)["value"]
             q2_aug = self.model(aug2, action=actions)["value"]
             if isinstance(q1_aug, tuple):
@@ -486,8 +494,9 @@ class SAC(BaseAgent):
 # Module-level helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def _soft_update(src: nn.Module, tgt: nn.Module, tau: float) -> None:
-    for sp, tp in zip(src.parameters(), tgt.parameters()):
+    for sp, tp in zip(src.parameters(), tgt.parameters(), strict=True):
         tp.data.mul_(1.0 - tau).add_(sp.data * tau)
 
 
@@ -520,6 +529,7 @@ def _detach_visual_obs(obs: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
 # Tiny model-introspection helpers for aux loss dispatch
 # ------------------------------------------------------------------
 
+
 def _encode_raw(model: nn.Module, obs: dict, key: str) -> torch.Tensor | None:
     """Run encoder for *key* and return the raw latent (no projection)."""
     encoders = getattr(model, "encoders", {})
@@ -544,6 +554,7 @@ def _encode_obs_vae(
 ) -> tuple[torch.Tensor, torch.Tensor] | None:
     """Return (mu, log_var) from a VAEHead if present."""
     from srl.networks.heads.aux_head import VAEHead  # local import to avoid cycles
+
     for module in model.modules():
         if isinstance(module, VAEHead):
             z = _encode_raw(model, obs, key)
@@ -556,6 +567,7 @@ def _encode_obs_vae(
 def _decode_latent(model: nn.Module, z: torch.Tensor, key: str) -> torch.Tensor | None:
     """Run ConvDecoderHead if present."""
     from srl.networks.heads.aux_head import ConvDecoderHead
+
     for module in model.modules():
         if isinstance(module, ConvDecoderHead):
             return module(z)
@@ -570,6 +582,7 @@ def _project_obs(
 ) -> torch.Tensor | None:
     """Encode augmented pixels, then apply ProjectionHead (online)."""
     from srl.networks.heads.aux_head import ProjectionHead
+
     z = _encode_raw_pixels(model, obs, key, aug_pixels)
     if z is None:
         return None
@@ -588,6 +601,7 @@ def _project_obs_momentum(
     """Encode augmented pixels through momentum encoder target, project."""
     from srl.networks.encoders.momentum_encoder import MomentumEncoder
     from srl.networks.heads.aux_head import ProjectionHead
+
     encoders = getattr(model, "encoders", {})
     for enc_name, enc in encoders.items():
         if not isinstance(enc, MomentumEncoder):
@@ -618,6 +632,7 @@ def _encode_raw_pixels(
 
 def _update_momentum_encoder(model: nn.Module, key: str) -> None:
     from srl.networks.encoders.momentum_encoder import MomentumEncoder
+
     encoders = getattr(model, "encoders", {})
     for enc_name, enc in encoders.items():
         if isinstance(enc, MomentumEncoder) and (key in enc_name or enc_name in key):

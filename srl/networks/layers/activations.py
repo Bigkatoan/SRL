@@ -22,7 +22,5 @@ _ACTIVATIONS: dict[str, type[nn.Module]] = {
 def get_activation(name: str, **kwargs) -> nn.Module:
     name = name.lower()
     if name not in _ACTIVATIONS:
-        raise ValueError(
-            f"Unknown activation '{name}'. Available: {sorted(_ACTIVATIONS)}"
-        )
+        raise ValueError(f"Unknown activation '{name}'. Available: {sorted(_ACTIVATIONS)}")
     return _ACTIVATIONS[name](**kwargs)

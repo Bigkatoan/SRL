@@ -6,9 +6,10 @@ import csv
 import json
 import time
 from collections import defaultdict, deque
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -163,7 +164,11 @@ class Logger:
     ) -> None:
         rewards = np.asarray(reward, dtype=np.float32).reshape(-1)
         dones = np.asarray(done, dtype=bool).reshape(-1)
-        truncs = np.zeros_like(dones) if truncated is None else np.asarray(truncated, dtype=bool).reshape(-1)
+        truncs = (
+            np.zeros_like(dones)
+            if truncated is None
+            else np.asarray(truncated, dtype=bool).reshape(-1)
+        )
 
         if not self._episode_returns or len(self._episode_returns) != len(rewards):
             self.configure_env(len(rewards))
@@ -207,7 +212,9 @@ class Logger:
         if extra:
             for key, value in extra.items():
                 extra_key = str(key)
-                self._rolling.setdefault(extra_key, deque(maxlen=self.config.episode_window)).append(float(value))
+                self._rolling.setdefault(
+                    extra_key, deque(maxlen=self.config.episode_window)
+                ).append(float(value))
                 payload[f"train/{extra_key}"] = float(value)
                 payload[f"train/{extra_key}_mean"] = self._rolling_mean(extra_key)
 
@@ -220,7 +227,9 @@ class Logger:
         self._closed = True
 
         summary = self._build_summary(status)
-        self._summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+        self._summary_path.write_text(
+            json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8"
+        )
         self._export_history_csv()
         self._export_plots()
 
@@ -263,7 +272,10 @@ class Logger:
     ) -> None:
         if not self.verbose:
             return
-        if self._last_console_step >= 0 and step - self._last_console_step < self.config.console_interval:
+        if (
+            self._last_console_step >= 0
+            and step - self._last_console_step < self.config.console_interval
+        ):
             return
 
         progress_str = f"{step}"
@@ -283,20 +295,24 @@ class Logger:
             if key in seen or key.endswith("_weight"):
                 continue
             summary_pairs.append((key, value))
-            if self.config.console_layout == "single_line" and len(summary_pairs) >= self.config.max_console_metrics:
+            if (
+                self.config.console_layout == "single_line"
+                and len(summary_pairs) >= self.config.max_console_metrics
+            ):
                 break
 
         visible_pairs = [(name, value) for name, value in summary_pairs if value is not None]
         if self.config.console_layout == "single_line":
             formatted = " | ".join(
-                f"{name}={self._format_value(value)}"
-                for name, value in visible_pairs
+                f"{name}={self._format_value(value)}" for name, value in visible_pairs
             )
             print(f"[train] step {progress_str} | {formatted}", flush=True)
         else:
             score_keys = {"fps", "score", f"score@{self.config.episode_window}", "len"}
             score_pairs = [(name, value) for name, value in visible_pairs if name in score_keys]
-            metric_pairs = [(name, value) for name, value in visible_pairs if name not in score_keys]
+            metric_pairs = [
+                (name, value) for name, value in visible_pairs if name not in score_keys
+            ]
             print(f"[train] step {progress_str}", flush=True)
             if score_pairs:
                 print("  rollout", flush=True)
@@ -386,7 +402,9 @@ class Logger:
                 "train/episode_length_mean",
             ]
             algo_prefix = str(self._metadata.get("algorithm", ""))
-            preferred.extend(tag for tag in self._history if algo_prefix and tag.startswith(f"{algo_prefix}/"))
+            preferred.extend(
+                tag for tag in self._history if algo_prefix and tag.startswith(f"{algo_prefix}/")
+            )
             plot_tags = [tag for tag in preferred if tag in self._history]
             if not plot_tags:
                 plot_tags = list(self._history.keys())[: min(6, len(self._history))]
@@ -402,11 +420,11 @@ class Logger:
             return
 
         fig, axes = plt.subplots(len(plot_tags), 1, figsize=(10, 3 * len(plot_tags)), squeeze=False)
-        for axis, tag in zip(axes.flatten(), plot_tags):
+        for axis, tag in zip(axes.flatten(), plot_tags, strict=True):
             points = self._history.get(tag)
             if not points:
                 continue
-            steps, values = zip(*points)
+            steps, values = zip(*points, strict=True)
             axis.plot(steps, values, linewidth=1.8)
             axis.set_title(tag)
             axis.set_xlabel("step")
@@ -426,9 +444,9 @@ class Logger:
         colors = ["#0f766e", "#1d4ed8", "#b45309", "#b91c1c", "#6d28d9", "#15803d"]
 
         parts = [
-            f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{svg_height}" viewBox="0 0 {width} {svg_height}">',
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{svg_height}" viewBox="0 0 {width} {svg_height}">',  # noqa: E501
             '<rect width="100%" height="100%" fill="#f8fafc"/>',
-            '<style>text{font-family: monospace; fill:#0f172a} .grid{stroke:#cbd5e1; stroke-width:1} .axis{stroke:#475569; stroke-width:1.2; fill:none}</style>',
+            "<style>text{font-family: monospace; fill:#0f172a} .grid{stroke:#cbd5e1; stroke-width:1} .axis{stroke:#475569; stroke-width:1.2; fill:none}</style>",  # noqa: E501
         ]
 
         for row, tag in enumerate(plot_tags):
@@ -451,11 +469,15 @@ class Logger:
             if max_value == min_value:
                 max_value += 1.0
 
-            parts.append(f'<text x="{margin_left}" y="{top + 18}" font-size="14" font-weight="700">{tag}</text>')
+            parts.append(
+                f'<text x="{margin_left}" y="{top + 18}" font-size="14" font-weight="700">{tag}</text>'  # noqa: E501
+            )
             for frac in (0.0, 0.5, 1.0):
                 y = chart_bottom - frac * chart_height
                 value = min_value + frac * (max_value - min_value)
-                parts.append(f'<line class="grid" x1="{margin_left}" y1="{y:.2f}" x2="{margin_left + plot_width}" y2="{y:.2f}"/>')
+                parts.append(
+                    f'<line class="grid" x1="{margin_left}" y1="{y:.2f}" x2="{margin_left + plot_width}" y2="{y:.2f}"/>'  # noqa: E501
+                )
                 parts.append(f'<text x="8" y="{y + 4:.2f}" font-size="11">{value:.3f}</text>')
 
             coords = []
@@ -465,12 +487,18 @@ class Logger:
                 coords.append(f"{x:.2f},{y:.2f}")
             coords_str = " ".join(coords)
 
-            parts.append(f'<path class="axis" d="M {margin_left} {chart_top} V {chart_bottom} H {margin_left + plot_width}"/>')
             parts.append(
-                f'<polyline fill="none" stroke="{colors[row % len(colors)]}" stroke-width="2.5" points="{coords_str}"/>'
+                f'<path class="axis" d="M {margin_left} {chart_top} V {chart_bottom} H {margin_left + plot_width}"/>'  # noqa: E501
             )
-            parts.append(f'<text x="{margin_left}" y="{chart_bottom + 20}" font-size="11">step {min_step}</text>')
-            parts.append(f'<text x="{margin_left + plot_width - 70}" y="{chart_bottom + 20}" font-size="11">step {max_step}</text>')
+            parts.append(
+                f'<polyline fill="none" stroke="{colors[row % len(colors)]}" stroke-width="2.5" points="{coords_str}"/>'  # noqa: E501
+            )
+            parts.append(
+                f'<text x="{margin_left}" y="{chart_bottom + 20}" font-size="11">step {min_step}</text>'  # noqa: E501
+            )
+            parts.append(
+                f'<text x="{margin_left + plot_width - 70}" y="{chart_bottom + 20}" font-size="11">step {max_step}</text>'  # noqa: E501
+            )
 
-        parts.append('</svg>')
+        parts.append("</svg>")
         (self.log_dir / "training_curves.svg").write_text("\n".join(parts), encoding="utf-8")

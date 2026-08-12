@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import sys
 
 from srl.cli.train import _resolve_env_name, _resolve_pipeline_outputs, _train_section
 from srl.utils.pipeline_graph import render_pipeline_bundle
@@ -18,9 +17,13 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", required=True, help="Path to YAML config")
     parser.add_argument("--env", default=None, help="Optional env override")
     parser.add_argument("--algo", default=None, help="Optional algorithm override")
-    parser.add_argument("--output-dir", default="runs/pipelines", help="Base directory for rendered PNGs")
+    parser.add_argument(
+        "--output-dir", default="runs/pipelines", help="Base directory for rendered PNGs"
+    )
     parser.add_argument("--model-output", default=None, help="Explicit model pipeline PNG path")
-    parser.add_argument("--training-output", default=None, help="Explicit training pipeline PNG path")
+    parser.add_argument(
+        "--training-output", default=None, help="Explicit training pipeline PNG path"
+    )
     return parser
 
 

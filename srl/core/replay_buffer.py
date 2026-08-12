@@ -28,8 +28,8 @@ class ReplayBatch:
     # callers that do want "episode ended for any reason" (e.g. n-step
     # return accumulation cutting a rollout short).
     truncated: torch.Tensor | None = None
-    weights: torch.Tensor | None = None   # IS weights (PER)
-    indices: np.ndarray | None = None     # buffer indices (PER update)
+    weights: torch.Tensor | None = None  # IS weights (PER)
+    indices: np.ndarray | None = None  # buffer indices (PER update)
 
     @property
     def obs(self):
@@ -98,7 +98,7 @@ class ReplayBuffer:
             self._next_obs = {}
             self._actions = None
             self._rewards = np.zeros((self.capacity,), dtype=np.float32)
-            self._dones   = np.zeros((self.capacity,), dtype=np.float32)
+            self._dones = np.zeros((self.capacity,), dtype=np.float32)
             self._truncated = np.zeros((self.capacity,), dtype=np.float32)
 
         # n-step rolling buffers per env
@@ -139,7 +139,7 @@ class ReplayBuffer:
         for k, v in obs.items():
             arr = np.asarray(v)
             shape = arr.shape[1:] if arr.ndim > 1 else arr.shape
-            self._obs[k]      = np.zeros((self.capacity, *shape), dtype=self.storage_dtype)
+            self._obs[k] = np.zeros((self.capacity, *shape), dtype=self.storage_dtype)
             self._next_obs[k] = np.zeros((self.capacity, *shape), dtype=self.storage_dtype)
         a = np.asarray(action)
         act_shape = a.shape[1:] if a.ndim > 1 else a.shape
@@ -179,9 +179,13 @@ class ReplayBuffer:
             self._nstep_bufs[env_idx].append(
                 (obs, action, reward, next_obs, effective_done, effective_trunc)
             )
-            episode_ended = bool(np.asarray(effective_done).any()) or bool(np.asarray(effective_trunc).any())
+            episode_ended = bool(np.asarray(effective_done).any()) or bool(
+                np.asarray(effective_trunc).any()
+            )
             if len(self._nstep_bufs[env_idx]) == self.n_step or episode_ended:
-                obs_n, action_n, reward_n, next_obs_n, done_n, trunc_n = self._compute_nstep(env_idx)
+                obs_n, action_n, reward_n, next_obs_n, done_n, trunc_n = self._compute_nstep(
+                    env_idx
+                )
                 self._write(obs_n, action_n, reward_n, next_obs_n, done_n, trunc_n)
                 self._nstep_bufs[env_idx].clear()
         else:
@@ -211,7 +215,7 @@ class ReplayBuffer:
         next_obs, done, trunc = buf[-1][3], buf[-1][4], buf[-1][5]
         reward = 0.0
         for i, (_, _, r, _, d, tr) in enumerate(buf):
-            reward += (self.gamma ** i) * r
+            reward += (self.gamma**i) * r
             if d or tr:
                 done, trunc = d, tr
                 next_obs = buf[i][3]
@@ -230,9 +234,7 @@ class ReplayBuffer:
         def t(arr):
             return torch.tensor(arr[indices], dtype=self.tensor_dtype, device=self.device)
 
-        obs = (
-            {k: t(v) for k, v in self._obs.items()} if self._dict_obs else t(self._obs)
-        )
+        obs = {k: t(v) for k, v in self._obs.items()} if self._dict_obs else t(self._obs)
         next_obs = (
             {k: t(v) for k, v in self._next_obs.items()} if self._dict_obs else t(self._next_obs)
         )
@@ -247,7 +249,9 @@ class ReplayBuffer:
             rewards=torch.tensor(self._rewards[indices], dtype=torch.float32, device=self.device),
             next_observations=next_obs,
             dones=torch.tensor(self._dones[indices], dtype=torch.float32, device=self.device),
-            truncated=torch.tensor(self._truncated[indices], dtype=torch.float32, device=self.device),
+            truncated=torch.tensor(
+                self._truncated[indices], dtype=torch.float32, device=self.device
+            ),
             weights=w_tensor,
             indices=indices,
         )

@@ -75,6 +75,7 @@ class CheckpointManager:
         path = Path(path)
         if path.suffix == ".safetensors":
             from safetensors.torch import load_file as st_load
+
             state = st_load(str(path), device=str(device))
 
             meta_path = path.with_suffix(".meta.pt")
@@ -127,7 +128,9 @@ class CheckpointManager:
         elif isinstance(model, nn.Module):
             payload = {"model_state": model.state_dict()}
         else:
-            raise TypeError("CheckpointManager.save expects an nn.Module or object with checkpoint_payload().")
+            raise TypeError(
+                "CheckpointManager.save expects an nn.Module or object with checkpoint_payload()."
+            )
 
         payload["step"] = step
         payload["metrics"] = metrics or {}
@@ -146,10 +149,19 @@ class CheckpointManager:
             model.load_checkpoint_payload(payload)
             return
         if not isinstance(model, nn.Module):
-            raise TypeError("CheckpointManager.load expects an nn.Module or object with load_checkpoint_payload().")
+            raise TypeError(
+                "CheckpointManager.load expects an nn.Module or object "
+                "with load_checkpoint_payload()."
+            )
         model.load_state_dict(payload["model_state"])
         if optimizer is not None and "optimizer_state" in payload:
             optimizer.load_state_dict(payload["optimizer_state"])
 
-    def _can_use_safetensors(self, model: Any, payload: dict[str, Any], optimizer: torch.optim.Optimizer | None) -> bool:
-        return isinstance(model, nn.Module) and optimizer is None and set(payload.keys()) <= {"model_state", "step", "metrics"}
+    def _can_use_safetensors(
+        self, model: Any, payload: dict[str, Any], optimizer: torch.optim.Optimizer | None
+    ) -> bool:
+        return (
+            isinstance(model, nn.Module)
+            and optimizer is None
+            and set(payload.keys()) <= {"model_state", "step", "metrics"}
+        )

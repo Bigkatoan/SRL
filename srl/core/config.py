@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any
-
+from dataclasses import dataclass
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Algorithm configs
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class PPOConfig:
     lr: float = 3e-4
-    n_steps: int = 2048          # steps per env per rollout
+    n_steps: int = 2048  # steps per env per rollout
     num_envs: int = 1
     batch_size: int = 64
     n_epochs: int = 10
@@ -64,8 +63,8 @@ class SACConfig:
     buffer_size: int = 1_000_000
     batch_size: int = 256
     gamma: float = 0.99
-    tau: float = 0.005            # soft target update coefficient
-    action_dim: int = 0           # required for automatic target entropy
+    tau: float = 0.005  # soft target update coefficient
+    action_dim: int = 0  # required for automatic target entropy
     target_update_interval: int = 1
     learning_starts: int = 10_000
     start_steps: int | None = None
@@ -96,7 +95,7 @@ class DDPGConfig:
     batch_size: int = 256
     gamma: float = 0.99
     tau: float = 0.005
-    action_dim: int = 0           # required for OU noise
+    action_dim: int = 0  # required for OU noise
     learning_starts: int = 10_000
     start_steps: int | None = None
     update_after: int | None = None
@@ -141,10 +140,11 @@ class TD3Config:
 # Extended vision / recurrent configs
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class VisualPPOConfig(PPOConfig):
-    encoder_lr: float = 1e-4      # ~0.3× policy lr
-    aux_loss_type: str = "curl"   # "curl" | "ae" | "none"
+    encoder_lr: float = 1e-4  # ~0.3× policy lr
+    aux_loss_type: str = "curl"  # "curl" | "ae" | "none"
     aux_weight: float = 0.1
     augmentation_mode: str = "curl"  # "drq" | "curl" | "aggressive"
     latent_dim: int = 256
@@ -173,12 +173,13 @@ class VisualSACConfig(SACConfig):
     aux_weight: float = 0.1
     augmentation_mode: str = "curl"  # "drq" | "curl" | "aggressive"
     latent_dim: int = 256
-    momentum_tau: float = 0.99   # momentum encoder EMA rate
+    momentum_tau: float = 0.99  # momentum encoder EMA rate
 
 
 @dataclass
 class AsyncRunnerConfig:
     """Optional async data-collection / training separation."""
+
     use_async: bool = False
     use_gpu_buffer: bool = False
     # Number of transitions the collector pre-fills before starting updates.

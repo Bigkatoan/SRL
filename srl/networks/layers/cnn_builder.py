@@ -9,11 +9,10 @@ import torch
 import torch.nn as nn
 
 from srl.networks.layers.activations import get_activation
-from srl.networks.layers.norms import get_norm
 from srl.networks.layers.dropout import get_dropout
-from srl.networks.layers.pooling import get_pooling
 from srl.networks.layers.init import apply_weight_init
-
+from srl.networks.layers.norms import get_norm
+from srl.networks.layers.pooling import get_pooling
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -25,7 +24,8 @@ _SHORTHAND_KEYS = ("out_channels", "kernel", "padding", "activation", "pooling")
 def _normalise_layer(layer: list | dict[str, Any]) -> dict[str, Any]:
     """Convert shorthand list → full dict."""
     if isinstance(layer, (list, tuple)):
-        cfg = dict(zip(_SHORTHAND_KEYS, layer))
+        # strict=False: shorthand lists may intentionally omit trailing keys.
+        cfg = dict(zip(_SHORTHAND_KEYS, layer, strict=False))
         return cfg
     return dict(layer)
 
@@ -43,6 +43,7 @@ def _conv_output_size(size: int, kernel: int, stride: int, padding: int | str) -
 # ──────────────────────────────────────────────────────────────────────────────
 # _ResidualCNNBlock
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class _ResidualCNNBlock(nn.Module):
     def __init__(self, transform: nn.Module, in_ch: int, out_ch: int) -> None:
@@ -62,10 +63,20 @@ class _ResidualCNNBlock(nn.Module):
 # Depthwise Separable Conv block
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _depthwise_sep_conv(in_ch: int, out_ch: int, kernel: int, stride: int, padding) -> nn.Sequential:
+
+def _depthwise_sep_conv(
+    in_ch: int, out_ch: int, kernel: int, stride: int, padding
+) -> nn.Sequential:
     return nn.Sequential(
-        nn.Conv2d(in_ch, in_ch, kernel_size=kernel, stride=stride,
-                  padding=padding, groups=in_ch, bias=False),
+        nn.Conv2d(
+            in_ch,
+            in_ch,
+            kernel_size=kernel,
+            stride=stride,
+            padding=padding,
+            groups=in_ch,
+            bias=False,
+        ),
         nn.Conv2d(in_ch, out_ch, kernel_size=1, bias=False),
     )
 
@@ -74,15 +85,16 @@ def _depthwise_sep_conv(in_ch: int, out_ch: int, kernel: int, stride: int, paddi
 # build_cnn
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def build_cnn(
     layer_configs: list[list | dict],
-    input_shape: tuple[int, int, int],    # (C, H, W)
+    input_shape: tuple[int, int, int],  # (C, H, W)
     *,
-    conv_type: str = "cnn",              # "cnn" | "depthwise_cnn"
+    conv_type: str = "cnn",  # "cnn" | "depthwise_cnn"
     default_activation: str = "relu",
     default_norm: str = "none",
     default_dropout: float = 0.0,
-    norm_order: str = "post",            # "pre" | "post"
+    norm_order: str = "post",  # "pre" | "post"
     weight_init: str = "kaiming_normal",
 ) -> tuple[nn.Module, int]:
     """Build a CNN encoder from layer configs.
@@ -126,7 +138,10 @@ def build_cnn(
         if norm_order == "pre":
             block = nn.Sequential(
                 get_norm(norm_name, in_ch, dim=2, num_groups=num_groups),
-                conv, act, drop, pool,
+                conv,
+                act,
+                drop,
+                pool,
             )
         else:  # post
             block = nn.Sequential(conv, norm, act, drop, pool)

@@ -18,7 +18,7 @@ from __future__ import annotations
 import multiprocessing as mp
 import queue
 import time
-from typing import Callable
+from collections.abc import Callable
 
 import torch
 import torch.nn as nn
@@ -34,13 +34,14 @@ def _worker_fn(
     optimizer: torch.optim.Optimizer,
     env_fn: Callable,
     config: A3CConfig,
-    counter: "mp.Value",
-    lock: "mp.Lock",
-    stop_event: "mp.Event",
-    stats_queue: "mp.Queue | None" = None,
+    counter: mp.Value,
+    lock: mp.Lock,
+    stop_event: mp.Event,
+    stats_queue: mp.Queue | None = None,
 ) -> None:
     """Worker process: collect a trajectory, compute gradients, apply to shared model."""
     import torch
+
     from srl.core.rollout_buffer import RolloutBuffer
 
     torch.manual_seed(rank)
@@ -155,7 +156,7 @@ def _worker_fn(
 
             # Copy gradients to shared model
             with lock:
-                for sp, lp in zip(shared_model.parameters(), local_model.parameters()):
+                for sp, lp in zip(shared_model.parameters(), local_model.parameters(), strict=True):
                     if lp.grad is not None:
                         sp.grad = lp.grad.clone()
                 optimizer.step()
@@ -176,6 +177,7 @@ def _worker_fn(
 
 def _clone_model(src: nn.Module) -> nn.Module:
     import copy
+
     return copy.deepcopy(src)
 
 
@@ -194,11 +196,11 @@ class A3C(BaseAgent):
         self.model.share_memory()
         self._global_step = 0
 
-        self.optimizer = torch.optim.Adam(
-            self.model.parameters(), lr=self.cfg.lr
-        )
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.cfg.lr)
 
-    def train(self, total_timesteps: int, env_fn: Callable, logger=None, log_interval: int = 1_000) -> None:
+    def train(
+        self, total_timesteps: int, env_fn: Callable, logger=None, log_interval: int = 1_000
+    ) -> None:
         ctx = mp.get_context("spawn")
         counter = ctx.Value("i", 0)
         lock = ctx.Lock()
@@ -209,7 +211,17 @@ class A3C(BaseAgent):
         for rank in range(self.cfg.n_workers):
             p = ctx.Process(
                 target=_worker_fn,
-                args=(rank, self.model, self.optimizer, env_fn, self.cfg, counter, lock, stop_event, stats_queue),
+                args=(
+                    rank,
+                    self.model,
+                    self.optimizer,
+                    env_fn,
+                    self.cfg,
+                    counter,
+                    lock,
+                    stop_event,
+                    stats_queue,
+                ),
                 daemon=True,
             )
             p.start()
@@ -238,7 +250,10 @@ class A3C(BaseAgent):
                         )
                 if counter.value - last_logged_step >= log_interval:
                     logger.record_metrics(
-                        {"global_steps": float(counter.value), "workers": float(self.cfg.n_workers)},
+                        {
+                            "global_steps": float(counter.value),
+                            "workers": float(self.cfg.n_workers),
+                        },
                         step=int(counter.value),
                         total_steps=total_timesteps,
                         prefix="a3c",
@@ -276,7 +291,11 @@ class A3C(BaseAgent):
             result = self.model(obs, hidden_states=hidden)
         actor_out = result["actor_out"]
         if isinstance(actor_out, dict):
-            action = actor_out.get("mean", actor_out.get("action")) if deterministic else actor_out.get("action")
+            action = (
+                actor_out.get("mean", actor_out.get("action"))
+                if deterministic
+                else actor_out.get("action")
+            )
             log_prob = actor_out.get("log_prob")
         elif isinstance(actor_out, tuple):
             action, log_prob = actor_out

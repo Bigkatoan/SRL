@@ -54,7 +54,11 @@ class A2C(BaseAgent):
             result = self.model(obs, hidden_states=hidden)
         actor_out = result["actor_out"]
         if isinstance(actor_out, dict):
-            action = actor_out.get("mean", actor_out.get("action")) if deterministic else actor_out.get("action")
+            action = (
+                actor_out.get("mean", actor_out.get("action"))
+                if deterministic
+                else actor_out.get("action")
+            )
             log_prob = actor_out.get("log_prob")
         elif isinstance(actor_out, tuple):
             action, log_prob = actor_out
@@ -84,9 +88,7 @@ class A2C(BaseAgent):
             adv = mini.advantages.to(self.device)
 
             pol_loss = a2c_policy_loss(log_prob, adv)
-            val_loss = a2c_value_loss(
-                result["value"].squeeze(-1), mini.returns.to(self.device)
-            )
+            val_loss = a2c_value_loss(result["value"].squeeze(-1), mini.returns.to(self.device))
             ent = torch.zeros(1, device=self.device)
             ent_loss = entropy_loss(ent)
 

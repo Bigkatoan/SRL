@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from typing import Any
-import warnings
 
 import torch
 import torch.nn as nn
@@ -310,6 +309,7 @@ class AgentModel(nn.Module):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _run_encoder(encoder: nn.Module, obs: torch.Tensor, hidden=None):
     """Call encoder with optional hidden state."""

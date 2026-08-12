@@ -39,9 +39,6 @@ class TD3(BaseAgent):
         for parameter in self.target_model.parameters():
             parameter.requires_grad = False
 
-        actor_encoder_params = _encoder_params_for_head(self.model, "actor")
-        critic_encoder_params = _encoder_params_for_head(self.model, "critic")
-
         # ------------------------------------------------------------------
         # Three-optimizer design (v0.2.0)
         # ------------------------------------------------------------------
@@ -99,7 +96,11 @@ class TD3(BaseAgent):
 
         with torch.no_grad():
             target_actor_out = self.target_model(next_obs)["actor_out"]
-            next_action = target_actor_out.get("action") if isinstance(target_actor_out, dict) else target_actor_out
+            next_action = (
+                target_actor_out.get("action")
+                if isinstance(target_actor_out, dict)
+                else target_actor_out
+            )
             target_noise = torch.randn_like(next_action) * self.cfg.policy_noise
             target_noise = target_noise.clamp(-self.cfg.noise_clip, self.cfg.noise_clip)
             next_action = (next_action + target_noise).clamp(-1.0, 1.0)
@@ -212,7 +213,7 @@ class TD3(BaseAgent):
 
 
 def _soft_update(src: nn.Module, tgt: nn.Module, tau: float) -> None:
-    for sp, tp in zip(src.parameters(), tgt.parameters()):
+    for sp, tp in zip(src.parameters(), tgt.parameters(), strict=True):
         tp.data.mul_(1.0 - tau).add_(sp.data * tau)
 
 
@@ -236,7 +237,7 @@ def _zero_param_grads(params: list[nn.Parameter]) -> None:
 
 
 def _encoder_params_for_head(model: nn.Module, head_name: str) -> list[nn.Parameter]:
-    encoder_names = getattr(model, "encoder_names_for_head")(head_name)
+    encoder_names = model.encoder_names_for_head(head_name)
     params: list[nn.Parameter] = []
     for encoder_name in encoder_names:
         params.extend(list(model.encoders[encoder_name].parameters()))

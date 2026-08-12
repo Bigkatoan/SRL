@@ -5,7 +5,6 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
-
 _KNOWN_MESSAGE_TYPES = {
     "Float32MultiArray": "std_msgs.msg.Float32MultiArray",
     "Image": "sensor_msgs.msg.Image",
@@ -40,7 +39,8 @@ def resolve_msg_type(msg_type_name: str | None, default: Any = None) -> Any:
         module = import_module(module_name)
     except ImportError as exc:
         raise RuntimeError(
-            f"Could not import ROS2 message module '{module_name}' while resolving '{msg_type_name}'."
+            f"Could not import ROS2 message module '{module_name}' "
+            f"while resolving '{msg_type_name}'."
         ) from exc
 
     try:

@@ -1,5 +1,5 @@
-from types import ModuleType
 import sys
+from types import ModuleType
 
 import pytest
 

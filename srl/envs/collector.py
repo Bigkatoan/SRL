@@ -56,9 +56,7 @@ class Collector:
         for _ in range(n_steps):
             obs_t = _np_to_torch(self._obs, self.device)
             with torch.no_grad():
-                action, log_prob, value, new_hidden = self.agent.predict(
-                    obs_t, self._hidden
-                )
+                action, log_prob, value, new_hidden = self.agent.predict(obs_t, self._hidden)
             self._hidden = new_hidden or {}
 
             action_np = action.cpu().numpy()
@@ -89,10 +87,5 @@ class Collector:
             self._obs = next_obs
 
 
-def _np_to_torch(
-    obs_dict: dict[str, np.ndarray], device: torch.device
-) -> dict[str, torch.Tensor]:
-    return {
-        k: torch.from_numpy(np.asarray(v)).float().to(device)
-        for k, v in obs_dict.items()
-    }
+def _np_to_torch(obs_dict: dict[str, np.ndarray], device: torch.device) -> dict[str, torch.Tensor]:
+    return {k: torch.from_numpy(np.asarray(v)).float().to(device) for k, v in obs_dict.items()}

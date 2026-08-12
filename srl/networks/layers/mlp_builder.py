@@ -7,14 +7,14 @@ from typing import Any
 import torch.nn as nn
 
 from srl.networks.layers.activations import get_activation
-from srl.networks.layers.norms import get_norm
 from srl.networks.layers.dropout import get_dropout
 from srl.networks.layers.init import apply_weight_init
-
+from srl.networks.layers.norms import get_norm
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def _normalise_layer(layer: int | dict[str, Any]) -> dict[str, Any]:
     """Convert shorthand int → full dict using defaults."""
@@ -35,15 +35,12 @@ def _resolve(layer_cfg: dict, key: str, default: Any) -> Any:
 # _ResidualBlock
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class _ResidualBlock(nn.Module):
     def __init__(self, transform: nn.Module, in_dim: int, out_dim: int) -> None:
         super().__init__()
         self.transform = transform
-        self.skip = (
-            nn.Linear(in_dim, out_dim, bias=False)
-            if in_dim != out_dim
-            else nn.Identity()
-        )
+        self.skip = nn.Linear(in_dim, out_dim, bias=False) if in_dim != out_dim else nn.Identity()
 
     def forward(self, x):
         return self.transform(x) + self.skip(x)
@@ -52,6 +49,7 @@ class _ResidualBlock(nn.Module):
 # ──────────────────────────────────────────────────────────────────────────────
 # build_mlp
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def build_mlp(
     layer_configs: list[int | dict],
@@ -102,7 +100,9 @@ def build_mlp(
         if norm_order == "pre":
             block = nn.Sequential(
                 get_norm(norm_name, current_dim, dim=1),
-                linear, act, drop,
+                linear,
+                act,
+                drop,
             )
         else:  # post
             block = nn.Sequential(linear, norm, act, drop)

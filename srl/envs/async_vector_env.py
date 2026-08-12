@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import multiprocessing as mp
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
@@ -60,16 +61,16 @@ class AsyncVectorEnv:
         for index, conn in enumerate(self._parent_conns):
             conn.send(("reset", _reset_kwargs_for_env(kwargs, index)))
         results = [conn.recv() for conn in self._parent_conns]
-        obs_list, info_list = zip(*results)
+        obs_list, info_list = zip(*results, strict=True)
         return _stack_obs(obs_list), list(info_list)
 
     def step(
         self, actions: np.ndarray
     ) -> tuple[dict[str, np.ndarray], np.ndarray, np.ndarray, np.ndarray, list]:
-        for conn, action in zip(self._parent_conns, actions):
+        for conn, action in zip(self._parent_conns, actions, strict=True):
             conn.send(("step", action))
         results = [conn.recv() for conn in self._parent_conns]
-        obs_list, rews, dones, truncs, infos = zip(*results)
+        obs_list, rews, dones, truncs, infos = zip(*results, strict=True)
         return (
             _stack_obs(obs_list),
             np.array(rews, dtype=np.float32),

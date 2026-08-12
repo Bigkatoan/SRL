@@ -60,12 +60,16 @@ class LSTMEncoder(nn.Module):
         latent : Tensor   [B, T, hidden_size] or [B, hidden_size]
         (h, c) : tuple    New LSTM state.
         """
-        single_step = obs.ndim == self.base.input_ndim if hasattr(self.base, "input_ndim") else (obs.ndim <= 3)
+        single_step = (
+            obs.ndim == self.base.input_ndim
+            if hasattr(self.base, "input_ndim")
+            else (obs.ndim <= 3)
+        )
         if single_step:
-            obs = obs.unsqueeze(1)   # add time dim
+            obs = obs.unsqueeze(1)  # add time dim
 
         B, T = obs.shape[:2]
-        flat = self.base(obs.view(B * T, *obs.shape[2:]))                  # (B*T, latent)
+        flat = self.base(obs.view(B * T, *obs.shape[2:]))  # (B*T, latent)
         seq = flat.view(B, T, -1)
         out, (h, c) = self.lstm(seq, hidden)
 

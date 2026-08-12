@@ -15,12 +15,12 @@ The reward function is provided externally via *reward_fn(achieved, desired, inf
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
 import torch
 
-from srl.core.replay_buffer import ReplayBatch, ReplayBuffer
+from srl.core.replay_buffer import ReplayBatch
 
 
 class HERReplayBuffer:
@@ -137,9 +137,7 @@ class HERReplayBuffer:
 
     def sample(self, batch_size: int) -> ReplayBatch:
         ep_idx = np.random.randint(0, self._n_stored, size=batch_size)
-        t_idx = np.array(
-            [np.random.randint(0, self._ep_len[e]) for e in ep_idx], dtype=np.int32
-        )
+        t_idx = np.array([np.random.randint(0, self._ep_len[e]) for e in ep_idx], dtype=np.int32)
 
         n_her = int(batch_size * self.her_ratio)
         her_mask = np.zeros(batch_size, dtype=bool)
@@ -148,7 +146,6 @@ class HERReplayBuffer:
 
         obs = self._obs[ep_idx, t_idx]
         next_obs = self._obs[ep_idx, t_idx + 1]
-        ag = self._ag[ep_idx, t_idx]
         next_ag = self._ag[ep_idx, t_idx + 1]
         dg = self._dg[ep_idx, t_idx].copy()
         actions = self._actions[ep_idx, t_idx]

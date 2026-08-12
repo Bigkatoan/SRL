@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
@@ -27,10 +28,10 @@ class SyncVectorEnv:
         self.act_space = self.envs[0].act_space
 
     def reset(self, **kwargs) -> tuple[dict[str, np.ndarray], list[dict]]:
-        obs_list, info_list = zip(*[
-            e.reset(**_reset_kwargs_for_env(kwargs, index))
-            for index, e in enumerate(self.envs)
-        ])
+        obs_list, info_list = zip(
+            *[e.reset(**_reset_kwargs_for_env(kwargs, index)) for index, e in enumerate(self.envs)],
+            strict=True,
+        )
         return _stack_obs(obs_list), list(info_list)
 
     def step(

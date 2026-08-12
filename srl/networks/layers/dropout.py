@@ -33,7 +33,9 @@ def get_dropout(rate: float, dropout_type: str = "auto", dim: int = 1) -> nn.Mod
     if t == "droppath":
         return _DropPath(p=rate)
 
-    raise ValueError(f"Unknown dropout_type '{dropout_type}'. Options: dropout, dropout2d, droppath, auto")
+    raise ValueError(
+        f"Unknown dropout_type '{dropout_type}'. Options: dropout, dropout2d, droppath, auto"
+    )
 
 
 class _DropPath(nn.Module):

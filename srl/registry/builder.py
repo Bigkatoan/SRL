@@ -18,6 +18,7 @@ def _build_encoder(cfg: EncoderConfig):
 
     if enc_type == "mlp":
         from srl.networks.encoders.mlp_encoder import MLPEncoder
+
         enc = MLPEncoder(
             input_dim=cfg.input_dim,  # type: ignore[arg-type]
             layer_configs=cfg.layers,
@@ -25,6 +26,7 @@ def _build_encoder(cfg: EncoderConfig):
         )
     elif enc_type == "cnn":
         from srl.networks.encoders.cnn_encoder import CNNEncoder
+
         enc = CNNEncoder(
             input_shape=tuple(cfg.input_shape),  # type: ignore[arg-type]
             layer_configs=cfg.layers,
@@ -33,6 +35,7 @@ def _build_encoder(cfg: EncoderConfig):
     elif enc_type == "lstm":
         from srl.networks.encoders.mlp_encoder import MLPEncoder
         from srl.networks.encoders.recurrent import LSTMEncoder
+
         base = MLPEncoder(
             input_dim=cfg.input_dim,  # type: ignore[arg-type]
             layer_configs=cfg.layers,
@@ -41,6 +44,7 @@ def _build_encoder(cfg: EncoderConfig):
         enc = LSTMEncoder(base_encoder=base, hidden_size=cfg.lstm_hidden)
     elif enc_type == "text":
         from srl.networks.encoders.text_encoder import CharCNNTextEncoder
+
         enc = CharCNNTextEncoder(latent_dim=cfg.latent_dim)
     else:
         # Try registry
@@ -50,11 +54,13 @@ def _build_encoder(cfg: EncoderConfig):
     # Optional: wrap with MomentumEncoder
     if cfg.use_momentum:
         from srl.networks.encoders.momentum_encoder import MomentumEncoder
+
         enc = MomentumEncoder(encoder=enc, tau=cfg.momentum_tau)
 
     # Optional: wrap with recurrent if requested separately (e.g. for CNN)
     if cfg.recurrent and enc_type not in ("lstm",):
         from srl.networks.encoders.recurrent import LSTMEncoder
+
         enc = LSTMEncoder(base_encoder=enc, hidden_size=cfg.lstm_hidden)
 
     return enc
@@ -73,6 +79,7 @@ def _build_head(cfg: HeadConfig, input_dim: int):
 
     if head_type in ("gaussian", "squashed_gaussian", "deterministic"):
         from srl.networks.heads.actor_head import build_actor_head
+
         return build_actor_head(
             head_type=head_type,
             input_dim=input_dim,
@@ -84,6 +91,7 @@ def _build_head(cfg: HeadConfig, input_dim: int):
         )
     elif head_type in ("value", "twin_q", "q", "q_function"):
         from srl.networks.heads.critic_head import build_critic_head
+
         return build_critic_head(
             head_type=head_type,
             input_dim=input_dim,
@@ -99,6 +107,7 @@ def _build_head(cfg: HeadConfig, input_dim: int):
 # Public API
 # ---------------------------------------------------------------------------
 
+
 class ModelBuilder:
     """Build an :class:`~srl.networks.agent_model.AgentModel` from config.
 
@@ -110,20 +119,19 @@ class ModelBuilder:
     """
 
     @staticmethod
-    def from_yaml(path: str | Path) -> "Any":  # returns AgentModel
-        with open(path, "r") as fh:
+    def from_yaml(path: str | Path) -> Any:  # returns AgentModel
+        with open(path) as fh:
             d = yaml.safe_load(fh)
         return ModelBuilder.from_dict(d)
 
     @staticmethod
-    def from_dict(d: dict[str, Any]) -> "Any":  # returns AgentModel
-        from srl.networks.agent_model import AgentModel
+    def from_dict(d: dict[str, Any]) -> Any:  # returns AgentModel
 
         cfg = AgentModelConfig.from_dict(d)
         return ModelBuilder._build(cfg)
 
     @staticmethod
-    def _build(cfg: AgentModelConfig) -> "Any":
+    def _build(cfg: AgentModelConfig) -> Any:
         from srl.networks.agent_model import AgentModel
 
         # 1. Build encoders (shared instances for duplicate names)
@@ -171,6 +179,7 @@ class ModelBuilder:
             if enc_cfg.aux_type is not None:
                 if enc_cfg.aux_type == "autoencoder":
                     from srl.networks.heads.aux_head import ConvDecoderHead
+
                     if enc_cfg.input_shape is not None:
                         in_channels = enc_cfg.input_shape[0]
                         aux_encoders[f"{enc_cfg.name}_aux"] = ConvDecoderHead(
@@ -179,6 +188,7 @@ class ModelBuilder:
                         )
                 elif enc_cfg.aux_type in ("contrastive", "byol"):
                     from srl.networks.heads.aux_head import ProjectionHead
+
                     aux_encoders[f"{enc_cfg.name}_aux"] = ProjectionHead(
                         input_dim=enc_cfg.latent_dim,
                         proj_dim=enc_cfg.aux_latent_dim,

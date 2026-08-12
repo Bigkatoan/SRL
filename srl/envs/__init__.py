@@ -7,9 +7,9 @@ from .racecar_wrapper import RacecarWrapper
 from .sync_vector_env import SyncVectorEnv
 
 __all__ = [
-	"GoalEnvWrapper",
-	"GymnasiumWrapper",
-	"IsaacLabWrapper",
-	"RacecarWrapper",
-	"SyncVectorEnv",
+    "GoalEnvWrapper",
+    "GymnasiumWrapper",
+    "IsaacLabWrapper",
+    "RacecarWrapper",
+    "SyncVectorEnv",
 ]

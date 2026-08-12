@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import threading
 from collections import deque
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -42,15 +41,18 @@ from srl.utils.obs_remap import apply_obs_remap
 # -------------------------------------------------------------------------
 try:
     import rclpy
-    from rclpy.node import Node
     from rclpy.executors import MultiThreadedExecutor
+    from rclpy.node import Node
+
     _ROS2_AVAILABLE = True
 except ImportError:
     _ROS2_AVAILABLE = False
 
     class Node:  # type: ignore[no-redef]
         """Stub when rclpy is not available."""
-        def __init__(self, *args, **kwargs): pass
+
+        def __init__(self, *args, **kwargs):
+            pass
 
 
 class RLInferenceNode(Node):
@@ -95,6 +97,7 @@ class RLInferenceNode(Node):
         super().__init__("rl_inference_node")
 
         import torch
+
         self.model = model
         self.device = torch.device(device)
         self.model.to(self.device)
@@ -105,9 +108,7 @@ class RLInferenceNode(Node):
         self._hidden: dict[str, Any] = {}
         obs_msg_types = obs_msg_types or {}
         obs_queue_sizes = obs_queue_sizes or {}
-        self._obs_buffers: dict[str, deque] = {
-            name: deque(maxlen=1) for name in obs_topics
-        }
+        self._obs_buffers: dict[str, deque] = {name: deque(maxlen=1) for name in obs_topics}
         self._lock = threading.Lock()
 
         # Register subscribers
@@ -135,9 +136,7 @@ class RLInferenceNode(Node):
         period = 1.0 / hz
         self.create_timer(period, self._timer_callback)
 
-        self.get_logger().info(
-            f"RLInferenceNode started @ {hz} Hz | device={device}"
-        )
+        self.get_logger().info(f"RLInferenceNode started @ {hz} Hz | device={device}")
 
     def _obs_callback(self, enc_name: str, msg: Any) -> None:
         """Convert incoming ROS2 message to numpy and store."""
@@ -163,8 +162,7 @@ class RLInferenceNode(Node):
         )
 
         obs_t = {
-            k: torch.from_numpy(v).float().unsqueeze(0).to(self.device)
-            for k, v in obs_dict.items()
+            k: torch.from_numpy(v).float().unsqueeze(0).to(self.device) for k, v in obs_dict.items()
         }
 
         with torch.no_grad():
@@ -180,6 +178,7 @@ class RLInferenceNode(Node):
             return
         try:
             from std_msgs.msg import Float32MultiArray
+
             msg = Float32MultiArray()
             msg.data = action.tolist()
             self._action_pub.publish(msg)
@@ -203,8 +202,9 @@ def main(args=None):
     if not _ROS2_AVAILABLE:
         raise RuntimeError("rclpy not found — cannot start ROS2 node.")
 
-    import yaml
     import torch
+    import yaml
+
     from srl.registry.builder import ModelBuilder
 
     rclpy.init(args=args)
@@ -225,7 +225,7 @@ def main(args=None):
     if not config_path:
         raise ValueError("Must provide config_path parameter.")
 
-    with open(config_path, "r", encoding="utf-8") as handle:
+    with open(config_path, encoding="utf-8") as handle:
         cfg = yaml.safe_load(handle) or {}
     config = AgentModelConfig.from_dict(cfg)
 
@@ -241,14 +241,12 @@ def main(args=None):
     action_topic = ros2_cfg.action_topic
 
     from std_msgs.msg import Float32MultiArray
+
     obs_msg_types = {
         name: resolve_msg_type(spec.msg_type, Float32MultiArray)
         for name, spec in ros2_cfg.observations.items()
     }
-    obs_queue_sizes = {
-        name: spec.queue_size
-        for name, spec in ros2_cfg.observations.items()
-    }
+    obs_queue_sizes = {name: spec.queue_size for name, spec in ros2_cfg.observations.items()}
     action_msg_type = resolve_msg_type(ros2_cfg.action_msg_type, Float32MultiArray)
     node = RLInferenceNode(
         model=model,

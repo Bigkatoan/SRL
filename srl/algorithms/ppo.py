@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
 import torch
@@ -11,6 +10,7 @@ import torch.nn as nn
 from srl.core.base_agent import BaseAgent
 from srl.core.config import PPOConfig
 from srl.core.rollout_buffer import RolloutBuffer
+from srl.losses.aux_losses import reconstruction_loss
 from srl.losses.loss_composer import LossComposer
 from srl.losses.rl_losses import (
     entropy_loss,
@@ -19,7 +19,6 @@ from srl.losses.rl_losses import (
 )
 from srl.utils.checkpoint import CheckpointManager
 from srl.utils.normalizer import RunningNormalizer
-from srl.losses.aux_losses import reconstruction_loss
 
 
 class PPO(BaseAgent):
@@ -81,9 +80,7 @@ class PPO(BaseAgent):
             else:
                 self.encoder_optimizer = None
         else:
-            self.optimizer = torch.optim.Adam(
-                self.model.parameters(), lr=self.cfg.lr, eps=1e-5
-            )
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.cfg.lr, eps=1e-5)
             self._head_params = list(self.model.parameters())
             self.encoder_optimizer = None
 
@@ -183,7 +180,11 @@ class PPO(BaseAgent):
                     adv,
                     clip_eps=self.cfg.clip_range,
                 )
-                value_clip = self.cfg.clip_range_vf if self.cfg.clip_range_vf is not None else self.cfg.clip_range
+                value_clip = (
+                    self.cfg.clip_range_vf
+                    if self.cfg.clip_range_vf is not None
+                    else self.cfg.clip_range
+                )
                 val_loss = ppo_value_loss(
                     result["value"].squeeze(-1),
                     mini.returns.to(self.device),
@@ -224,7 +225,9 @@ class PPO(BaseAgent):
 
             # --- Auxiliary losses / encoder updates ---
             # Run auxiliary reconstruction losses (if any) and update encoders separately.
-            if getattr(self, "encoder_optimizer", None) is not None and getattr(self.model, "aux_modules", None):
+            if getattr(self, "encoder_optimizer", None) is not None and getattr(
+                self.model, "aux_modules", None
+            ):
                 # Build a batch-level aux loss across available aux heads
                 aux_loss: torch.Tensor | None = None
                 for aux_name, aux_module in self.model.aux_modules.items():
@@ -279,10 +282,12 @@ class PPO(BaseAgent):
 
     def save(self, path: str) -> None:
         import torch
+
         torch.save(self.checkpoint_payload(), path)
 
     def load(self, path: str) -> None:
         import torch
+
         ckpt = torch.load(path, map_location=self.device, weights_only=False)
         self.load_checkpoint_payload(ckpt)
 
@@ -290,7 +295,11 @@ class PPO(BaseAgent):
         return {
             "model_state": self.model.state_dict(),
             "optimizer_state": self.optimizer.state_dict(),
-            "encoder_optimizer_state": self.encoder_optimizer.state_dict() if getattr(self, "encoder_optimizer", None) is not None else None,
+            "encoder_optimizer_state": (
+                self.encoder_optimizer.state_dict()
+                if getattr(self, "encoder_optimizer", None) is not None
+                else None
+            ),
             "algo_step": self._global_step,
         }
 

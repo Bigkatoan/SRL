@@ -24,9 +24,7 @@ class AutoencoderModule(nn.Module):
         self.encoder = encoder
         self.decoder = decoder
 
-    def compute_loss(
-        self, obs: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def compute_loss(self, obs: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass + reconstruction loss.
 
         Returns

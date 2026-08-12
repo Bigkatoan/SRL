@@ -24,7 +24,7 @@ def random_crop(obs: torch.Tensor, crop_size: int | None = None) -> torch.Tensor
     h0 = torch.randint(0, 2 * pad + 1, (B,))
     w0 = torch.randint(0, 2 * pad + 1, (B,))
     out = torch.stack(
-        [obs_pad[b, :, h0[b]:h0[b] + crop_size, w0[b]:w0[b] + crop_size] for b in range(B)]
+        [obs_pad[b, :, h0[b] : h0[b] + crop_size, w0[b] : w0[b] + crop_size] for b in range(B)]
     )
     return out
 
@@ -34,10 +34,9 @@ def random_translate(obs: torch.Tensor, max_shift: int = 4) -> torch.Tensor:
     B, C, H, W = obs.shape
     shifts_h = torch.randint(-max_shift, max_shift + 1, (B,))
     shifts_w = torch.randint(-max_shift, max_shift + 1, (B,))
-    out = torch.stack([
-        torch.roll(obs[b], (int(shifts_h[b]), int(shifts_w[b])), dims=(-2, -1))
-        for b in range(B)
-    ])
+    out = torch.stack(
+        [torch.roll(obs[b], (int(shifts_h[b]), int(shifts_w[b])), dims=(-2, -1)) for b in range(B)]
+    )
     return out
 
 
@@ -64,7 +63,7 @@ def cutout(obs: torch.Tensor, prob: float = 0.5, size_pct: float = 0.1) -> torch
         if torch.rand(1).item() < prob:
             i = torch.randint(0, H - cut_h + 1, (1,)).item()
             j = torch.randint(0, W - cut_w + 1, (1,)).item()
-            out[b, :, i:i + cut_h, j:j + cut_w] = 0.0
+            out[b, :, i : i + cut_h, j : j + cut_w] = 0.0
     return out
 
 
