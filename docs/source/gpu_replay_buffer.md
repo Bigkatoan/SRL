@@ -171,4 +171,4 @@ buf = GPUReplayBuffer(capacity=10_000, device="cpu")
 ## See also
 
 - [async_runner.md](async_runner.md) — pair with the async runner for maximum Isaac Lab throughput
-- [config_reference.md](config_reference.md#asyncrunnerconfig-v020) — `use_gpu_buffer` flag
+- {ref}`config_reference.md <asyncrunnerconfig>` — `use_gpu_buffer` flag

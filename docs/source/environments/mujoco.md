@@ -22,21 +22,27 @@ Install with: `pip install "srl-rl[mujoco]"`
 
 ## Training
 
-=== "SAC (off-policy)"
-    ```bash
-    # Best for: HalfCheetah, Ant, Swimmer, Pusher, Reacher
-    python examples/envs/train_mujoco.py --env HalfCheetah-v5 --algo sac
-    python examples/envs/train_mujoco.py --env Ant-v5         --algo sac
-    python examples/envs/train_mujoco.py --env Swimmer-v5     --algo sac
-    ```
+::::{tab-set}
 
-=== "PPO (on-policy)"
-    ```bash
-    # Best for: Hopper, Walker2d, Humanoid
-    python examples/envs/train_mujoco.py --env Hopper-v5   --algo ppo
-    python examples/envs/train_mujoco.py --env Walker2d-v5 --algo ppo
-    python examples/envs/train_mujoco.py --env Humanoid-v5 --algo ppo
-    ```
+:::{tab-item} SAC (off-policy)
+```bash
+# Best for: HalfCheetah, Ant, Swimmer, Pusher, Reacher
+python examples/envs/train_mujoco.py --env HalfCheetah-v5 --algo sac
+python examples/envs/train_mujoco.py --env Ant-v5         --algo sac
+python examples/envs/train_mujoco.py --env Swimmer-v5     --algo sac
+```
+:::
+
+:::{tab-item} PPO (on-policy)
+```bash
+# Best for: Hopper, Walker2d, Humanoid
+python examples/envs/train_mujoco.py --env Hopper-v5   --algo ppo
+python examples/envs/train_mujoco.py --env Walker2d-v5 --algo ppo
+python examples/envs/train_mujoco.py --env Humanoid-v5 --algo ppo
+```
+:::
+
+::::
 
 ---
 

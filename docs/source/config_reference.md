@@ -79,6 +79,20 @@ train:
 - `losses` only cover built-in terms currently supported by the runtime.
 - `train` is read by the CLI and mapped to algorithm config dataclasses.
 
+### Validation
+
+`ModelBuilder` validates configs before building any layer, so mistakes surface as a
+clear error message instead of a cryptic torch shape error (or a bare `TypeError`)
+deep inside the first forward pass:
+
+- missing `action_dim` on an actor/critic head type that requires it
+- missing `input_dim`/`input_shape` on an `mlp`/`lstm`/`cnn` encoder
+- an encoder `name` declared more than once with a different `type`/`latent_dim`/
+  `input_dim`/`input_shape` (only the first declaration is built; later ones are
+  silently ignored by name, so this is almost always a copy-paste bug)
+- an unknown encoder or head `type` — the error lists every valid built-in type plus
+  any custom types registered via `register_encoder`/`register_head`
+
 ## Encoder types
 
 | Type | `input_dim` | Notes |
@@ -304,6 +318,7 @@ These fields appear on `SACConfig`, `DDPGConfig`, `TD3Config`, and `VisualSACCon
 
 ---
 
+(asyncrunnerconfig)=
 ## AsyncRunnerConfig (v0.2.0)
 
 Controls `AsyncOffPolicyRunner`. Pass an instance under `runner_cfg` to the CLI or

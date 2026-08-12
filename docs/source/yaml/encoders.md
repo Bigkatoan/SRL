@@ -90,8 +90,9 @@ encoders:
     latent_dim: 64
 ```
 
-!!! tip
-    Luôn khai báo `input_name` khi có nhiều encoder để tránh ambiguous routing.
+```{tip}
+Luôn khai báo `input_name` khi có nhiều encoder để tránh ambiguous routing.
+```
 
 ## Encoder optimizer (v0.2.0)
 

@@ -40,8 +40,9 @@ critic:
     - {out_features: 256, activation: relu}
 ```
 
-!!! note
-    Builder tự tính kích thước input của head từ flow graph — không cần hard-code `input_dim`.
+```{note}
+Builder tự tính kích thước input của head từ flow graph — không cần hard-code `input_dim`.
+```
 
 ## Flows — Routing Graph
 

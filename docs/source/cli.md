@@ -58,6 +58,7 @@ Important flag groups from [train.py](https://github.com/Bigkatoan/SRL/blob/main
 - Checkpointing and resume: `--resume`
 - Pipeline export: `--save-model-pipeline`, `--save-training-pipeline`, `--export-pipeline-only`
 - Evaluation: `--eval-freq`, `--eval-episodes`, `--render`
+- Live viewer: `--visualize`
 
 ### Evaluation semantics
 
@@ -84,6 +85,38 @@ srl-train --config configs/envs/pendulum_ppo.yaml \
           --steps 200000 \
           --resume checkpoints/ppo_pendulum_ppo/final_0000100000.pt
 ```
+
+(live-viewer-visualize)=
+### Live viewer (`--visualize`)
+
+```bash
+srl-train --config configs/envs/mjlab_example_ppo.yaml \
+          --env mjlab:Your-Task-Id \
+          --device cuda \
+          --visualize
+```
+
+Runs one extra single env in a background thread, doing live deterministic inference
+against the *current* (still-training) model weights and rendering it, while the main
+training envs keep running headless and unaffected — useful for watching a policy's
+behavior evolve without stopping the run to check.
+
+There's no snapshotting or reload: the viewer reads `agent.model`/`agent.predict`
+directly, the same object the main thread is updating in place, so it always reflects
+the live weights by construction. Per env type:
+
+- **mjlab**: opens mjlab's own interactive, browser-based `ViserPlayViewer` against a
+  fresh single-env instance of the same task — the console prints the URL to open.
+- **flat/goal/racecar**: opens a `render_mode="human"` window.
+- **isaaclab**: not supported. A process hosts exactly one Isaac Sim render context,
+  shared by every isaaclab env in it, so a second view-only env can't be added
+  alongside headless training envs the way it can for mjlab (independent per-env
+  MuJoCo state) or plain Gymnasium (independent env instances). `--visualize` prints a
+  warning and training continues normally.
+
+Any failure to start the viewer (missing `viser`, a bad render backend, whatever) is
+caught, logged, and degrades to "training continues without the live view" — it never
+takes the run down with it.
 
 Example: export pipelines without training.
 
