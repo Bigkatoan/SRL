@@ -29,6 +29,11 @@ dependencies = [
     "tensorboard>=2.13.0",
     "pyyaml>=6.0",
     "safetensors>=0.4.0",
+    # Logger.enable_plots defaults to True, so plotting is on-by-default
+    # behavior, not an opt-in extra -- it needs to actually be installed by
+    # `pip install srl-rl` rather than silently no-op'ing (see the
+    # try/except ImportError around its use in utils/logger.py).
+    "matplotlib>=3.5.0",
 ]
 
 [project.urls]

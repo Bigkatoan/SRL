@@ -417,6 +417,15 @@ class Logger:
         try:
             import matplotlib.pyplot as plt
         except ImportError:
+            import warnings
+
+            warnings.warn(
+                "enable_plots=True but matplotlib is not installed -- PNG plots will "
+                "be skipped (the SVG export above still runs). "
+                "`pip install matplotlib` to fix, or pass --no-plots / "
+                "enable_plots=False to silence this.",
+                stacklevel=2,
+            )
             return
 
         fig, axes = plt.subplots(len(plot_tags), 1, figsize=(10, 3 * len(plot_tags)), squeeze=False)

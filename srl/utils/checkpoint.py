@@ -2,11 +2,43 @@
 
 from __future__ import annotations
 
+import random
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import torch
 import torch.nn as nn
+
+
+def _capture_rng_state() -> dict[str, Any]:
+    """Snapshot every RNG SRL's training loops actually draw from.
+
+    Without this, `--resume` restores model/optimizer/step state exactly but
+    silently continues with a *different* exploration-noise and
+    minibatch-shuffle sequence than an uninterrupted run would have had --
+    the optimizer state and step count line up, but nothing downstream of
+    them is actually reproducible across a resume.
+    """
+    state: dict[str, Any] = {
+        "python_random": random.getstate(),
+        "numpy_random": np.random.get_state(),
+        "torch_random": torch.get_rng_state(),
+    }
+    if torch.cuda.is_available():
+        state["torch_cuda_random"] = torch.cuda.get_rng_state_all()
+    return state
+
+
+def _restore_rng_state(state: dict[str, Any]) -> None:
+    if "python_random" in state:
+        random.setstate(state["python_random"])
+    if "numpy_random" in state:
+        np.random.set_state(state["numpy_random"])
+    if "torch_random" in state:
+        torch.set_rng_state(state["torch_random"].to(torch.uint8))
+    if "torch_cuda_random" in state and torch.cuda.is_available():
+        torch.cuda.set_rng_state_all(state["torch_cuda_random"])
 
 
 class CheckpointManager:
@@ -134,6 +166,7 @@ class CheckpointManager:
 
         payload["step"] = step
         payload["metrics"] = metrics or {}
+        payload["rng_state"] = _capture_rng_state()
         if optimizer is not None:
             payload["optimizer_state"] = optimizer.state_dict()
         return payload
@@ -145,6 +178,10 @@ class CheckpointManager:
         payload: dict[str, Any],
         optimizer: torch.optim.Optimizer | None,
     ) -> None:
+        # Checkpoints saved before RNG state was tracked have no such key --
+        # nothing to restore, resume just won't be bit-exact for those.
+        if "rng_state" in payload:
+            _restore_rng_state(payload["rng_state"])
         if hasattr(model, "load_checkpoint_payload"):
             model.load_checkpoint_payload(payload)
             return
@@ -163,5 +200,5 @@ class CheckpointManager:
         return (
             isinstance(model, nn.Module)
             and optimizer is None
-            and set(payload.keys()) <= {"model_state", "step", "metrics"}
+            and set(payload.keys()) <= {"model_state", "step", "metrics", "rng_state"}
         )

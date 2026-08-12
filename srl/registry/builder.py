@@ -11,6 +11,85 @@ from srl.registry.config_schema import AgentModelConfig, EncoderConfig, HeadConf
 from srl.registry.flow_graph import FlowGraph
 from srl.registry.registry import EncoderRegistry, HeadRegistry
 
+# Built-in types special-cased in _build_encoder/_build_head below, so they
+# never go through EncoderRegistry/HeadRegistry.register(...) -- a typo'd
+# type name (e.g. "mlpp") used to hit the registry's generic error message,
+# which reports "Registered: []" even though mlp/cnn/lstm/text are all valid,
+# because the registry genuinely has nothing in it unless a project also
+# registers its own custom types.
+_BUILTIN_ENCODER_TYPES = ("mlp", "cnn", "lstm", "text")
+_BUILTIN_HEAD_TYPES = (
+    "gaussian",
+    "squashed_gaussian",
+    "deterministic",
+    "value",
+    "twin_q",
+    "q",
+    "q_function",
+)
+_ACTION_DIM_REQUIRED_HEAD_TYPES = {
+    "gaussian",
+    "squashed_gaussian",
+    "deterministic",
+    "twin_q",
+    "q",
+    "q_function",
+}
+
+
+def _validate_config(cfg: AgentModelConfig) -> None:
+    """Fail fast with an actionable message instead of a cryptic torch error
+    (e.g. "mat1 and mat2 shapes cannot be multiplied", or a bare TypeError
+    from nn.Linear(None, ...)) deep inside the first forward pass.
+    """
+    seen_encoders: dict[str, EncoderConfig] = {}
+    for enc_cfg in cfg.encoders:
+        prior = seen_encoders.get(enc_cfg.name)
+        if prior is not None and (
+            prior.type != enc_cfg.type
+            or prior.latent_dim != enc_cfg.latent_dim
+            or prior.input_dim != enc_cfg.input_dim
+            or prior.input_shape != enc_cfg.input_shape
+        ):
+            raise ValueError(
+                f"Encoder '{enc_cfg.name}' is declared more than once with different "
+                "configs. ModelBuilder builds only the first declaration and silently "
+                "ignores later ones with the same name -- this is almost certainly a "
+                "copy-paste bug. Give the duplicate a distinct name if it's meant to "
+                "be a second, separate encoder."
+            )
+        seen_encoders.setdefault(enc_cfg.name, enc_cfg)
+
+        enc_type = enc_cfg.type.lower()
+        if enc_type in ("mlp", "lstm") and enc_cfg.input_dim is None:
+            raise ValueError(
+                f"Encoder '{enc_cfg.name}' (type='{enc_cfg.type}') requires 'input_dim' to be set."
+            )
+        if enc_type == "cnn" and enc_cfg.input_shape is None:
+            raise ValueError(
+                f"Encoder '{enc_cfg.name}' (type='cnn') requires 'input_shape' "
+                "([C, H, W]) to be set."
+            )
+        if enc_type not in _BUILTIN_ENCODER_TYPES and enc_type not in EncoderRegistry:
+            available = sorted(set(_BUILTIN_ENCODER_TYPES) | set(EncoderRegistry.available()))
+            raise ValueError(
+                f"Encoder '{enc_cfg.name}' has unknown type '{enc_cfg.type}'. "
+                f"Available: {available}"
+            )
+
+    for role, head_cfg in (("actor", cfg.actor), ("critic", cfg.critic)):
+        if head_cfg is None:
+            continue
+        head_type = head_cfg.type.lower()
+        if head_type in _ACTION_DIM_REQUIRED_HEAD_TYPES and not head_cfg.action_dim:
+            raise ValueError(
+                f"{role}.action_dim is required for {role} type '{head_cfg.type}' "
+                "but is missing (or 0)."
+            )
+        if head_type not in _BUILTIN_HEAD_TYPES and head_type not in HeadRegistry:
+            available = sorted(set(_BUILTIN_HEAD_TYPES) | set(HeadRegistry.available()))
+            raise ValueError(f"{role} has unknown type '{head_cfg.type}'. Available: {available}")
+
 
 def _build_encoder(cfg: EncoderConfig):
     """Instantiate a single encoder from its config."""
@@ -126,8 +205,8 @@ class ModelBuilder:
 
     @staticmethod
     def from_dict(d: dict[str, Any]) -> Any:  # returns AgentModel
-
         cfg = AgentModelConfig.from_dict(d)
+        _validate_config(cfg)
         return ModelBuilder._build(cfg)
 
     @staticmethod
@@ -181,10 +260,11 @@ class ModelBuilder:
                     from srl.networks.heads.aux_head import ConvDecoderHead
 
                     if enc_cfg.input_shape is not None:
-                        in_channels = enc_cfg.input_shape[0]
+                        # Reconstruct the same (C, H, W) the encoder read in --
+                        # ConvDecoderHead's job is to decode back to it.
                         aux_encoders[f"{enc_cfg.name}_aux"] = ConvDecoderHead(
                             latent_dim=enc_cfg.latent_dim,
-                            out_channels=in_channels,
+                            output_shape=tuple(enc_cfg.input_shape),
                         )
                 elif enc_cfg.aux_type in ("contrastive", "byol"):
                     from srl.networks.heads.aux_head import ProjectionHead
