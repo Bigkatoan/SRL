@@ -1,0 +1,937 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Algorithms &#8212; SRL Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=4418a689" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=45cb6f3e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+
+    <script src="../_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'source/algorithms';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Configuration Reference" href="config_reference.html" />
+    <link rel="prev" title="srl.utils" href="api/utils.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+    <meta name="docbuild:last-update" content="Aug 12, 2026"/>
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">SRL Documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Reference</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">YAML Configuration</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="yaml_core.html">YAML Core Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="yaml/index.html">YAML Configuration System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="yaml/encoders.html">Encoders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="yaml/heads_flows.html">Heads &amp; Flows</a></li>
+<li class="toctree-l1"><a class="reference internal" href="yaml/auxiliary.html">Auxiliary Representation Learning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="yaml/training_block.html">Training Block Reference</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Training System</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="training/index.html">Training System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="training/algorithms.html">Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="training/runners.html">Runners &amp; Training Loop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="training/buffers.html">Replay Buffers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="checkpointing.html">Checkpointing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="encoders.html">Hướng dẫn Encoders (Thiết lập &amp; Best Practices)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="async_runner.html">Async Off-Policy Runner</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gpu_replay_buffer.html">GPU Replay Buffer</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Integrations</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="integrations/index.html">Integrations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrations/isaaclab.html">Isaac Lab Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrations/mjlab.html">mjlab Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrations/gymnasium.html">Gymnasium Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ros2.html">ROS 2 Python API</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Environments</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="environments/index.html">Supported Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="environments/classic_control.html">Classic Control Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="environments/box2d.html">Gymnasium Box2D Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="environments/mujoco.html">MuJoCo Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="environments/robotics.html">Gymnasium-Robotics Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="environments/racecar.html">racecar_gym Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="environments/isaaclab.html">Isaac Lab Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="environments/m3bot.html">M3bot Environment</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="api/index.html">API Reference</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/algorithms.html">srl.algorithms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/envs.html">srl.envs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/networks.html">srl.networks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/utils.html">srl.utils</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config_reference.html">Configuration Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="limitations.html">Limitations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples/encoder_examples.html">Ví dụ: Cấu hình Encoders cho SAC / TD3 / Actor-Critic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Bigkatoan/SRL" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Bigkatoan/SRL/edit/main/docs/source/algorithms.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Bigkatoan/SRL/issues/new?title=Issue%20on%20page%20%2Fsource/algorithms.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/source/algorithms.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Algorithms</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ppo-proximal-policy-optimization">PPO — Proximal Policy Optimization</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#config">Config</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#recommended-environments">Recommended environments</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sac-soft-actor-critic">SAC — Soft Actor-Critic</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">Config</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#encoder-optimizer-v0-2-0">Encoder optimizer (v0.2.0)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#visual-sac">Visual SAC</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">Recommended environments</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ddpg-deep-deterministic-policy-gradient">DDPG — Deep Deterministic Policy Gradient</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#td3-twin-delayed-deep-deterministic-policy-gradient">TD3 — Twin Delayed Deep Deterministic Policy Gradient</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#a2c-advantage-actor-critic">A2C — Advantage Actor-Critic</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#a3c-asynchronous-advantage-actor-critic">A3C — Asynchronous Advantage Actor-Critic</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#async-off-policy-runner-v0-2-0">Async off-policy runner (v0.2.0)</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="algorithms">
+<h1>Algorithms<a class="headerlink" href="#algorithms" title="Link to this heading">#</a></h1>
+<p>SRL implements six RL algorithms for <strong>continuous action spaces</strong>.</p>
+<p>Algorithm configuration in SRL sits on top of the YAML model graph. The YAML file declares the model structure, routing, and currently supported loss terms; the algorithm layer consumes that graph and applies PPO, SAC, DDPG, TD3, A2C, or A3C-specific optimization logic on top.</p>
+<p>Read the <a class="reference internal" href="yaml_core.html"><span class="std std-doc">YAML Core Guide</span></a> first if you want the architectural picture. This page focuses on the algorithm-side hyperparameters and runtime behavior.</p>
+<hr class="docutils" />
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Algorithm</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Strengths</p></th>
+<th class="head"><p>Best for</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>PPO</strong></p></td>
+<td><p>On-policy</p></td>
+<td><p>Sample-efficient, stable</p></td>
+<td><p>Locomotion, Isaac Lab</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>SAC</strong></p></td>
+<td><p>Off-policy</p></td>
+<td><p>High performance, auto-entropy</p></td>
+<td><p>High-DoF manipulation</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>DDPG</strong></p></td>
+<td><p>Off-policy</p></td>
+<td><p>Simple, deterministic</p></td>
+<td><p>Low-DoF tasks</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>TD3</strong></p></td>
+<td><p>Off-policy</p></td>
+<td><p>Reduced overestimation bias</p></td>
+<td><p>Continuous control</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>A2C</strong></p></td>
+<td><p>On-policy</p></td>
+<td><p>Low memory, fast updates</p></td>
+<td><p>Parallel envs</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>A3C</strong></p></td>
+<td><p>On-policy, parallel</p></td>
+<td><p>Asynchronous workers</p></td>
+<td><p>Multi-CPU setups</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="ppo-proximal-policy-optimization">
+<h2>PPO — Proximal Policy Optimization<a class="headerlink" href="#ppo-proximal-policy-optimization" title="Link to this heading">#</a></h2>
+<p>PPO clips the surrogate objective to prevent large policy updates.</p>
+<section id="config">
+<h3>Config<a class="headerlink" href="#config" title="Link to this heading">#</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.core.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">PPOConfig</span>
+
+<span class="n">cfg</span> <span class="o">=</span> <span class="n">PPOConfig</span><span class="p">(</span>
+    <span class="n">lr</span>           <span class="o">=</span> <span class="mf">3e-4</span><span class="p">,</span>
+    <span class="n">n_steps</span>      <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>   <span class="c1"># steps per env per rollout</span>
+    <span class="n">num_envs</span>     <span class="o">=</span> <span class="mi">8</span><span class="p">,</span>
+    <span class="n">batch_size</span>   <span class="o">=</span> <span class="mi">256</span><span class="p">,</span>
+    <span class="n">n_epochs</span>     <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+    <span class="n">gamma</span>        <span class="o">=</span> <span class="mf">0.99</span><span class="p">,</span>
+    <span class="n">gae_lambda</span>   <span class="o">=</span> <span class="mf">0.95</span><span class="p">,</span>
+    <span class="n">clip_range</span>   <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
+    <span class="n">entropy_coef</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">vf_coef</span>      <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">max_grad_norm</span><span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="recommended-environments">
+<h3>Recommended environments<a class="headerlink" href="#recommended-environments" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">HalfCheetah-v5</span></code>, <code class="docutils literal notranslate"><span class="pre">Hopper-v5</span></code>, <code class="docutils literal notranslate"><span class="pre">Walker2d-v5</span></code>, <code class="docutils literal notranslate"><span class="pre">Humanoid-v5</span></code></p></li>
+<li><p>Isaac Lab: <code class="docutils literal notranslate"><span class="pre">Isaac-Ant-v0</span></code>, <code class="docutils literal notranslate"><span class="pre">Isaac-Humanoid-v0</span></code></p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="sac-soft-actor-critic">
+<h2>SAC — Soft Actor-Critic<a class="headerlink" href="#sac-soft-actor-critic" title="Link to this heading">#</a></h2>
+<p>SAC maximizes return + policy entropy.<br />
+Twin-Q critics + automatic temperature tuning.</p>
+<section id="id1">
+<h3>Config<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.core.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">SACConfig</span>
+
+<span class="n">cfg</span> <span class="o">=</span> <span class="n">SACConfig</span><span class="p">(</span>
+    <span class="n">lr_actor</span>        <span class="o">=</span> <span class="mf">3e-4</span><span class="p">,</span>
+    <span class="n">lr_critic</span>       <span class="o">=</span> <span class="mf">3e-4</span><span class="p">,</span>
+    <span class="n">lr_alpha</span>        <span class="o">=</span> <span class="mf">3e-4</span><span class="p">,</span>
+    <span class="n">buffer_size</span>     <span class="o">=</span> <span class="mi">1_000_000</span><span class="p">,</span>
+    <span class="n">batch_size</span>      <span class="o">=</span> <span class="mi">256</span><span class="p">,</span>
+    <span class="n">gamma</span>           <span class="o">=</span> <span class="mf">0.99</span><span class="p">,</span>
+    <span class="n">tau</span>             <span class="o">=</span> <span class="mf">0.005</span><span class="p">,</span>
+    <span class="n">action_dim</span>      <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>      <span class="c1"># required for target entropy</span>
+    <span class="n">learning_starts</span> <span class="o">=</span> <span class="mi">10_000</span><span class="p">,</span>
+    <span class="n">gradient_steps</span>  <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">auto_entropy_tuning</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">encoder_update_freq</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>  <span class="c1"># encoder optimizer steps every N critic updates</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="encoder-optimizer-v0-2-0">
+<h3>Encoder optimizer (v0.2.0)<a class="headerlink" href="#encoder-optimizer-v0-2-0" title="Link to this heading">#</a></h3>
+<p>SAC uses <strong>three optimizers</strong> since v0.2.0:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Optimizer</p></th>
+<th class="head"><p>Parameters</p></th>
+<th class="head"><p>When it steps</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">critic_optimizer</span></code></p></td>
+<td><p>Twin-Q head only</p></td>
+<td><p>Every gradient step</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">actor_optimizer</span></code></p></td>
+<td><p>Actor head only</p></td>
+<td><p>Every gradient step</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">encoder_optimizer</span></code></p></td>
+<td><p>All CNN/MLP encoders</p></td>
+<td><p>Every <code class="docutils literal notranslate"><span class="pre">encoder_update_freq</span></code> critic steps</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The encoder is <strong>never</strong> updated by the actor backward pass, preventing the double
+learning-rate that caused distribution shift in earlier versions.</p>
+</section>
+<section id="visual-sac">
+<h3>Visual SAC<a class="headerlink" href="#visual-sac" title="Link to this heading">#</a></h3>
+<p>Use <code class="docutils literal notranslate"><span class="pre">VisualSACConfig</span></code> for pixel-based tasks. It sets sensible defaults for CNN encoders:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.core.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">VisualSACConfig</span>
+
+<span class="n">cfg</span> <span class="o">=</span> <span class="n">VisualSACConfig</span><span class="p">(</span>
+    <span class="n">encoder_update_freq</span>        <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>      <span class="c1"># step encoder every 2 critic updates</span>
+    <span class="n">encoder_optimize_with_critic</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="c1"># False → encoder only trains via aux loss</span>
+    <span class="n">aux_loss_type</span>              <span class="o">=</span> <span class="s2">&quot;curl&quot;</span><span class="p">,</span> <span class="c1"># none | ae | vae | curl | byol | drq | spr | barlow</span>
+    <span class="n">lr_encoder</span>                 <span class="o">=</span> <span class="mf">1e-4</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong><code class="docutils literal notranslate"><span class="pre">aux_loss_type</span></code> options:</strong></p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Value</p></th>
+<th class="head"><p>Method</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">none</span></code></p></td>
+<td><p>No auxiliary loss</p></td>
+<td><p>Encoder trained by critic gradient only</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ae</span></code></p></td>
+<td><p>Autoencoder (MSE reconstruction)</p></td>
+<td><p>Requires <code class="docutils literal notranslate"><span class="pre">ConvDecoderHead</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">vae</span></code></p></td>
+<td><p>Variational AE (MSE + KL)</p></td>
+<td><p>Requires <code class="docutils literal notranslate"><span class="pre">VAEHead</span></code> + <code class="docutils literal notranslate"><span class="pre">ConvDecoderHead</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">curl</span></code></p></td>
+<td><p>CURL InfoNCE contrastive</p></td>
+<td><p>Default; requires <code class="docutils literal notranslate"><span class="pre">ProjectionHead</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">byol</span></code></p></td>
+<td><p>BYOL self-prediction</p></td>
+<td><p>Uses momentum encoder + <code class="docutils literal notranslate"><span class="pre">ProjectionHead</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">drq</span></code></p></td>
+<td><p>DrQ Q-value augmentation consistency</p></td>
+<td><p>Applies random crop/colour augmentation</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">spr</span></code></p></td>
+<td><p>SPR latent forward prediction</p></td>
+<td><p>Requires <code class="docutils literal notranslate"><span class="pre">LatentTransitionModel</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">barlow</span></code></p></td>
+<td><p>Barlow Twins redundancy reduction</p></td>
+<td><p>Requires <code class="docutils literal notranslate"><span class="pre">ProjectionHead</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="id2">
+<h3>Recommended environments<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">HalfCheetah-v5</span></code>, <code class="docutils literal notranslate"><span class="pre">Ant-v5</span></code>, <code class="docutils literal notranslate"><span class="pre">Swimmer-v5</span></code>, <code class="docutils literal notranslate"><span class="pre">Pusher-v5</span></code>, <code class="docutils literal notranslate"><span class="pre">Reacher-v5</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">FetchReach-v4</span></code>, <code class="docutils literal notranslate"><span class="pre">FetchPush-v4</span></code>, <code class="docutils literal notranslate"><span class="pre">FetchPickAndPlace-v4</span></code>, <code class="docutils literal notranslate"><span class="pre">FetchSlide-v4</span></code></p></li>
+<li><p>Pixel tasks: CarRacing-v2, DMControl suite, Isaac Lab visual tasks</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="ddpg-deep-deterministic-policy-gradient">
+<h2>DDPG — Deep Deterministic Policy Gradient<a class="headerlink" href="#ddpg-deep-deterministic-policy-gradient" title="Link to this heading">#</a></h2>
+<p>Deterministic off-policy actor-critic.  Simpler than SAC but more sensitive to
+hyperparameters.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.core.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">DDPGConfig</span>
+
+<span class="n">cfg</span> <span class="o">=</span> <span class="n">DDPGConfig</span><span class="p">(</span>
+    <span class="n">lr_actor</span>     <span class="o">=</span> <span class="mf">1e-4</span><span class="p">,</span>
+    <span class="n">lr_critic</span>    <span class="o">=</span> <span class="mf">1e-3</span><span class="p">,</span>
+    <span class="n">buffer_size</span>  <span class="o">=</span> <span class="mi">1_000_000</span><span class="p">,</span>
+    <span class="n">batch_size</span>   <span class="o">=</span> <span class="mi">256</span><span class="p">,</span>
+    <span class="n">gamma</span>        <span class="o">=</span> <span class="mf">0.99</span><span class="p">,</span>
+    <span class="n">tau</span>          <span class="o">=</span> <span class="mf">0.005</span><span class="p">,</span>
+    <span class="n">action_dim</span>   <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
+    <span class="n">action_noise</span> <span class="o">=</span> <span class="s2">&quot;gaussian&quot;</span><span class="p">,</span>
+    <span class="n">noise_sigma</span>  <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+    <span class="n">encoder_update_freq</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="td3-twin-delayed-deep-deterministic-policy-gradient">
+<h2>TD3 — Twin Delayed Deep Deterministic Policy Gradient<a class="headerlink" href="#td3-twin-delayed-deep-deterministic-policy-gradient" title="Link to this heading">#</a></h2>
+<p>TD3 reduces Q-value overestimation with twin critics and delayed policy updates.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.core.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">TD3Config</span>
+
+<span class="n">cfg</span> <span class="o">=</span> <span class="n">TD3Config</span><span class="p">(</span>
+    <span class="n">lr_actor</span>          <span class="o">=</span> <span class="mf">3e-4</span><span class="p">,</span>
+    <span class="n">lr_critic</span>         <span class="o">=</span> <span class="mf">3e-4</span><span class="p">,</span>
+    <span class="n">buffer_size</span>       <span class="o">=</span> <span class="mi">1_000_000</span><span class="p">,</span>
+    <span class="n">batch_size</span>        <span class="o">=</span> <span class="mi">256</span><span class="p">,</span>
+    <span class="n">gamma</span>             <span class="o">=</span> <span class="mf">0.99</span><span class="p">,</span>
+    <span class="n">tau</span>               <span class="o">=</span> <span class="mf">0.005</span><span class="p">,</span>
+    <span class="n">action_dim</span>        <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
+    <span class="n">policy_noise</span>      <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
+    <span class="n">noise_clip</span>        <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">policy_delay</span>      <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="n">encoder_update_freq</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Like SAC and DDPG, TD3 uses a separate <code class="docutils literal notranslate"><span class="pre">encoder_optimizer</span></code> since v0.2.0. The encoder
+steps every <code class="docutils literal notranslate"><span class="pre">encoder_update_freq</span></code> critic updates, independent of <code class="docutils literal notranslate"><span class="pre">policy_delay</span></code>.</p>
+</section>
+<hr class="docutils" />
+<section id="a2c-advantage-actor-critic">
+<h2>A2C — Advantage Actor-Critic<a class="headerlink" href="#a2c-advantage-actor-critic" title="Link to this heading">#</a></h2>
+<p>Synchronous on-policy algorithm. Lower memory than PPO.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.core.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">A2CConfig</span>
+
+<span class="n">cfg</span> <span class="o">=</span> <span class="n">A2CConfig</span><span class="p">(</span>
+    <span class="n">lr</span>            <span class="o">=</span> <span class="mf">7e-4</span><span class="p">,</span>
+    <span class="n">n_steps</span>       <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+    <span class="n">gamma</span>         <span class="o">=</span> <span class="mf">0.99</span><span class="p">,</span>
+    <span class="n">entropy_coef</span>  <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span>
+    <span class="n">vf_coef</span>       <span class="o">=</span> <span class="mf">0.25</span><span class="p">,</span>
+    <span class="n">max_grad_norm</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="a3c-asynchronous-advantage-actor-critic">
+<h2>A3C — Asynchronous Advantage Actor-Critic<a class="headerlink" href="#a3c-asynchronous-advantage-actor-critic" title="Link to this heading">#</a></h2>
+<p>Runs <code class="docutils literal notranslate"><span class="pre">n_workers</span></code> parallel CPU workers, each collecting experience and computing
+gradients asynchronously.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.core.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">A3CConfig</span>
+
+<span class="n">cfg</span> <span class="o">=</span> <span class="n">A3CConfig</span><span class="p">(</span>
+    <span class="n">lr</span>          <span class="o">=</span> <span class="mf">1e-4</span><span class="p">,</span>
+    <span class="n">n_workers</span>   <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="n">n_steps</span>     <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
+    <span class="n">gamma</span>       <span class="o">=</span> <span class="mf">0.99</span><span class="p">,</span>
+    <span class="n">gae_lambda</span>  <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="async-off-policy-runner-v0-2-0">
+<h2>Async off-policy runner (v0.2.0)<a class="headerlink" href="#async-off-policy-runner-v0-2-0" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">AsyncOffPolicyRunner</span></code> decouples data collection from gradient updates for SAC, DDPG,
+and TD3. The collector runs on the <strong>main thread</strong> (required for Isaac Lab CUDA-context
+safety); the trainer runs on a <strong>daemon thread</strong> with its own CUDA stream.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.core.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncRunnerConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">srl.runners</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncOffPolicyRunner</span>
+
+<span class="n">runner_cfg</span> <span class="o">=</span> <span class="n">AsyncRunnerConfig</span><span class="p">(</span>
+    <span class="n">use_async</span>      <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>    <span class="c1"># enable async collector/trainer split</span>
+    <span class="n">use_gpu_buffer</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>    <span class="c1"># swap replay buffer for GPUReplayBuffer</span>
+    <span class="n">prefill_steps</span>  <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>    <span class="c1"># random steps before first gradient update</span>
+    <span class="n">queue_maxsize</span>  <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>       <span class="c1"># max transitions queued between threads</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>When <code class="docutils literal notranslate"><span class="pre">use_async=False</span></code> (default), the runner falls through to the standard synchronous
+training loop. When <code class="docutils literal notranslate"><span class="pre">use_gpu_buffer=True</span></code> only, the GPU buffer is used but collection
+and training remain on the same thread.</p>
+<p>See <a class="reference internal" href="async_runner.html"><span class="std std-doc">async_runner.md</span></a> and <a class="reference internal" href="gpu_replay_buffer.html"><span class="std std-doc">gpu_replay_buffer.md</span></a>
+for detailed usage.</p>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="api/utils.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">srl.utils</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="config_reference.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Configuration Reference</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ppo-proximal-policy-optimization">PPO — Proximal Policy Optimization</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#config">Config</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#recommended-environments">Recommended environments</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sac-soft-actor-critic">SAC — Soft Actor-Critic</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">Config</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#encoder-optimizer-v0-2-0">Encoder optimizer (v0.2.0)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#visual-sac">Visual SAC</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">Recommended environments</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ddpg-deep-deterministic-policy-gradient">DDPG — Deep Deterministic Policy Gradient</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#td3-twin-delayed-deep-deterministic-policy-gradient">TD3 — Twin Delayed Deep Deterministic Policy Gradient</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#a2c-advantage-actor-critic">A2C — Advantage Actor-Critic</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#a3c-asynchronous-advantage-actor-critic">A3C — Asynchronous Advantage Actor-Critic</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#async-off-policy-runner-v0-2-0">Async off-policy runner (v0.2.0)</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By SRL Contributors
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2026, SRL Contributors.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    <p class="last-updated">
+  Last updated on Aug 12, 2026.
+  <br/>
+</p>
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

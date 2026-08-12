@@ -1,0 +1,902 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>srl.envs &#8212; SRL Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/sphinx-book-theme.css?v=4418a689" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=45cb6f3e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+
+    <script src="../../_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'source/api/envs';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="srl.networks" href="networks.html" />
+    <link rel="prev" title="srl.algorithms" href="algorithms.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+    <meta name="docbuild:last-update" content="Aug 12, 2026"/>
+  
+    
+    <script src="../../_static/searchtools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">SRL Documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html">CLI Reference</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">YAML Configuration</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../yaml_core.html">YAML Core Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../yaml/index.html">YAML Configuration System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../yaml/encoders.html">Encoders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../yaml/heads_flows.html">Heads &amp; Flows</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../yaml/auxiliary.html">Auxiliary Representation Learning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../yaml/training_block.html">Training Block Reference</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Training System</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../training/index.html">Training System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../training/algorithms.html">Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../training/runners.html">Runners &amp; Training Loop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../training/buffers.html">Replay Buffers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../checkpointing.html">Checkpointing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../encoders.html">Hướng dẫn Encoders (Thiết lập &amp; Best Practices)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../async_runner.html">Async Off-Policy Runner</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../gpu_replay_buffer.html">GPU Replay Buffer</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Integrations</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../integrations/index.html">Integrations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../integrations/isaaclab.html">Isaac Lab Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../integrations/mjlab.html">mjlab Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../integrations/gymnasium.html">Gymnasium Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../ros2.html">ROS 2 Python API</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Environments</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../environments/index.html">Supported Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../environments/classic_control.html">Classic Control Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../environments/box2d.html">Gymnasium Box2D Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../environments/mujoco.html">MuJoCo Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../environments/robotics.html">Gymnasium-Robotics Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../environments/racecar.html">racecar_gym Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../environments/isaaclab.html">Isaac Lab Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../environments/m3bot.html">M3bot Environment</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">API Reference</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="algorithms.html">srl.algorithms</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">srl.envs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="networks.html">srl.networks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utils.html">srl.utils</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../algorithms.html">Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../config_reference.html">Configuration Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../limitations.html">Limitations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/encoder_examples.html">Ví dụ: Cấu hình Encoders cho SAC / TD3 / Actor-Critic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Bigkatoan/SRL" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Bigkatoan/SRL/edit/main/docs/source/api/envs.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Bigkatoan/SRL/issues/new?title=Issue%20on%20page%20%2Fsource/api/envs.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../../_sources/source/api/envs.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>srl.envs</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#gymnasiumwrapper">GymnasiumWrapper</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.gymnasium_wrapper.GymnasiumWrapper"><code class="docutils literal notranslate"><span class="pre">GymnasiumWrapper</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.gymnasium_wrapper.GymnasiumWrapper.__init__"><code class="docutils literal notranslate"><span class="pre">GymnasiumWrapper.__init__()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.gymnasium_wrapper.GymnasiumWrapper.reset"><code class="docutils literal notranslate"><span class="pre">GymnasiumWrapper.reset()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.gymnasium_wrapper.GymnasiumWrapper.step"><code class="docutils literal notranslate"><span class="pre">GymnasiumWrapper.step()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#goalenvwrapper">GoalEnvWrapper</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.goal_env_wrapper.GoalEnvWrapper"><code class="docutils literal notranslate"><span class="pre">GoalEnvWrapper</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.goal_env_wrapper.GoalEnvWrapper.__init__"><code class="docutils literal notranslate"><span class="pre">GoalEnvWrapper.__init__()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.goal_env_wrapper.GoalEnvWrapper.reset"><code class="docutils literal notranslate"><span class="pre">GoalEnvWrapper.reset()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.goal_env_wrapper.GoalEnvWrapper.step"><code class="docutils literal notranslate"><span class="pre">GoalEnvWrapper.step()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#racecarwrapper">RacecarWrapper</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.racecar_wrapper.RacecarWrapper"><code class="docutils literal notranslate"><span class="pre">RacecarWrapper</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.racecar_wrapper.RacecarWrapper.__init__"><code class="docutils literal notranslate"><span class="pre">RacecarWrapper.__init__()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.racecar_wrapper.RacecarWrapper.reset"><code class="docutils literal notranslate"><span class="pre">RacecarWrapper.reset()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.racecar_wrapper.RacecarWrapper.step"><code class="docutils literal notranslate"><span class="pre">RacecarWrapper.step()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclabwrapper">IsaacLabWrapper</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.isaac_lab_wrapper.IsaacLabWrapper"><code class="docutils literal notranslate"><span class="pre">IsaacLabWrapper</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.isaac_lab_wrapper.IsaacLabWrapper.__init__"><code class="docutils literal notranslate"><span class="pre">IsaacLabWrapper.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#syncvectorenv">SyncVectorEnv</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.sync_vector_env.SyncVectorEnv"><code class="docutils literal notranslate"><span class="pre">SyncVectorEnv</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.sync_vector_env.SyncVectorEnv.__init__"><code class="docutils literal notranslate"><span class="pre">SyncVectorEnv.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#asyncvectorenv">AsyncVectorEnv</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.async_vector_env.AsyncVectorEnv"><code class="docutils literal notranslate"><span class="pre">AsyncVectorEnv</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.async_vector_env.AsyncVectorEnv.__init__"><code class="docutils literal notranslate"><span class="pre">AsyncVectorEnv.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="srl-envs">
+<h1>srl.envs<a class="headerlink" href="#srl-envs" title="Link to this heading">#</a></h1>
+<section id="gymnasiumwrapper">
+<h2>GymnasiumWrapper<a class="headerlink" href="#gymnasiumwrapper" title="Link to this heading">#</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="srl.envs.gymnasium_wrapper.GymnasiumWrapper">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">srl.envs.gymnasium_wrapper.</span></span><span class="sig-name descname"><span class="pre">GymnasiumWrapper</span></span><a class="reference internal" href="../../_modules/srl/envs/gymnasium_wrapper.html#GymnasiumWrapper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#srl.envs.gymnasium_wrapper.GymnasiumWrapper" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Wrapper</span></code></p>
+<p>Thin wrapper around any Gymnasium environment.</p>
+<ul class="simple">
+<li><p>Converts <code class="docutils literal notranslate"><span class="pre">obs</span></code> to <code class="docutils literal notranslate"><span class="pre">dict</span></code> form (key = <code class="docutils literal notranslate"><span class="pre">&quot;state&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;pixels&quot;</span></code>).</p></li>
+<li><p>Exposes <code class="docutils literal notranslate"><span class="pre">obs_space</span></code>, <code class="docutils literal notranslate"><span class="pre">act_space</span></code> helpers.</p></li>
+<li><p>Stores <code class="docutils literal notranslate"><span class="pre">num_envs</span> <span class="pre">=</span> <span class="pre">1</span></code> for API uniformity with vector envs.</p></li>
+</ul>
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.envs.gymnasium_wrapper.GymnasiumWrapper.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">env</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Env</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">obs_key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'state'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/srl/envs/gymnasium_wrapper.html#GymnasiumWrapper.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#srl.envs.gymnasium_wrapper.GymnasiumWrapper.__init__" title="Link to this definition">#</a></dt>
+<dd><p>Wraps an environment to allow a modular transformation of the <a class="reference internal" href="#srl.envs.gymnasium_wrapper.GymnasiumWrapper.step" title="srl.envs.gymnasium_wrapper.GymnasiumWrapper.step"><code class="xref py py-meth docutils literal notranslate"><span class="pre">step()</span></code></a> and <a class="reference internal" href="#srl.envs.gymnasium_wrapper.GymnasiumWrapper.reset" title="srl.envs.gymnasium_wrapper.GymnasiumWrapper.reset"><code class="xref py py-meth docutils literal notranslate"><span class="pre">reset()</span></code></a> methods.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>env</strong> – The environment to wrap</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.envs.gymnasium_wrapper.GymnasiumWrapper.reset">
+<span class="sig-name descname"><span class="pre">reset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/srl/envs/gymnasium_wrapper.html#GymnasiumWrapper.reset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#srl.envs.gymnasium_wrapper.GymnasiumWrapper.reset" title="Link to this definition">#</a></dt>
+<dd><p>Uses the <a class="reference internal" href="#srl.envs.gymnasium_wrapper.GymnasiumWrapper.reset" title="srl.envs.gymnasium_wrapper.GymnasiumWrapper.reset"><code class="xref py py-meth docutils literal notranslate"><span class="pre">reset()</span></code></a> of the <code class="xref py py-attr docutils literal notranslate"><span class="pre">env</span></code> that can be overwritten to change the returned data.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.envs.gymnasium_wrapper.GymnasiumWrapper.step">
+<span class="sig-name descname"><span class="pre">step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">action</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/srl/envs/gymnasium_wrapper.html#GymnasiumWrapper.step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#srl.envs.gymnasium_wrapper.GymnasiumWrapper.step" title="Link to this definition">#</a></dt>
+<dd><p>Uses the <a class="reference internal" href="#srl.envs.gymnasium_wrapper.GymnasiumWrapper.step" title="srl.envs.gymnasium_wrapper.GymnasiumWrapper.step"><code class="xref py py-meth docutils literal notranslate"><span class="pre">step()</span></code></a> of the <code class="xref py py-attr docutils literal notranslate"><span class="pre">env</span></code> that can be overwritten to change the returned data.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="goalenvwrapper">
+<h2>GoalEnvWrapper<a class="headerlink" href="#goalenvwrapper" title="Link to this heading">#</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="srl.envs.goal_env_wrapper.GoalEnvWrapper">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">srl.envs.goal_env_wrapper.</span></span><span class="sig-name descname"><span class="pre">GoalEnvWrapper</span></span><a class="reference internal" href="../../_modules/srl/envs/goal_env_wrapper.html#GoalEnvWrapper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#srl.envs.goal_env_wrapper.GoalEnvWrapper" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Wrapper</span></code></p>
+<p>Wraps a GoalEnv (dictionary-obs) into a flat Box observation.</p>
+<p>The flat observation is <code class="docutils literal notranslate"><span class="pre">[observation</span> <span class="pre">||</span> <span class="pre">achieved_goal</span> <span class="pre">||</span> <span class="pre">desired_goal]</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>env</strong> – A <code class="docutils literal notranslate"><span class="pre">gymnasium</span></code> GoalEnv whose <code class="docutils literal notranslate"><span class="pre">observation_space</span></code> is a <code class="docutils literal notranslate"><span class="pre">Dict</span></code>
+with keys <code class="docutils literal notranslate"><span class="pre">'observation'</span></code>, <code class="docutils literal notranslate"><span class="pre">'achieved_goal'</span></code>, <code class="docutils literal notranslate"><span class="pre">'desired_goal'</span></code>.</p></li>
+<li><p><strong>obs_key</strong> – Name used as the dict key returned by <code class="docutils literal notranslate"><span class="pre">reset</span></code> / <code class="docutils literal notranslate"><span class="pre">step</span></code>.
+Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;state&quot;</span></code> (matching SRL MLP encoder input).</p></li>
+<li><p><strong>include_goal</strong> – Whether to concatenate goal vectors into the flat obs.
+Set to <code class="docutils literal notranslate"><span class="pre">False</span></code> to return only the raw observation part.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.envs.goal_env_wrapper.GoalEnvWrapper.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">env</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Env</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">obs_key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'state'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_goal</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/srl/envs/goal_env_wrapper.html#GoalEnvWrapper.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#srl.envs.goal_env_wrapper.GoalEnvWrapper.__init__" title="Link to this definition">#</a></dt>
+<dd><p>Wraps an environment to allow a modular transformation of the <a class="reference internal" href="#srl.envs.goal_env_wrapper.GoalEnvWrapper.step" title="srl.envs.goal_env_wrapper.GoalEnvWrapper.step"><code class="xref py py-meth docutils literal notranslate"><span class="pre">step()</span></code></a> and <a class="reference internal" href="#srl.envs.goal_env_wrapper.GoalEnvWrapper.reset" title="srl.envs.goal_env_wrapper.GoalEnvWrapper.reset"><code class="xref py py-meth docutils literal notranslate"><span class="pre">reset()</span></code></a> methods.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>env</strong> – The environment to wrap</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.envs.goal_env_wrapper.GoalEnvWrapper.reset">
+<span class="sig-name descname"><span class="pre">reset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/srl/envs/goal_env_wrapper.html#GoalEnvWrapper.reset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#srl.envs.goal_env_wrapper.GoalEnvWrapper.reset" title="Link to this definition">#</a></dt>
+<dd><p>Uses the <a class="reference internal" href="#srl.envs.goal_env_wrapper.GoalEnvWrapper.reset" title="srl.envs.goal_env_wrapper.GoalEnvWrapper.reset"><code class="xref py py-meth docutils literal notranslate"><span class="pre">reset()</span></code></a> of the <code class="xref py py-attr docutils literal notranslate"><span class="pre">env</span></code> that can be overwritten to change the returned data.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.envs.goal_env_wrapper.GoalEnvWrapper.step">
+<span class="sig-name descname"><span class="pre">step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">action</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/srl/envs/goal_env_wrapper.html#GoalEnvWrapper.step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#srl.envs.goal_env_wrapper.GoalEnvWrapper.step" title="Link to this definition">#</a></dt>
+<dd><p>Uses the <a class="reference internal" href="#srl.envs.goal_env_wrapper.GoalEnvWrapper.step" title="srl.envs.goal_env_wrapper.GoalEnvWrapper.step"><code class="xref py py-meth docutils literal notranslate"><span class="pre">step()</span></code></a> of the <code class="xref py py-attr docutils literal notranslate"><span class="pre">env</span></code> that can be overwritten to change the returned data.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="racecarwrapper">
+<h2>RacecarWrapper<a class="headerlink" href="#racecarwrapper" title="Link to this heading">#</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="srl.envs.racecar_wrapper.RacecarWrapper">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">srl.envs.racecar_wrapper.</span></span><span class="sig-name descname"><span class="pre">RacecarWrapper</span></span><a class="reference internal" href="../../_modules/srl/envs/racecar_wrapper.html#RacecarWrapper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#srl.envs.racecar_wrapper.RacecarWrapper" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Wrapper</span></code></p>
+<p>Flatten dict obs and map flat action vectors for racecar_gym.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.envs.racecar_wrapper.RacecarWrapper.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">env</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Env</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">obs_key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'state'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/srl/envs/racecar_wrapper.html#RacecarWrapper.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#srl.envs.racecar_wrapper.RacecarWrapper.__init__" title="Link to this definition">#</a></dt>
+<dd><p>Wraps an environment to allow a modular transformation of the <a class="reference internal" href="#srl.envs.racecar_wrapper.RacecarWrapper.step" title="srl.envs.racecar_wrapper.RacecarWrapper.step"><code class="xref py py-meth docutils literal notranslate"><span class="pre">step()</span></code></a> and <a class="reference internal" href="#srl.envs.racecar_wrapper.RacecarWrapper.reset" title="srl.envs.racecar_wrapper.RacecarWrapper.reset"><code class="xref py py-meth docutils literal notranslate"><span class="pre">reset()</span></code></a> methods.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>env</strong> – The environment to wrap</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.envs.racecar_wrapper.RacecarWrapper.reset">
+<span class="sig-name descname"><span class="pre">reset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/srl/envs/racecar_wrapper.html#RacecarWrapper.reset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#srl.envs.racecar_wrapper.RacecarWrapper.reset" title="Link to this definition">#</a></dt>
+<dd><p>Uses the <a class="reference internal" href="#srl.envs.racecar_wrapper.RacecarWrapper.reset" title="srl.envs.racecar_wrapper.RacecarWrapper.reset"><code class="xref py py-meth docutils literal notranslate"><span class="pre">reset()</span></code></a> of the <code class="xref py py-attr docutils literal notranslate"><span class="pre">env</span></code> that can be overwritten to change the returned data.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.envs.racecar_wrapper.RacecarWrapper.step">
+<span class="sig-name descname"><span class="pre">step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">action</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/srl/envs/racecar_wrapper.html#RacecarWrapper.step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#srl.envs.racecar_wrapper.RacecarWrapper.step" title="Link to this definition">#</a></dt>
+<dd><p>Uses the <a class="reference internal" href="#srl.envs.racecar_wrapper.RacecarWrapper.step" title="srl.envs.racecar_wrapper.RacecarWrapper.step"><code class="xref py py-meth docutils literal notranslate"><span class="pre">step()</span></code></a> of the <code class="xref py py-attr docutils literal notranslate"><span class="pre">env</span></code> that can be overwritten to change the returned data.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="isaaclabwrapper">
+<h2>IsaacLabWrapper<a class="headerlink" href="#isaaclabwrapper" title="Link to this heading">#</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="srl.envs.isaac_lab_wrapper.IsaacLabWrapper">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">srl.envs.isaac_lab_wrapper.</span></span><span class="sig-name descname"><span class="pre">IsaacLabWrapper</span></span><a class="reference internal" href="../../_modules/srl/envs/isaac_lab_wrapper.html#IsaacLabWrapper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#srl.envs.isaac_lab_wrapper.IsaacLabWrapper" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Wrap an Isaac Lab <code class="docutils literal notranslate"><span class="pre">ManagerBasedRLEnv</span></code> to match the SRL interface.</p>
+<p>Isaac Lab envs return torch tensors on GPU; this wrapper converts them
+to numpy arrays (CPU) for the SRL buffers.</p>
+<section id="observation-dict-routing">
+<h3>Observation dict routing<a class="headerlink" href="#observation-dict-routing" title="Link to this heading">#</a></h3>
+<p>Isaac Lab groups observations by <em>obs group</em> names (defined in the env
+config).  Common group names are <code class="docutils literal notranslate"><span class="pre">&quot;policy&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;critic&quot;</span></code>.
+The wrapper preserves these group names as dict keys:</p>
+<ul>
+<li><p><strong>Image-only env</strong> (e.g. Cartpole-RGB):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">obs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;policy&quot;</span><span class="p">:</span> <span class="o">&lt;</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">)</span> <span class="n">float32</span><span class="o">&gt;</span><span class="p">}</span>   <span class="c1"># after HWC→CHW</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Multi-modal env</strong> (image + privileged state):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">obs</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;policy&quot;</span><span class="p">:</span>  <span class="o">&lt;</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">)</span> <span class="n">float32</span><span class="o">&gt;</span><span class="p">,</span>   <span class="c1"># camera image</span>
+    <span class="s2">&quot;critic&quot;</span><span class="p">:</span>  <span class="o">&lt;</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">D</span><span class="p">)</span> <span class="n">float32</span><span class="o">&gt;</span><span class="p">,</span>           <span class="c1"># state vector</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
+</ul>
+<p>To wire them into the model, <strong>name the YAML encoders to match the obs
+group keys</strong> (<code class="docutils literal notranslate"><span class="pre">policy</span></code> and <code class="docutils literal notranslate"><span class="pre">critic</span></code> in the example above).  The
+<code class="docutils literal notranslate"><span class="pre">_remap_obs_to_encoders</span></code> function in <code class="docutils literal notranslate"><span class="pre">srl/cli/train.py</span></code> will then
+route each obs tensor to the correct encoder.</p>
+<dl class="field-list simple">
+<dt class="field-odd">param env<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A <code class="docutils literal notranslate"><span class="pre">ManagerBasedRLEnv</span></code> or <code class="docutils literal notranslate"><span class="pre">DirectRLEnv</span></code> instance from Isaac Lab.</p>
+</dd>
+<dt class="field-even">param obs_key<span class="colon">:</span></dt>
+<dd class="field-even"><p>Fallback key used when the env returns a bare tensor (not a dict).</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.envs.isaac_lab_wrapper.IsaacLabWrapper.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">env</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">obs_key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'state'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/srl/envs/isaac_lab_wrapper.html#IsaacLabWrapper.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#srl.envs.isaac_lab_wrapper.IsaacLabWrapper.__init__" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</section>
+</dd></dl>
+
+</section>
+<section id="syncvectorenv">
+<h2>SyncVectorEnv<a class="headerlink" href="#syncvectorenv" title="Link to this heading">#</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="srl.envs.sync_vector_env.SyncVectorEnv">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">srl.envs.sync_vector_env.</span></span><span class="sig-name descname"><span class="pre">SyncVectorEnv</span></span><a class="reference internal" href="../../_modules/srl/envs/sync_vector_env.html#SyncVectorEnv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#srl.envs.sync_vector_env.SyncVectorEnv" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Run <em>n</em> copies of an environment sequentially in one process.</p>
+<p>Compatible with the SRL wrapper interface:
+<code class="docutils literal notranslate"><span class="pre">reset()</span> <span class="pre">→</span> <span class="pre">(dict_obs,</span> <span class="pre">infos)</span></code>
+<code class="docutils literal notranslate"><span class="pre">step(actions)</span> <span class="pre">→</span> <span class="pre">(dict_obs,</span> <span class="pre">rewards,</span> <span class="pre">dones,</span> <span class="pre">truncateds,</span> <span class="pre">infos)</span></code></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>env_fns</strong> – List of callables that each return a (wrapped) gymnasium environment.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.envs.sync_vector_env.SyncVectorEnv.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">env_fns</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.14)"><span class="pre">Callable</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/srl/envs/sync_vector_env.html#SyncVectorEnv.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#srl.envs.sync_vector_env.SyncVectorEnv.__init__" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="asyncvectorenv">
+<h2>AsyncVectorEnv<a class="headerlink" href="#asyncvectorenv" title="Link to this heading">#</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="srl.envs.async_vector_env.AsyncVectorEnv">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">srl.envs.async_vector_env.</span></span><span class="sig-name descname"><span class="pre">AsyncVectorEnv</span></span><a class="reference internal" href="../../_modules/srl/envs/async_vector_env.html#AsyncVectorEnv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#srl.envs.async_vector_env.AsyncVectorEnv" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Run <em>n</em> copies of an environment in separate worker processes.</p>
+<p>Preferred for computationally heavy environments (physics simulation).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>env_fns</strong> – List of callables that each return a (wrapped) environment.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.envs.async_vector_env.AsyncVectorEnv.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">env_fns</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.14)"><span class="pre">Callable</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/srl/envs/async_vector_env.html#AsyncVectorEnv.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#srl.envs.async_vector_env.AsyncVectorEnv.__init__" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="algorithms.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">srl.algorithms</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="networks.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">srl.networks</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#gymnasiumwrapper">GymnasiumWrapper</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.gymnasium_wrapper.GymnasiumWrapper"><code class="docutils literal notranslate"><span class="pre">GymnasiumWrapper</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.gymnasium_wrapper.GymnasiumWrapper.__init__"><code class="docutils literal notranslate"><span class="pre">GymnasiumWrapper.__init__()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.gymnasium_wrapper.GymnasiumWrapper.reset"><code class="docutils literal notranslate"><span class="pre">GymnasiumWrapper.reset()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.gymnasium_wrapper.GymnasiumWrapper.step"><code class="docutils literal notranslate"><span class="pre">GymnasiumWrapper.step()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#goalenvwrapper">GoalEnvWrapper</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.goal_env_wrapper.GoalEnvWrapper"><code class="docutils literal notranslate"><span class="pre">GoalEnvWrapper</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.goal_env_wrapper.GoalEnvWrapper.__init__"><code class="docutils literal notranslate"><span class="pre">GoalEnvWrapper.__init__()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.goal_env_wrapper.GoalEnvWrapper.reset"><code class="docutils literal notranslate"><span class="pre">GoalEnvWrapper.reset()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.goal_env_wrapper.GoalEnvWrapper.step"><code class="docutils literal notranslate"><span class="pre">GoalEnvWrapper.step()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#racecarwrapper">RacecarWrapper</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.racecar_wrapper.RacecarWrapper"><code class="docutils literal notranslate"><span class="pre">RacecarWrapper</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.racecar_wrapper.RacecarWrapper.__init__"><code class="docutils literal notranslate"><span class="pre">RacecarWrapper.__init__()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.racecar_wrapper.RacecarWrapper.reset"><code class="docutils literal notranslate"><span class="pre">RacecarWrapper.reset()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.racecar_wrapper.RacecarWrapper.step"><code class="docutils literal notranslate"><span class="pre">RacecarWrapper.step()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#isaaclabwrapper">IsaacLabWrapper</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.isaac_lab_wrapper.IsaacLabWrapper"><code class="docutils literal notranslate"><span class="pre">IsaacLabWrapper</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.isaac_lab_wrapper.IsaacLabWrapper.__init__"><code class="docutils literal notranslate"><span class="pre">IsaacLabWrapper.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#syncvectorenv">SyncVectorEnv</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.sync_vector_env.SyncVectorEnv"><code class="docutils literal notranslate"><span class="pre">SyncVectorEnv</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.sync_vector_env.SyncVectorEnv.__init__"><code class="docutils literal notranslate"><span class="pre">SyncVectorEnv.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#asyncvectorenv">AsyncVectorEnv</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.async_vector_env.AsyncVectorEnv"><code class="docutils literal notranslate"><span class="pre">AsyncVectorEnv</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#srl.envs.async_vector_env.AsyncVectorEnv.__init__"><code class="docutils literal notranslate"><span class="pre">AsyncVectorEnv.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By SRL Contributors
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2026, SRL Contributors.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    <p class="last-updated">
+  Last updated on Aug 12, 2026.
+  <br/>
+</p>
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

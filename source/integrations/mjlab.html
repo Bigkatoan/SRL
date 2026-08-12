@@ -1,0 +1,750 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>mjlab Integration &#8212; SRL Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/sphinx-book-theme.css?v=4418a689" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=45cb6f3e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+
+    <script src="../../_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'source/integrations/mjlab';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Gymnasium Integration" href="gymnasium.html" />
+    <link rel="prev" title="Isaac Lab Integration" href="isaaclab.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+    <meta name="docbuild:last-update" content="Aug 12, 2026"/>
+  
+    
+    <script src="../../_static/searchtools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">SRL Documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html">CLI Reference</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">YAML Configuration</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../yaml_core.html">YAML Core Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../yaml/index.html">YAML Configuration System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../yaml/encoders.html">Encoders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../yaml/heads_flows.html">Heads &amp; Flows</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../yaml/auxiliary.html">Auxiliary Representation Learning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../yaml/training_block.html">Training Block Reference</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Training System</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../training/index.html">Training System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../training/algorithms.html">Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../training/runners.html">Runners &amp; Training Loop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../training/buffers.html">Replay Buffers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../checkpointing.html">Checkpointing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../encoders.html">Hướng dẫn Encoders (Thiết lập &amp; Best Practices)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../async_runner.html">Async Off-Policy Runner</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../gpu_replay_buffer.html">GPU Replay Buffer</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Integrations</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="index.html">Integrations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="isaaclab.html">Isaac Lab Integration</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">mjlab Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gymnasium.html">Gymnasium Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../ros2.html">ROS 2 Python API</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Environments</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../environments/index.html">Supported Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../environments/classic_control.html">Classic Control Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../environments/box2d.html">Gymnasium Box2D Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../environments/mujoco.html">MuJoCo Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../environments/robotics.html">Gymnasium-Robotics Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../environments/racecar.html">racecar_gym Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../environments/isaaclab.html">Isaac Lab Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../environments/m3bot.html">M3bot Environment</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../api/index.html">API Reference</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/algorithms.html">srl.algorithms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/envs.html">srl.envs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/networks.html">srl.networks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/utils.html">srl.utils</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../algorithms.html">Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../config_reference.html">Configuration Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../limitations.html">Limitations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/encoder_examples.html">Ví dụ: Cấu hình Encoders cho SAC / TD3 / Actor-Critic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Bigkatoan/SRL" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Bigkatoan/SRL/edit/main/docs/source/integrations/mjlab.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Bigkatoan/SRL/issues/new?title=Issue%20on%20page%20%2Fsource/integrations/mjlab.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../../_sources/source/integrations/mjlab.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>mjlab Integration</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#setup">Setup</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#task-registration">Task registration</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage">Usage</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#watching-training-live-visualize">Watching training live: <code class="docutils literal notranslate"><span class="pre">--visualize</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#why-a-single-encoder-or-explicit-input-name-both-work-now">Why a single encoder or explicit <code class="docutils literal notranslate"><span class="pre">input_name</span></code> both work now</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#troubleshooting">Troubleshooting</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="mjlab-integration">
+<h1>mjlab Integration<a class="headerlink" href="#mjlab-integration" title="Link to this heading">#</a></h1>
+<p><a class="reference external" href="https://github.com/mujocolab/mjlab">mjlab</a> is a GPU-batched robot learning stack built on MuJoCo-Warp – the same “one process, thousands of envs on one GPU” shape as Isaac Lab, without the multi-GB Omniverse/Isaac Sim runtime. SRL integrates it through the same <code class="docutils literal notranslate"><span class="pre">IsaacLabWrapper</span></code> used for real Isaac Lab (both envs expose a close enough API – <code class="docutils literal notranslate"><span class="pre">reset()</span></code>/<code class="docutils literal notranslate"><span class="pre">step()</span></code>/<code class="docutils literal notranslate"><span class="pre">num_envs</span></code>/<code class="docutils literal notranslate"><span class="pre">device</span></code> – that no separate wrapper class was needed).</p>
+<p>Reach for this instead of <a class="reference internal" href="isaaclab.html"><span class="std std-doc">Isaac Lab</span></a> when you don’t need Isaac Sim’s rendering/asset pipeline and want a lighter install.</p>
+<section id="setup">
+<h2>Setup<a class="headerlink" href="#setup" title="Link to this heading">#</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>mjlab
+pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/Bigkatoan/SRL.git
+</pre></div>
+</div>
+<p>No app bootstrap, no <code class="docutils literal notranslate"><span class="pre">OMNI_KIT_ACCEPT_EULA</span></code>, no separate runtime interpreter – mjlab is a normal Python package.</p>
+</section>
+<section id="task-registration">
+<h2>Task registration<a class="headerlink" href="#task-registration" title="Link to this heading">#</a></h2>
+<p>mjlab resolves tasks by string id through its own registry (<code class="docutils literal notranslate"><span class="pre">mjlab.tasks.registry</span></code>), populated by auto-importing every package registered under the <code class="docutils literal notranslate"><span class="pre">mjlab.tasks</span></code> entry-point group – the same mechanism <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">mjlab</span></code> itself runs at import time. Any project that registers its own tasks this way in its <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>:</p>
+<div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[project.entry-points.</span><span class="s2">&quot;mjlab.tasks&quot;</span><span class="k">]</span>
+<span class="n">your_pkg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;your_pkg.tasks&quot;</span>
+</pre></div>
+</div>
+<p>is automatically discoverable here with no extra wiring, as long as it’s installed in the same environment as <code class="docutils literal notranslate"><span class="pre">mjlab</span></code>/<code class="docutils literal notranslate"><span class="pre">srl-rl</span></code>.</p>
+</section>
+<section id="usage">
+<h2>Usage<a class="headerlink" href="#usage" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">--env</span> <span class="pre">mjlab:&lt;task&gt;</span></code> (or <code class="docutils literal notranslate"><span class="pre">env_type:</span> <span class="pre">mjlab</span></code> in the YAML, which prefixes the id automatically – see <code class="docutils literal notranslate"><span class="pre">_normalize_env_name</span></code> in <code class="docutils literal notranslate"><span class="pre">srl/cli/train.py</span></code>):</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># configs/envs/mjlab_example_ppo.yaml</span>
+<span class="nt">env_id</span><span class="p">:</span><span class="w">   </span><span class="l l-Scalar l-Scalar-Plain">Your-Task-Id</span>
+<span class="nt">env_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mjlab</span>
+<span class="nt">algo</span><span class="p">:</span><span class="w">     </span><span class="l l-Scalar l-Scalar-Plain">ppo</span>
+
+<span class="nt">encoders</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor_state_enc</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mlp</span>
+<span class="w">    </span><span class="nt">input_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor</span><span class="w">   </span><span class="c1"># mjlab&#39;s obs group name -- check with the task&#39;s</span>
+<span class="w">                         </span><span class="c1"># own ObservationManager printout at env build time,</span>
+<span class="w">                         </span><span class="c1"># or your task&#39;s observation config (&quot;actor&quot;/&quot;critic&quot;</span>
+<span class="w">                         </span><span class="c1"># are common, but not guaranteed)</span>
+<span class="w">    </span><span class="nt">input_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;your obs dim&gt;</span>
+<span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+<span class="w">    </span><span class="nt">layers</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">elu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">none</span><span class="p p-Indicator">}</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">elu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">none</span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">critic_state_enc</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mlp</span>
+<span class="w">    </span><span class="nt">input_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor</span>
+<span class="w">    </span><span class="nt">input_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;your obs dim&gt;</span>
+<span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+<span class="w">    </span><span class="nt">layers</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">elu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">none</span><span class="p p-Indicator">}</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">elu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">none</span><span class="p p-Indicator">}</span>
+
+<span class="nt">flows</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;actor_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;critic_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
+
+<span class="nt">actor</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">actor</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">gaussian</span><span class="p p-Indicator">,</span><span class="nt"> action_dim</span><span class="p">:</span><span class="w"> </span><span class="nv">&lt;your action dim&gt;</span><span class="p p-Indicator">,</span><span class="nt"> log_std_init</span><span class="p">:</span><span class="w"> </span><span class="nv">-1.0</span><span class="p p-Indicator">}</span>
+<span class="nt">critic</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">critic</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">value</span><span class="p p-Indicator">}</span>
+
+<span class="nt">losses</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">policy</span><span class="p p-Indicator">,</span><span class="nt">  weight</span><span class="p">:</span><span class="w"> </span><span class="nv">1.0</span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">value</span><span class="p p-Indicator">,</span><span class="nt">   weight</span><span class="p">:</span><span class="w"> </span><span class="nv">1.0</span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">entropy</span><span class="p p-Indicator">,</span><span class="nt"> weight</span><span class="p">:</span><span class="w"> </span><span class="nv">0.005</span><span class="p p-Indicator">}</span>
+
+<span class="nt">train</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">total_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20_000_000</span>
+<span class="w">  </span><span class="nt">n_envs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4096</span><span class="w">          </span><span class="c1"># mjlab-sized: GPU-batched inside ONE process, not</span>
+<span class="w">                         </span><span class="c1"># N OS processes -- this is not the same knob as a</span>
+<span class="w">                         </span><span class="c1"># SyncVectorEnv/AsyncVectorEnv n_envs</span>
+<span class="w">  </span><span class="nt">n_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">24</span>
+<span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16384</span>
+<span class="w">  </span><span class="nt">n_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">  </span><span class="nt">lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1e-3</span>
+<span class="w">  </span><span class="nt">gamma</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.99</span>
+<span class="w">  </span><span class="nt">gae_lambda</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.95</span>
+<span class="w">  </span><span class="nt">clip_range</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.2</span>
+<span class="w">  </span><span class="nt">entropy_coef</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.005</span>
+<span class="w">  </span><span class="nt">vf_coef</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+<span class="w">  </span><span class="nt">max_grad_norm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>srl-train<span class="w"> </span>--config<span class="w"> </span>configs/envs/mjlab_example_ppo.yaml<span class="w"> </span>--env<span class="w"> </span>mjlab:Your-Task-Id<span class="w"> </span>--device<span class="w"> </span>cuda
+</pre></div>
+</div>
+<p>Off-policy (SAC/TD3/DDPG) works the same way – see <a class="reference internal" href="isaaclab.html#sac-async-gpu-buffer"><span class="std std-ref">Isaac Lab’s SAC section</span></a> for the async/GPU-buffer knobs, which apply identically here.</p>
+</section>
+<section id="watching-training-live-visualize">
+<h2>Watching training live: <code class="docutils literal notranslate"><span class="pre">--visualize</span></code><a class="headerlink" href="#watching-training-live-visualize" title="Link to this heading">#</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>srl-train<span class="w"> </span>--config<span class="w"> </span>configs/envs/mjlab_example_ppo.yaml<span class="w"> </span>--env<span class="w"> </span>mjlab:Your-Task-Id<span class="w"> </span>--device<span class="w"> </span>cuda<span class="w"> </span>--visualize
+</pre></div>
+</div>
+<p>Opens mjlab’s own interactive, browser-based <code class="docutils literal notranslate"><span class="pre">ViserPlayViewer</span></code> against a <em>second</em>,
+independent single-env instance of the same task – the main <code class="docutils literal notranslate"><span class="pre">n_envs</span></code>-many training
+envs stay headless and unaffected. The console prints the URL to open
+(<code class="docutils literal notranslate"><span class="pre">http://localhost:&lt;port&gt;</span></code> by default). The viewer runs live inference with the
+current training weights directly (no snapshot/reload step), so what you see always
+reflects the policy as of a moment ago.</p>
+<p>This works cleanly for mjlab specifically because each env instance owns independent
+MuJoCo state – unlike Isaac Lab, where a process hosts exactly one shared Isaac Sim
+render context, so <code class="docutils literal notranslate"><span class="pre">--visualize</span></code> is not supported there. See
+<a class="reference internal" href="../cli.html#live-viewer-visualize"><span class="std std-ref">the CLI reference</span></a> for the full behavior,
+including the other env types’ <code class="docutils literal notranslate"><span class="pre">--visualize</span></code> backends.</p>
+</section>
+<section id="why-a-single-encoder-or-explicit-input-name-both-work-now">
+<h2>Why a single encoder or explicit <code class="docutils literal notranslate"><span class="pre">input_name</span></code> both work now<a class="headerlink" href="#why-a-single-encoder-or-explicit-input-name-both-work-now" title="Link to this heading">#</a></h2>
+<p>Earlier versions had a real bug here: <code class="docutils literal notranslate"><span class="pre">srl/cli/train.py</span></code>’s rollout loop remaps the obs dict to encoder names <em>before</em> calling <code class="docutils literal notranslate"><span class="pre">agent.predict()</span></code>, and <code class="docutils literal notranslate"><span class="pre">AgentModel.forward()</span></code> remapped it <em>again</em> internally – the second pass looked for the <em>original</em> raw obs key, which no longer existed once the first pass had already renamed it, raising <code class="docutils literal notranslate"><span class="pre">KeyError</span></code> for any config using explicit <code class="docutils literal notranslate"><span class="pre">input_name</span></code>. <code class="docutils literal notranslate"><span class="pre">AgentModel._remap_obs_dict</span></code> now short-circuits when the incoming dict’s keys already exactly match the encoder names, so remapping only ever happens once regardless of how many places call into it. Two other isaaclab/mjlab-specific gaps were fixed alongside it:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">_evaluate_agent</span></code> unconditionally squeezed the batch dim off actions for single-env eval, which broke isaaclab/mjlab envs (they always expect a batched <code class="docutils literal notranslate"><span class="pre">(1,</span> <span class="pre">action_dim)</span></code> action even at <code class="docutils literal notranslate"><span class="pre">num_envs=1</span></code>).</p></li>
+<li><p>Off-policy random-action warmup called <code class="docutils literal notranslate"><span class="pre">.sample()</span></code> on the action space directly, which isaaclab/mjlab’s lightweight <code class="docutils literal notranslate"><span class="pre">Box</span></code>-style space dataclass doesn’t implement, and (once worked around) stacked N samples of the already-<em>batched</em> <code class="docutils literal notranslate"><span class="pre">action_space</span></code> instead of <code class="docutils literal notranslate"><span class="pre">single_action_space</span></code>, producing the wrong shape. <code class="docutils literal notranslate"><span class="pre">IsaacLabWrapper</span></code> now also exposes <code class="docutils literal notranslate"><span class="pre">single_act_space</span></code> for exactly this.</p></li>
+</ul>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Error</p></th>
+<th class="head"><p>Cause</p></th>
+<th class="head"><p>Fix</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">KeyError:</span> <span class="pre">&lt;task</span> <span class="pre">id&gt;</span></code> in <code class="docutils literal notranslate"><span class="pre">load_env_cfg</span></code></p></td>
+<td><p>Task package not installed / entry point not registered</p></td>
+<td><p>Confirm <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-c</span> <span class="pre">&quot;import</span> <span class="pre">mjlab;</span> <span class="pre">from</span> <span class="pre">mjlab.tasks.registry</span> <span class="pre">import</span> <span class="pre">list_tasks;</span> <span class="pre">print(list_tasks())&quot;</span></code> lists your task id</p></td>
+</tr>
+<tr class="row-odd"><td><p>Observation routing <code class="docutils literal notranslate"><span class="pre">KeyError</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">input_name</span></code> doesn’t match the task’s obs group</p></td>
+<td><p>Check the <code class="docutils literal notranslate"><span class="pre">ObservationManager</span></code> table mjlab prints at env construction time</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">IndexError</span></code>/<code class="docutils literal notranslate"><span class="pre">ValueError</span></code> on action shape during eval or warmup</p></td>
+<td><p>Running an SRL build older than this fix</p></td>
+<td><p>Update <code class="docutils literal notranslate"><span class="pre">srl-rl</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="see-also">
+<h2>See also<a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="isaaclab.html"><span class="std std-doc">Isaac Lab Integration</span></a></p></li>
+<li><p><a class="reference internal" href="../training/buffers.html"><span class="std std-doc">GPU Replay Buffer</span></a></p></li>
+<li><p><a class="reference internal" href="../training/runners.html"><span class="std std-doc">Runners &amp; Training Loop</span></a></p></li>
+</ul>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="isaaclab.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Isaac Lab Integration</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="gymnasium.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Gymnasium Integration</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#setup">Setup</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#task-registration">Task registration</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage">Usage</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#watching-training-live-visualize">Watching training live: <code class="docutils literal notranslate"><span class="pre">--visualize</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#why-a-single-encoder-or-explicit-input-name-both-work-now">Why a single encoder or explicit <code class="docutils literal notranslate"><span class="pre">input_name</span></code> both work now</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#troubleshooting">Troubleshooting</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By SRL Contributors
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2026, SRL Contributors.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    <p class="last-updated">
+  Last updated on Aug 12, 2026.
+  <br/>
+</p>
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

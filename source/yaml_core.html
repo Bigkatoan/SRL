@@ -1,0 +1,993 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>YAML Core Guide &#8212; SRL Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=4418a689" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=45cb6f3e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+
+    <script src="../_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'source/yaml_core';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="YAML Configuration System" href="yaml/index.html" />
+    <link rel="prev" title="CLI Reference" href="cli.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+    <meta name="docbuild:last-update" content="Aug 12, 2026"/>
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">SRL Documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Reference</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">YAML Configuration</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">YAML Core Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="yaml/index.html">YAML Configuration System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="yaml/encoders.html">Encoders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="yaml/heads_flows.html">Heads &amp; Flows</a></li>
+<li class="toctree-l1"><a class="reference internal" href="yaml/auxiliary.html">Auxiliary Representation Learning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="yaml/training_block.html">Training Block Reference</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Training System</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="training/index.html">Training System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="training/algorithms.html">Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="training/runners.html">Runners &amp; Training Loop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="training/buffers.html">Replay Buffers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="checkpointing.html">Checkpointing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="encoders.html">Hướng dẫn Encoders (Thiết lập &amp; Best Practices)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="async_runner.html">Async Off-Policy Runner</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gpu_replay_buffer.html">GPU Replay Buffer</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Integrations</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="integrations/index.html">Integrations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrations/isaaclab.html">Isaac Lab Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrations/mjlab.html">mjlab Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrations/gymnasium.html">Gymnasium Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ros2.html">ROS 2 Python API</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Environments</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="environments/index.html">Supported Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="environments/classic_control.html">Classic Control Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="environments/box2d.html">Gymnasium Box2D Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="environments/mujoco.html">MuJoCo Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="environments/robotics.html">Gymnasium-Robotics Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="environments/racecar.html">racecar_gym Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="environments/isaaclab.html">Isaac Lab Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="environments/m3bot.html">M3bot Environment</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="api/index.html">API Reference</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/algorithms.html">srl.algorithms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/envs.html">srl.envs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/networks.html">srl.networks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/utils.html">srl.utils</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="algorithms.html">Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config_reference.html">Configuration Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="limitations.html">Limitations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples/encoder_examples.html">Ví dụ: Cấu hình Encoders cho SAC / TD3 / Actor-Critic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Bigkatoan/SRL" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Bigkatoan/SRL/edit/main/docs/source/yaml_core.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Bigkatoan/SRL/issues/new?title=Issue%20on%20page%20%2Fsource/yaml_core.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/source/yaml_core.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>YAML Core Guide</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#why-yaml-is-central">Why YAML is central</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#build-path">Build path</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#top-level-structure">Top-level structure</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#encoders">Encoders</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-state-encoder">Example: state encoder</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-visual-encoder-with-auxiliary-reconstruction">Example: visual encoder with auxiliary reconstruction</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-multimodal-encoder-set">Example: multimodal encoder set</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#input-routing">Input routing</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#recommended-pattern-explicit-routing">Recommended pattern: explicit routing</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#fallback-routing">Fallback routing</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#flow-graph">Flow graph</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heads">Heads</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#auxiliary-representation-learning">Auxiliary representation learning</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#training-config-from-yaml">Training config from YAML</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#current-system-boundary">Current system boundary</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#recommended-reading-path">Recommended reading path</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#recommended-config-patterns">Recommended config patterns</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#related-files">Related files</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="yaml-core-guide">
+<h1>YAML Core Guide<a class="headerlink" href="#yaml-core-guide" title="Link to this heading">#</a></h1>
+<p>YAML is the core abstraction in SRL.</p>
+<p>The library is designed so that the main shape of an agent is declared in YAML first, then materialized by the builder into a runtime model graph. In practice, this means you should think of a config file as the source of truth for how observations enter the system, how encoders transform them, how latents flow into actor and critic heads, and which built-in loss terms are active.</p>
+<p>The Python side is still important, but its primary role is to execute what the YAML declares. The goal of this guide is to explain that declarative layer in detail and make it clear where the current system stops.</p>
+<section id="why-yaml-is-central">
+<h2>Why YAML is central<a class="headerlink" href="#why-yaml-is-central" title="Link to this heading">#</a></h2>
+<p>SRL uses YAML to make model construction explicit and inspectable.</p>
+<ul class="simple">
+<li><p>You declare encoders instead of manually instantiating PyTorch modules in task scripts.</p></li>
+<li><p>You declare graph connectivity through <code class="docutils literal notranslate"><span class="pre">flows</span></code> instead of hiding data movement inside <code class="docutils literal notranslate"><span class="pre">forward()</span></code> code.</p></li>
+<li><p>You declare actor and critic heads independently so policy and value branches can diverge.</p></li>
+<li><p>You declare currently supported loss terms in one place next to the model.</p></li>
+<li><p>You can point CLI training, visualization, and benchmarking tools at the same config file.</p></li>
+</ul>
+<p>This gives the library one stable representation that can be shared across training runs, experiments, visualizers, and documentation.</p>
+</section>
+<section id="build-path">
+<h2>Build path<a class="headerlink" href="#build-path" title="Link to this heading">#</a></h2>
+<p>The declarative build path is:</p>
+<ol class="arabic simple">
+<li><p>A YAML file is loaded by <code class="docutils literal notranslate"><span class="pre">ModelBuilder.from_yaml(...)</span></code>.</p></li>
+<li><p>The raw dictionary is parsed into <code class="docutils literal notranslate"><span class="pre">AgentModelConfig</span></code>, <code class="docutils literal notranslate"><span class="pre">EncoderConfig</span></code>, <code class="docutils literal notranslate"><span class="pre">HeadConfig</span></code>, and <code class="docutils literal notranslate"><span class="pre">LossConfig</span></code> dataclasses.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ModelBuilder</span></code> instantiates encoders and heads from those dataclasses.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">FlowGraph</span></code> parses the <code class="docutils literal notranslate"><span class="pre">flows</span></code> list into a directed acyclic graph.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AgentModel</span></code> executes that graph at runtime and performs observation routing, latent concatenation, and head dispatch.</p></li>
+</ol>
+<p>The key implementation anchors are:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/Bigkatoan/SRL/blob/main/srl/registry/builder.py">builder.py</a></p></li>
+<li><p><a class="reference external" href="https://github.com/Bigkatoan/SRL/blob/main/srl/registry/config_schema.py">config_schema.py</a></p></li>
+<li><p><a class="reference external" href="https://github.com/Bigkatoan/SRL/blob/main/srl/registry/flow_graph.py">flow_graph.py</a></p></li>
+<li><p><a class="reference external" href="https://github.com/Bigkatoan/SRL/blob/main/srl/networks/agent_model.py">agent_model.py</a></p></li>
+</ul>
+</section>
+<section id="top-level-structure">
+<h2>Top-level structure<a class="headerlink" href="#top-level-structure" title="Link to this heading">#</a></h2>
+<p>At a high level, a model config is organized like this:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">env_id</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;HalfCheetah-v5&quot;</span>
+<span class="nt">env_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;flat&quot;</span>
+
+<span class="nt">algo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sac</span>
+
+<span class="nt">encoders</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor_state_enc</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mlp</span>
+<span class="w">    </span><span class="nt">input_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">17</span>
+<span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+<span class="w">    </span><span class="nt">layers</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">layer_norm</span><span class="p p-Indicator">}</span>
+
+<span class="nt">flows</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;actor_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;critic_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
+
+<span class="nt">actor</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">squashed_gaussian</span>
+<span class="w">  </span><span class="nt">action_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6</span>
+
+<span class="nt">critic</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">critic</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">twin_q</span>
+<span class="w">  </span><span class="nt">action_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6</span>
+
+<span class="nt">losses</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">sac_q</span><span class="p p-Indicator">,</span><span class="nt"> weight</span><span class="p">:</span><span class="w"> </span><span class="nv">1.0</span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">sac_policy</span><span class="p p-Indicator">,</span><span class="nt"> weight</span><span class="p">:</span><span class="w"> </span><span class="nv">1.0</span><span class="p p-Indicator">}</span>
+
+<span class="nt">train</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">total_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1_000_000</span>
+<span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</pre></div>
+</div>
+<p>Conceptually:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">encoders</span></code> define feature extractors.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">flows</span></code> define the graph edges between modules.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">actor</span></code> and <code class="docutils literal notranslate"><span class="pre">critic</span></code> define decision and value heads.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">losses</span></code> define the built-in training terms that should be active.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">train</span></code> provides algorithm-side hyperparameters consumed by the CLI.</p></li>
+</ul>
+</section>
+<section id="encoders">
+<h2>Encoders<a class="headerlink" href="#encoders" title="Link to this heading">#</a></h2>
+<p>Encoders are the entry points of the model graph. Each encoder converts one observation stream into a latent representation.</p>
+<p>The current built-in encoder families are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">mlp</span></code> for vector observations</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cnn</span></code> for image observations</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lstm</span></code> for recurrent vector pipelines</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">text</span></code> for character-level text input</p></li>
+</ul>
+<p>Important encoder fields from <a class="reference external" href="https://github.com/Bigkatoan/SRL/blob/main/srl/registry/config_schema.py#L34">config_schema.py</a>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">name</span></code>: unique node identifier used by the flow graph</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">type</span></code>: built-in encoder type or a registry key for a custom encoder</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">input_name</span></code>: explicit observation key this encoder should consume</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">input_dim</span></code>: required for MLP/LSTM-style vector encoders</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">input_shape</span></code>: required for CNN encoders, typically <code class="docutils literal notranslate"><span class="pre">[C,</span> <span class="pre">H,</span> <span class="pre">W]</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">latent_dim</span></code>: output latent width for non-recurrent encoders</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">layers</span></code>: per-layer structure used by the underlying builder</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">aux_type</span></code>: optional auxiliary head family, currently <code class="docutils literal notranslate"><span class="pre">autoencoder</span></code>, <code class="docutils literal notranslate"><span class="pre">contrastive</span></code>, or <code class="docutils literal notranslate"><span class="pre">byol</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">aux_latent_dim</span></code>: projection width for contrastive/BYOL heads</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">use_momentum</span></code>: wraps the encoder in a momentum/EMA encoder</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">momentum_tau</span></code>: EMA coefficient used by the momentum wrapper</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">frame_stack</span></code>: declared in schema for stacked inputs</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">recurrent</span></code>: wraps non-LSTM encoders in an LSTM layer</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lstm_hidden</span></code>: recurrent hidden size when <code class="docutils literal notranslate"><span class="pre">recurrent:</span> <span class="pre">true</span></code> or <code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">lstm</span></code></p></li>
+</ul>
+<section id="example-state-encoder">
+<h3>Example: state encoder<a class="headerlink" href="#example-state-encoder" title="Link to this heading">#</a></h3>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">encoders</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">state_enc</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mlp</span>
+<span class="w">    </span><span class="nt">input_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">12</span>
+<span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
+<span class="w">    </span><span class="nt">layers</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">layer_norm</span><span class="p p-Indicator">}</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">128</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">none</span><span class="p p-Indicator">}</span>
+</pre></div>
+</div>
+</section>
+<section id="example-visual-encoder-with-auxiliary-reconstruction">
+<h3>Example: visual encoder with auxiliary reconstruction<a class="headerlink" href="#example-visual-encoder-with-auxiliary-reconstruction" title="Link to this heading">#</a></h3>
+<p>This pattern already exists in <a class="reference external" href="https://github.com/Bigkatoan/SRL/blob/main/configs/envs/car_racing_ppo_visual.yaml">car_racing_ppo_visual.yaml</a>.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">encoders</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">visual_enc</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cnn</span>
+<span class="w">    </span><span class="nt">input_shape</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">96</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">96</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+<span class="w">    </span><span class="nt">aux_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">autoencoder</span>
+<span class="w">    </span><span class="nt">layers</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">32</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">8</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">2</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">]</span>
+</pre></div>
+</div>
+</section>
+<section id="example-multimodal-encoder-set">
+<h3>Example: multimodal encoder set<a class="headerlink" href="#example-multimodal-encoder-set" title="Link to this heading">#</a></h3>
+<p>This pattern is close to <a class="reference external" href="https://github.com/Bigkatoan/SRL/blob/main/configs/sac_multimodal.yaml">sac_multimodal.yaml</a>.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">encoders</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">visual_enc</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cnn</span>
+<span class="w">    </span><span class="nt">input_shape</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">64</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
+<span class="w">    </span><span class="nt">aux_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">contrastive</span>
+<span class="w">    </span><span class="nt">aux_latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
+<span class="w">    </span><span class="nt">use_momentum</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">momentum_tau</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.99</span>
+
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">state_enc</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mlp</span>
+<span class="w">    </span><span class="nt">input_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">18</span>
+<span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
+
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lang_enc</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">text</span>
+<span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="input-routing">
+<h2>Input routing<a class="headerlink" href="#input-routing" title="Link to this heading">#</a></h2>
+<p>Observation routing is where the YAML-centric design becomes especially useful.</p>
+<p>At runtime, <code class="docutils literal notranslate"><span class="pre">AgentModel</span></code> tries to map incoming observation keys to encoder names. The most important rule is now explicit routing with <code class="docutils literal notranslate"><span class="pre">input_name</span></code>.</p>
+<section id="recommended-pattern-explicit-routing">
+<h3>Recommended pattern: explicit routing<a class="headerlink" href="#recommended-pattern-explicit-routing" title="Link to this heading">#</a></h3>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">encoders</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">policy_state_enc</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mlp</span>
+<span class="w">    </span><span class="nt">input_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">joint_states</span>
+<span class="w">    </span><span class="nt">input_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">24</span>
+<span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
+
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">image_enc</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cnn</span>
+<span class="w">    </span><span class="nt">input_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">front_camera</span>
+<span class="w">    </span><span class="nt">input_shape</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">84</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">84</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</pre></div>
+</div>
+<p>When <code class="docutils literal notranslate"><span class="pre">input_name</span></code> is present:</p>
+<ul class="simple">
+<li><p>the encoder reads from that exact observation key</p></li>
+<li><p>missing required keys raise <code class="docutils literal notranslate"><span class="pre">KeyError</span></code></p></li>
+<li><p>unused observation keys produce a warning after routing</p></li>
+</ul>
+<p>This is the most reliable setup for multimodal systems because it avoids ambiguous heuristic mapping.</p>
+</section>
+<section id="fallback-routing">
+<h3>Fallback routing<a class="headerlink" href="#fallback-routing" title="Link to this heading">#</a></h3>
+<p>If <code class="docutils literal notranslate"><span class="pre">input_name</span></code> is omitted, the runtime falls back to compatibility heuristics in <a class="reference external" href="https://github.com/Bigkatoan/SRL/blob/main/srl/networks/agent_model.py">agent_model.py</a>:</p>
+<ul class="simple">
+<li><p>exact key-to-encoder-name matches</p></li>
+<li><p>single observation to single encoder remapping</p></li>
+<li><p>position-based zip when counts match</p></li>
+<li><p>passthrough for the remaining keys</p></li>
+</ul>
+<p>That fallback keeps older configs working, but it is weaker than explicit routing. For new configs, prefer <code class="docutils literal notranslate"><span class="pre">input_name</span></code> whenever the observation dictionary contains more than one semantic input.</p>
+</section>
+</section>
+<section id="flow-graph">
+<h2>Flow graph<a class="headerlink" href="#flow-graph" title="Link to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">flows</span></code> list is the core of model composition.</p>
+<p>Each item is a directed edge written as:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">flows</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;visual_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;visual_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">FlowGraph</span></code> interprets these strings as a DAG.</p>
+<p>Important properties:</p>
+<ul class="simple">
+<li><p>multiple upstream nodes are concatenated automatically</p></li>
+<li><p>execution order is resolved topologically</p></li>
+<li><p>cycles are rejected</p></li>
+<li><p>actor and critic can consume different encoder sets</p></li>
+<li><p>intermediate encoder-to-encoder connections are also allowed if the nodes are declared</p></li>
+</ul>
+<p>This makes model composition explicit. Instead of hiding the wiring inside Python, the graph exists as data and can be visualized or reviewed directly.</p>
+</section>
+<section id="heads">
+<h2>Heads<a class="headerlink" href="#heads" title="Link to this heading">#</a></h2>
+<p>Actor and critic heads are declared separately from encoders.</p>
+<p>Current built-in actor head types:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">gaussian</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">squashed_gaussian</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">deterministic</span></code></p></li>
+</ul>
+<p>Current built-in critic head types:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">value</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">twin_q</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">q</span></code></p></li>
+</ul>
+<p>Example:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">actor</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">squashed_gaussian</span>
+<span class="w">  </span><span class="nt">action_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6</span>
+<span class="w">  </span><span class="nt">log_std_min</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-5.0</span>
+<span class="w">  </span><span class="nt">log_std_max</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2.0</span>
+<span class="w">  </span><span class="nt">layers</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">layer_norm</span><span class="p p-Indicator">}</span>
+
+<span class="nt">critic</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">critic</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">twin_q</span>
+<span class="w">  </span><span class="nt">action_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6</span>
+<span class="w">  </span><span class="nt">layers</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">layer_norm</span><span class="p p-Indicator">}</span>
+</pre></div>
+</div>
+<p>The builder computes each head’s input size from the declared flow graph rather than from handwritten <code class="docutils literal notranslate"><span class="pre">forward()</span></code> logic.</p>
+</section>
+<section id="auxiliary-representation-learning">
+<h2>Auxiliary representation learning<a class="headerlink" href="#auxiliary-representation-learning" title="Link to this heading">#</a></h2>
+<p>Encoders can request an auxiliary module with <code class="docutils literal notranslate"><span class="pre">aux_type</span></code>.</p>
+<p>Currently supported auxiliary families in the schema and builder are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">autoencoder</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">contrastive</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">byol</span></code></p></li>
+</ul>
+<p>What this means today:</p>
+<ul class="simple">
+<li><p>the builder can attach a decoder or projection head automatically</p></li>
+<li><p>the config can declare that an encoder participates in auxiliary representation learning</p></li>
+<li><p>the runtime model carries those auxiliary modules alongside the main actor/critic graph</p></li>
+</ul>
+<p>This is one of the strongest examples of YAML acting as more than a simple layer list. The config is already expressing representation-learning intent, not just architecture shape.</p>
+</section>
+<section id="training-config-from-yaml">
+<h2>Training config from YAML<a class="headerlink" href="#training-config-from-yaml" title="Link to this heading">#</a></h2>
+<p>The CLI also consumes a <code class="docutils literal notranslate"><span class="pre">train:</span></code> section from the same YAML file.</p>
+<p>Examples already present in the repo include:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/Bigkatoan/SRL/blob/main/configs/envs/halfcheetah_sac.yaml">halfcheetah_sac.yaml</a></p></li>
+<li><p><a class="reference external" href="https://github.com/Bigkatoan/SRL/blob/main/configs/envs/isaaclab_cartpole_ppo.yaml">isaaclab_cartpole_ppo.yaml</a></p></li>
+<li><p><a class="reference external" href="https://github.com/Bigkatoan/SRL/blob/main/configs/envs/car_racing_ppo_visual.yaml">car_racing_ppo_visual.yaml</a></p></li>
+</ul>
+<p>Typical fields include:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">total_steps</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n_envs</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">batch_size</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lr</span></code>, <code class="docutils literal notranslate"><span class="pre">lr_actor</span></code>, <code class="docutils literal notranslate"><span class="pre">lr_critic</span></code>, <code class="docutils literal notranslate"><span class="pre">lr_alpha</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gamma</span></code>, <code class="docutils literal notranslate"><span class="pre">tau</span></code>, <code class="docutils literal notranslate"><span class="pre">gae_lambda</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n_steps</span></code>, <code class="docutils literal notranslate"><span class="pre">n_epochs</span></code>, <code class="docutils literal notranslate"><span class="pre">clip_range</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">buffer_size</span></code>, <code class="docutils literal notranslate"><span class="pre">start_steps</span></code>, <code class="docutils literal notranslate"><span class="pre">update_after</span></code>, <code class="docutils literal notranslate"><span class="pre">update_every</span></code></p></li>
+</ul>
+<p>These fields are mapped by the training CLI into algorithm config dataclasses in <a class="reference external" href="https://github.com/Bigkatoan/SRL/blob/main/srl/core/config.py">config.py</a>.</p>
+</section>
+<section id="current-system-boundary">
+<h2>Current system boundary<a class="headerlink" href="#current-system-boundary" title="Link to this heading">#</a></h2>
+<p>YAML is the core abstraction of SRL, but it does not yet control every part of training.</p>
+<p>What is already declarative today:</p>
+<ul class="simple">
+<li><p>encoder declaration</p></li>
+<li><p>layer declaration</p></li>
+<li><p>flow graph declaration</p></li>
+<li><p>actor/critic declaration</p></li>
+<li><p>explicit input routing</p></li>
+<li><p>built-in auxiliary module attachment</p></li>
+<li><p>built-in loss list declaration</p></li>
+<li><p>many algorithm hyperparameters under <code class="docutils literal notranslate"><span class="pre">train:</span></code></p></li>
+<li><p>visualization metadata for pipeline export</p></li>
+</ul>
+<p>What is not yet fully declarative today:</p>
+<ul class="simple">
+<li><p>arbitrary custom reward shaping pipelines</p></li>
+<li><p>generic environment wrapper stacks declared in YAML</p></li>
+<li><p>optimizer graph customization and parameter groups as first-class schema</p></li>
+<li><p>arbitrary custom loss registry selection from YAML</p></li>
+<li><p>full training-loop orchestration hooks declared from config alone</p></li>
+<li><p>complete input/output contracts and validation schemas beyond the current routing behavior</p></li>
+</ul>
+<p>This boundary matters. The right way to present SRL is not “no Python required for everything,” but “YAML is the central control plane for model structure and a growing portion of training behavior.”</p>
+</section>
+<section id="recommended-reading-path">
+<h2>Recommended reading path<a class="headerlink" href="#recommended-reading-path" title="Link to this heading">#</a></h2>
+<p>Read the docs in this order:</p>
+<ol class="arabic simple">
+<li><p>This guide for the mental model.</p></li>
+<li><p><a class="reference internal" href="config_reference.html"><span class="std std-doc">config_reference.md</span></a> for exact field-level details.</p></li>
+<li><p><a class="reference internal" href="quickstart.html"><span class="std std-doc">quickstart.md</span></a> for end-to-end usage.</p></li>
+<li><p><a class="reference internal" href="algorithms.html"><span class="std std-doc">algorithms.md</span></a> for the current training surface and algorithm-side expectations.</p></li>
+</ol>
+</section>
+<section id="recommended-config-patterns">
+<h2>Recommended config patterns<a class="headerlink" href="#recommended-config-patterns" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>Use one YAML file per experiment family.</p></li>
+<li><p>Prefer explicit <code class="docutils literal notranslate"><span class="pre">input_name</span></code> for multimodal observation dictionaries.</p></li>
+<li><p>Keep actor and critic encoders separate when the task benefits from asymmetric representations.</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">flows</span></code> to show composition explicitly instead of encoding assumptions in task scripts.
+– Treat config files under <a class="reference external" href="https://github.com/Bigkatoan/SRL/tree/main/configs">configs</a> as executable examples, not just references.</p></li>
+</ul>
+</section>
+<section id="related-files">
+<h2>Related files<a class="headerlink" href="#related-files" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="config_reference.html"><span class="std std-doc">config_reference.md</span></a></p></li>
+<li><p><a class="reference internal" href="quickstart.html"><span class="std std-doc">quickstart.md</span></a></p></li>
+<li><p><a class="reference internal" href="algorithms.html"><span class="std std-doc">algorithms.md</span></a></p></li>
+<li><p><a class="reference external" href="https://github.com/Bigkatoan/SRL/blob/main/configs/envs/halfcheetah_sac.yaml">halfcheetah_sac.yaml</a></p></li>
+<li><p><a class="reference external" href="https://github.com/Bigkatoan/SRL/blob/main/configs/envs/car_racing_ppo_visual.yaml">car_racing_ppo_visual.yaml</a></p></li>
+<li><p><a class="reference external" href="https://github.com/Bigkatoan/SRL/blob/main/configs/sac_multimodal.yaml">sac_multimodal.yaml</a></p></li>
+</ul>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="cli.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">CLI Reference</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="yaml/index.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">YAML Configuration System</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#why-yaml-is-central">Why YAML is central</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#build-path">Build path</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#top-level-structure">Top-level structure</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#encoders">Encoders</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-state-encoder">Example: state encoder</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-visual-encoder-with-auxiliary-reconstruction">Example: visual encoder with auxiliary reconstruction</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-multimodal-encoder-set">Example: multimodal encoder set</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#input-routing">Input routing</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#recommended-pattern-explicit-routing">Recommended pattern: explicit routing</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#fallback-routing">Fallback routing</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#flow-graph">Flow graph</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#heads">Heads</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#auxiliary-representation-learning">Auxiliary representation learning</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#training-config-from-yaml">Training config from YAML</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#current-system-boundary">Current system boundary</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#recommended-reading-path">Recommended reading path</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#recommended-config-patterns">Recommended config patterns</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#related-files">Related files</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By SRL Contributors
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2026, SRL Contributors.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    <p class="last-updated">
+  Last updated on Aug 12, 2026.
+  <br/>
+</p>
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
