@@ -235,7 +235,15 @@ def test_her_replay_buffer_sample_uses_real_done_for_non_relabelled_fraction() -
         )
     assert len(buf) == 1
 
-    batch = buf.sample(batch_size=20)
+    # Only one episode is stored, so sample() draws t_idx uniformly from its 5
+    # timesteps per sample; `done` is real only at the last one. Seeded (for
+    # reproducibility) and oversized (for margin): with a 1-in-5 hit rate per
+    # sample, a small batch_size here previously had a real ~1% chance of
+    # drawing zero hits and failing on a fix that was actually correct --
+    # batch_size=200 makes that probability effectively zero (~1e-19) even
+    # before the seed pins it exactly.
+    np.random.seed(0)
+    batch = buf.sample(batch_size=200)
     assert batch.dones.sum().item() > 0, (
         "expected some sampled transitions to carry the real terminal done=1; "
         "got all zeros -- done tracking regressed to the reward==0.0 heuristic"
