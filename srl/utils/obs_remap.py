@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
 import warnings
+from typing import Any
 
 
 def apply_obs_remap(
@@ -16,9 +16,23 @@ def apply_obs_remap(
     Rules applied in order:
     0. Explicit `input_name` mapping.
     1. Exact key == encoder name passthrough.
-    2. Single obs -> single encoder rename.
+    2. Single obs -> broadcast to every remaining unnamed encoder (a single
+       encoder is the N=1 case of this).
     3. Same-count zip by order.
     4. Fallback passthrough.
+
+    Rule 2 matters beyond the single-encoder case: it's what makes the
+    library's own flagship example configs (e.g. configs/envs/halfcheetah_ppo.yaml,
+    halfcheetah_sac.yaml -- two separate encoders, actor_state_enc/
+    critic_state_enc, no explicit input_name) actually work. A plain
+    GymnasiumWrapper env publishes exactly one obs key ("state"); with the
+    old N=1-only rename, 1 obs key against 2 unnamed encoders matched none of
+    rules 0-3 and fell through to rule 4's untouched passthrough, leaving
+    both encoder names missing from the result entirely -- `AgentModel.forward()`
+    then KeyErrors on the very first `agent.predict()` call. Confirmed this
+    reproduces on stock `main` (commit 7063895, before any mjlab/truncated-
+    bootstrap work) against HalfCheetah-v5 with both configs, on-policy and
+    off-policy alike -- not something introduced by other fixes in this pass.
 
     Validation:
     - Missing explicit `input_name` raises ``KeyError``.
@@ -52,11 +66,15 @@ def apply_obs_remap(
     elif any(name in remaining_obs for name in unnamed_encoders):
         fallback_mapping = remaining_obs
         used_obs_keys.update(key for key in remaining_obs if key in unnamed_encoders)
-    elif len(remaining_obs) == 1 and len(unnamed_encoders) == 1:
-        fallback_mapping = {unnamed_encoders[0]: next(iter(remaining_obs.values()))}
+    elif len(remaining_obs) == 1:
+        # Broadcast the single remaining obs to every remaining unnamed
+        # encoder. len(unnamed_encoders) == 1 is a rename (the previous
+        # behavior); > 1 is the shared-trunk case flagship configs rely on.
+        value = next(iter(remaining_obs.values()))
+        fallback_mapping = {name: value for name in unnamed_encoders}
         used_obs_keys.update(remaining_obs.keys())
     elif len(remaining_obs) == len(unnamed_encoders) and len(remaining_obs) > 1:
-        fallback_mapping = dict(zip(unnamed_encoders, remaining_obs.values()))
+        fallback_mapping = dict(zip(unnamed_encoders, remaining_obs.values(), strict=True))
         used_obs_keys.update(remaining_obs.keys())
     else:
         fallback_mapping = remaining_obs

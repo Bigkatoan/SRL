@@ -110,6 +110,7 @@ def _to_np(x: Any) -> np.ndarray:
         return np.array([])
     try:
         import torch
+
         if isinstance(x, torch.Tensor):
             return x.detach().cpu().numpy()
     except ImportError:
@@ -130,9 +131,9 @@ def _maybe_hwc_to_chw(arr: np.ndarray) -> np.ndarray:
     if arr.ndim == 4:  # (N, H, W, C) batched
         n, h, w, c = arr.shape
         if c in (1, 3, 4) and h > c and w > c:
-            return arr.transpose(0, 3, 1, 2)   # → (N, C, H, W)
+            return arr.transpose(0, 3, 1, 2)  # → (N, C, H, W)
     elif arr.ndim == 3:  # (H, W, C) single env
         h, w, c = arr.shape
         if c in (1, 3, 4) and h > c and w > c:
-            return arr.transpose(2, 0, 1)       # → (C, H, W)
+            return arr.transpose(2, 0, 1)  # → (C, H, W)
     return arr

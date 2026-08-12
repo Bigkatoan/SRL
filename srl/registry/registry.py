@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Callable, Type
+from collections.abc import Callable
 
 
 class _Registry:
@@ -17,14 +17,17 @@ class _Registry:
                 raise KeyError(f"{self._kind} '{key}' already registered.")
             self._store[key] = cls
             return cls
+
         return decorator
 
-    def get(self, name: str, ) -> type:
+    def get(
+        self,
+        name: str,
+    ) -> type:
         key = name.lower()
         if key not in self._store:
             raise ValueError(
-                f"Unknown {self._kind} '{name}'. "
-                f"Registered: {sorted(self._store)}"
+                f"Unknown {self._kind} '{name}'. " f"Registered: {sorted(self._store)}"
             )
         return self._store[key]
 

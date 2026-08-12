@@ -12,8 +12,7 @@ def apply_weight_init(module: nn.Module, scheme: str) -> nn.Module:
         return module
 
     def _init(m: nn.Module) -> None:
-        if not isinstance(m, (nn.Linear, nn.Conv1d, nn.Conv2d, nn.Conv3d,
-                               nn.ConvTranspose2d)):
+        if not isinstance(m, (nn.Linear, nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.ConvTranspose2d)):
             return
         if scheme == "xavier_uniform":
             nn.init.xavier_uniform_(m.weight)

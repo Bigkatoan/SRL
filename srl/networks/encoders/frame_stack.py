@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from collections import deque
 
-import torch
-import torch.nn as nn
+import numpy as np
 
 
 class FrameStackPreprocessor:
@@ -27,17 +26,13 @@ class FrameStackPreprocessor:
         self._buf: deque = deque(maxlen=k)
 
     def reset(self, first_obs=None) -> None:
-        import numpy as np
-
         zero = np.zeros((self.c, self.h, self.w), dtype=np.float32)
         for _ in range(self.k):
             self._buf.append(zero)
         if first_obs is not None:
             self._buf.append(first_obs)
 
-    def push(self, obs) -> "np.ndarray":
-        import numpy as np
-
+    def push(self, obs) -> np.ndarray:
         self._buf.append(obs)
         return np.concatenate(list(self._buf), axis=0)  # (C*k, H, W)
 

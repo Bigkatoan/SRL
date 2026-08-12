@@ -3,21 +3,32 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import fields
 import math
 import os
-import re
 import sys
+from dataclasses import fields
+
+from srl.utils.spaces import sample_action_space as _sample_action_space
 
 
-def _make_cli_env(env_name: str, device: str, n_envs: int, env_type: str = "flat"):
-    from srl.envs.goal_env_wrapper import GoalEnvWrapper
+def _make_cli_env(
+    env_name: str, device: str, n_envs: int, env_type: str = "flat", render: bool = False
+):
+    """Build an env for training/eval, or (``render=True``) for the
+    ``--visualize`` live viewer's plain-Gymnasium path (flat/goal/racecar
+    only -- isaaclab/mjlab visualization goes through
+    ``srl.utils.live_viewer`` instead, since they need a differently-built
+    raw env; ``render`` is a no-op for those two branches here).
+    """
     import gymnasium as gym
+
+    from srl.envs.goal_env_wrapper import GoalEnvWrapper
     from srl.envs.gymnasium_wrapper import GymnasiumWrapper
     from srl.envs.racecar_wrapper import RacecarWrapper
 
     normalized_env_type = (env_type or "flat").strip().lower()
     normalized_env_name = _normalize_env_name(env_name, normalized_env_type)
+    make_kwargs = {"render_mode": "human"} if render else {}
 
     if normalized_env_type == "isaaclab" or normalized_env_name.startswith("isaaclab:"):
         from srl.envs.isaac_lab_wrapper import IsaacLabWrapper
@@ -60,46 +71,15 @@ def _make_cli_env(env_name: str, device: str, n_envs: int, env_type: str = "flat
         import gymnasium_robotics
 
         gymnasium_robotics.register_robotics_envs()
-        return GoalEnvWrapper(gym.make(normalized_env_name))
+        return GoalEnvWrapper(gym.make(normalized_env_name, **make_kwargs))
 
     if normalized_env_type == "racecar":
         import racecar_gym  # noqa: F401
 
-        return RacecarWrapper(gym.make(normalized_env_name))
+        return RacecarWrapper(gym.make(normalized_env_name, **make_kwargs))
 
-    base = gym.make(normalized_env_name)
+    base = gym.make(normalized_env_name, **make_kwargs)
     return GymnasiumWrapper(base)
-
-
-def _sample_action_space(space):
-    """Uniform-random sample from an action space, for off-policy warmup.
-
-    Real gymnasium spaces have `.sample()`; isaaclab/mjlab envs expose their
-    own lightweight `mjlab.utils.spaces.Box`-style dataclass instead (just
-    `shape`/`low`/`high`/`dtype`, no `.sample()` method), so fall back to a
-    plain numpy uniform draw over its bounds when `.sample()` isn't there.
-
-    mjlab action spaces are typically declared unbounded ([-inf, inf] --
-    action terms do their own internal scale/clip, e.g.
-    OdriveVelocityActionCfg's `scale`), since the raw policy output is what
-    the space describes, not the physical actuator range. `np.random.uniform`
-    can't sample a non-finite range (raises OverflowError), and a genuinely
-    unbounded warmup action wouldn't be a sane "explore near zero" sample
-    anyway -- fall back to [-1, 1], the conventional bounded range a
-    Tanh/Gaussian-squashed policy actually outputs before that internal
-    scaling, on any non-finite bound.
-    """
-    import numpy as np
-
-    if hasattr(space, "sample"):
-        return space.sample()
-
-    shape = getattr(space, "shape", ())
-    low = np.broadcast_to(np.asarray(getattr(space, "low", -1.0), dtype=np.float32), shape).copy()
-    high = np.broadcast_to(np.asarray(getattr(space, "high", 1.0), dtype=np.float32), shape).copy()
-    low[~np.isfinite(low)] = -1.0
-    high[~np.isfinite(high)] = 1.0
-    return np.random.uniform(low, high).astype(np.float32)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -114,29 +94,101 @@ Examples
   srl-train --config configs/sac_state.yaml --env Ant-v5 --steps 3000000 --device cuda
         """,
     )
-    p.add_argument("--config",  required=True, help="Path to the YAML model config file")
-    p.add_argument("--env",     required=False, default=None, help="Gymnasium environment id, 'isaaclab:<task>', or 'mjlab:<task>'")
-    p.add_argument("--algo",    default=None,  help="Algorithm override: ppo|sac|ddpg|td3|a2c|a3c (auto-detected from config)")
-    p.add_argument("--steps",   type=int, default=None, help="Total environment steps (defaults to train.total_steps or 1M)")
-    p.add_argument("--n-envs",  type=int, default=None, help="Parallel environments (defaults to train.n_envs or 1)")
-    p.add_argument("--device",  default="auto", help="PyTorch device: cpu|cuda|auto (default: auto)")
-    p.add_argument("--vec-mode", choices=["auto", "sync", "async"], default="auto", help="Vector env backend for n-envs > 1")
-    p.add_argument("--seed",    type=int, default=0,           help="Random seed (default: 0)")
-    p.add_argument("--logdir",  default="runs",                help="TensorBoard log dir (default: runs/)")
-    p.add_argument("--ckptdir", default="checkpoints",         help="Checkpoint directory (default: checkpoints/)")
-    p.add_argument("--log-interval", type=int, default=2048,    help="Console/logging interval in env steps")
-    p.add_argument("--episode-window", type=int, default=20,    help="Rolling window for episode summaries")
-    p.add_argument("--console-metrics", type=int, default=8,    help="Maximum metrics shown in compact terminal summaries")
-    p.add_argument("--console-layout", choices=["multi_line", "single_line"], default="multi_line", help="Terminal logging layout")
-    p.add_argument("--plot-metrics", default="",               help="Comma-separated metric tags to visualize after training")
-    p.add_argument("--no-plots", action="store_true",          help="Disable plot export at the end of training")
-    p.add_argument("--resume", default=None, help="Resume training from a checkpoint created by srl-train")
-    p.add_argument("--save-model-pipeline", nargs="?", const="auto", default=None, help="Save model pipeline PNG before training")
-    p.add_argument("--save-training-pipeline", nargs="?", const="auto", default=None, help="Save training pipeline PNG before training")
-    p.add_argument("--export-pipeline-only", action="store_true", help="Render requested pipeline PNGs and exit without training")
-    p.add_argument("--eval-freq", type=int, default=50_000,    help="Evaluation frequency in steps")
-    p.add_argument("--eval-episodes", type=int, default=10,    help="Episodes per evaluation")
-    p.add_argument("--render",  action="store_true",           help="Render environment during eval")
+    p.add_argument("--config", required=True, help="Path to the YAML model config file")
+    p.add_argument(
+        "--env",
+        required=False,
+        default=None,
+        help="Gymnasium environment id, 'isaaclab:<task>', or 'mjlab:<task>'",
+    )
+    p.add_argument(
+        "--algo",
+        default=None,
+        help="Algorithm override: ppo|sac|ddpg|td3|a2c|a3c (auto-detected from config)",
+    )
+    p.add_argument(
+        "--steps",
+        type=int,
+        default=None,
+        help="Total environment steps (defaults to train.total_steps or 1M)",
+    )
+    p.add_argument(
+        "--n-envs",
+        type=int,
+        default=None,
+        help="Parallel environments (defaults to train.n_envs or 1)",
+    )
+    p.add_argument("--device", default="auto", help="PyTorch device: cpu|cuda|auto (default: auto)")
+    p.add_argument(
+        "--vec-mode",
+        choices=["auto", "sync", "async"],
+        default="auto",
+        help="Vector env backend for n-envs > 1",
+    )
+    p.add_argument("--seed", type=int, default=0, help="Random seed (default: 0)")
+    p.add_argument("--logdir", default="runs", help="TensorBoard log dir (default: runs/)")
+    p.add_argument(
+        "--ckptdir", default="checkpoints", help="Checkpoint directory (default: checkpoints/)"
+    )
+    p.add_argument(
+        "--log-interval", type=int, default=2048, help="Console/logging interval in env steps"
+    )
+    p.add_argument(
+        "--episode-window", type=int, default=20, help="Rolling window for episode summaries"
+    )
+    p.add_argument(
+        "--console-metrics",
+        type=int,
+        default=8,
+        help="Maximum metrics shown in compact terminal summaries",
+    )
+    p.add_argument(
+        "--console-layout",
+        choices=["multi_line", "single_line"],
+        default="multi_line",
+        help="Terminal logging layout",
+    )
+    p.add_argument(
+        "--plot-metrics", default="", help="Comma-separated metric tags to visualize after training"
+    )
+    p.add_argument(
+        "--no-plots", action="store_true", help="Disable plot export at the end of training"
+    )
+    p.add_argument(
+        "--resume", default=None, help="Resume training from a checkpoint created by srl-train"
+    )
+    p.add_argument(
+        "--save-model-pipeline",
+        nargs="?",
+        const="auto",
+        default=None,
+        help="Save model pipeline PNG before training",
+    )
+    p.add_argument(
+        "--save-training-pipeline",
+        nargs="?",
+        const="auto",
+        default=None,
+        help="Save training pipeline PNG before training",
+    )
+    p.add_argument(
+        "--export-pipeline-only",
+        action="store_true",
+        help="Render requested pipeline PNGs and exit without training",
+    )
+    p.add_argument("--eval-freq", type=int, default=50_000, help="Evaluation frequency in steps")
+    p.add_argument("--eval-episodes", type=int, default=10, help="Episodes per evaluation")
+    p.add_argument("--render", action="store_true", help="Render environment during eval")
+    p.add_argument(
+        "--visualize",
+        action="store_true",
+        help=(
+            "Run one extra single env in the background doing live inference "
+            "with the current (training) model, rendered while training runs. "
+            "mjlab uses its own interactive viewer; flat/goal/racecar envs "
+            "open a render window. Not supported for isaaclab."
+        ),
+    )
     return p
 
 
@@ -157,7 +209,7 @@ def _coerce_config_value(value):
 def _train_section(config_path: str) -> dict:
     import yaml
 
-    with open(config_path, "r", encoding="utf-8") as handle:
+    with open(config_path, encoding="utf-8") as handle:
         data = yaml.safe_load(handle) or {}
     return data.get("train", {}), data
 
@@ -231,7 +283,9 @@ def _build_algo_config(config_cls, train_cfg: dict, **extra_overrides):
     return config_cls(**kwargs)
 
 
-def _validate_algo_model_compatibility(raw_cfg: dict, algo_name: str, config_path: str) -> str | None:
+def _validate_algo_model_compatibility(
+    raw_cfg: dict, algo_name: str, config_path: str
+) -> str | None:
     actor_type = ((raw_cfg.get("actor") or {}).get("type") or "").lower()
     critic_type = ((raw_cfg.get("critic") or {}).get("type") or "").lower()
     configured_algo = (raw_cfg.get("algo") or "").lower()
@@ -256,9 +310,12 @@ def _validate_algo_model_compatibility(raw_cfg: dict, algo_name: str, config_pat
     configured_msg = f" config declares algo '{configured_algo}' and" if configured_algo else ""
     return (
         f"Config '{config_path}' is not compatible with --algo {algo_name}:"
-        f"{configured_msg} uses actor='{actor_type or 'missing'}', critic='{critic_type or 'missing'}'. "
-        f"Expected actor in {sorted(valid_actor_types)} and critic in {sorted(valid_critic_types)}. "
-        "Use a matching YAML config for the selected algorithm or omit --algo to use the config's declared algorithm."
+        f"{configured_msg} uses actor='{actor_type or 'missing'}', "
+        f"critic='{critic_type or 'missing'}'. "
+        f"Expected actor in {sorted(valid_actor_types)} and "
+        f"critic in {sorted(valid_critic_types)}. "
+        "Use a matching YAML config for the selected algorithm or omit "
+        "--algo to use the config's declared algorithm."
     )
 
 
@@ -270,7 +327,9 @@ def _next_eval_step(start_step: int, eval_freq: int) -> int | None:
     return int(math.floor(start_step / eval_freq) + 1) * eval_freq
 
 
-def _evaluate_agent(agent, *, env_name: str, env_type: str, device: str, seed: int, episodes: int, render: bool) -> dict[str, float]:
+def _evaluate_agent(
+    agent, *, env_name: str, env_type: str, device: str, seed: int, episodes: int, render: bool
+) -> dict[str, float]:
     import numpy as np
 
     eval_env = _make_cli_env(env_name, device, 1, env_type)
@@ -302,7 +361,11 @@ def _evaluate_agent(agent, *, env_name: str, env_type: str, device: str, seed: i
                 # here for those env types produces a 1-D action and
                 # `action.shape[1]` in the env's action manager raises
                 # IndexError.
-                if env_type not in ("isaaclab", "mjlab") and action_np.ndim > 1 and action_np.shape[0] == 1:
+                if (
+                    env_type not in ("isaaclab", "mjlab")
+                    and action_np.ndim > 1
+                    and action_np.shape[0] == 1
+                ):
                     action_np = action_np.squeeze(0)
                 next_obs, reward, done, truncated, info = eval_env.step(action_np)
                 score += float(np.asarray(reward).reshape(-1)[0])
@@ -335,7 +398,9 @@ def _evaluate_agent(agent, *, env_name: str, env_type: str, device: str, seed: i
     return metrics
 
 
-def _maybe_run_evaluation(agent, args, logger, *, device: str, step: int, next_eval_step: int | None) -> int | None:
+def _maybe_run_evaluation(
+    agent, args, logger, *, device: str, step: int, next_eval_step: int | None
+) -> int | None:
     if next_eval_step is None or step < next_eval_step:
         return next_eval_step
 
@@ -350,12 +415,73 @@ def _maybe_run_evaluation(agent, args, logger, *, device: str, step: int, next_e
         episodes=getattr(args, "eval_episodes", 1),
         render=bool(getattr(args, "render", False)),
     )
-    logger.record_metrics(eval_metrics, step=step, total_steps=args.steps, prefix=None, console=False)
+    logger.record_metrics(
+        eval_metrics, step=step, total_steps=args.steps, prefix=None, console=False
+    )
     print(
-        f"[eval] step {step} | score_mean={eval_metrics['eval/score_mean']:.4f} | episodes={int(eval_metrics['eval/episodes'])}",
+        f"[eval] step {step} | score_mean={eval_metrics['eval/score_mean']:.4f} "
+        f"| episodes={int(eval_metrics['eval/episodes'])}",
         flush=True,
     )
     return next_eval_step + eval_freq
+
+
+def _maybe_start_visualizer(agent, args, device: str):
+    """Start the ``--visualize`` background viewer, if requested.
+
+    Returns a ``srl.utils.live_viewer.VisualizerHandle`` (or None if
+    ``--visualize`` wasn't passed, isn't supported for this env type, or
+    failed to start). Callers should ``.stop()`` and ``.thread.join(...)``
+    the handle before the process exits -- see that module's docstring for
+    why. Never raises: visualization is a nice-to-have and a failure here (a
+    missing optional dependency, an env that can't be constructed twice,
+    whatever) must not take training down with it.
+    """
+    if not getattr(args, "visualize", False):
+        return None
+
+    encoder_names = list(agent.model.encoders.keys())
+    encoder_input_names = getattr(agent.model, "encoder_input_names", None)
+
+    def _remap(obs):
+        return _remap_obs_to_encoders(obs, encoder_names, encoder_input_names=encoder_input_names)
+
+    if args.env_type == "isaaclab" or args.env.startswith("isaaclab:"):
+        print(
+            "[srl-train] --visualize: not supported for isaaclab envs (a single "
+            "process hosts one Isaac Sim render context, shared by every env in "
+            "it, so a second view-only env can't be added alongside headless "
+            "training envs) -- skipping.",
+            file=sys.stderr,
+        )
+        return None
+
+    from srl.utils.live_viewer import start_gym_visualizer, start_mjlab_visualizer
+
+    if args.env_type == "mjlab" or args.env.startswith("mjlab:"):
+        task_name = args.env.split(":", 1)[1]
+        return start_mjlab_visualizer(agent, task_name, device, remap_obs_fn=_remap)
+
+    return start_gym_visualizer(
+        agent,
+        lambda: _make_cli_env(args.env, device, 1, args.env_type, render=True),
+        remap_obs_fn=_remap,
+        obs_to_tensor_fn=lambda obs, dev: _obs_to_tensors(obs, dev, force_batch=True),
+    )
+
+
+def _stop_visualizer(handle) -> None:
+    """Best-effort graceful shutdown of a `--visualize` handle before the
+    process exits -- see `srl.utils.live_viewer`'s module docstring for why
+    this matters (an abruptly-killed daemon thread mid-GPU-call can
+    segfault/core-dump on interpreter shutdown)."""
+    if handle is None:
+        return
+    try:
+        handle.stop()
+        handle.thread.join(timeout=5.0)
+    except Exception:
+        pass
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -364,10 +490,12 @@ def main(argv: list[str] | None = None) -> int:
 
     import os
     import random
+
     import numpy as np
     import torch
-    from srl.registry.builder import ModelBuilder
+
     from srl.core.config import A2CConfig, A3CConfig, DDPGConfig, PPOConfig, SACConfig, TD3Config
+    from srl.registry.builder import ModelBuilder
     from srl.utils.pipeline_graph import render_pipeline_bundle
 
     # ── device ────────────────────────────────────────────────────────────────
@@ -405,7 +533,9 @@ def main(argv: list[str] | None = None) -> int:
                 break
         if algo_name is None:
             algo_name = "ppo"
-    args.steps = args.steps if args.steps is not None else int(train_cfg.get("total_steps", 1_000_000))
+    args.steps = (
+        args.steps if args.steps is not None else int(train_cfg.get("total_steps", 1_000_000))
+    )
     args.n_envs = args.n_envs if args.n_envs is not None else int(train_cfg.get("n_envs", 1))
     args.env, args.env_type = _resolve_env_spec(args.env, raw_cfg)
 
@@ -445,11 +575,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.env_type == "isaaclab" or args.env.startswith("isaaclab:"):
         try:
             import atexit
+
             # Use IsaacLab's AppLauncher (not raw SimulationApp) so it loads
             # the headless-rendering kit file which:
             #   1. Sets /isaaclab/cameras_enabled = true  (required by TiledCamera)
             #   2. Activates omni.replicator.core  (required for camera data)
             from isaaclab.app import AppLauncher
+
             _isaac_app_launcher = AppLauncher(headless=True, enable_cameras=True)
             _isaac_sim_app = _isaac_app_launcher.app
             atexit.register(_isaac_sim_app.close)
@@ -458,6 +590,7 @@ def main(argv: list[str] | None = None) -> int:
             # in isaaclab/utils/assets.py.  If the carb setting is None at that
             # point the path becomes "None/…" and USD loading fails.
             import carb as _carb
+
             _carb_settings = _carb.settings.get_settings()
             if not _carb_settings.get("/persistent/isaac/asset_root/cloud"):
                 _carb_settings.set(
@@ -493,9 +626,9 @@ def main(argv: list[str] | None = None) -> int:
             env = AsyncVectorEnv(env_fns) if args.n_envs > 1 else SyncVectorEnv(env_fns)
 
     # ── build agent ───────────────────────────────────────────────────────────
-    from srl.utils.logger import Logger, LoggerConfig
-    from srl.utils.checkpoint import CheckpointManager
     from srl.utils.callbacks import CheckpointCallback
+    from srl.utils.checkpoint import CheckpointManager
+    from srl.utils.logger import Logger, LoggerConfig
 
     plot_metrics = [metric.strip() for metric in args.plot_metrics.split(",") if metric.strip()]
     logger = Logger(
@@ -525,17 +658,23 @@ def main(argv: list[str] | None = None) -> int:
     cm = CheckpointManager(os.path.join(args.ckptdir, run_name), max_keep=5)
 
     import copy
+
     action_dim = int(np.prod(getattr(env.act_space, "shape", ()) or (1,)))
 
     start_step = 0
+    visualizer_handle = None
 
     if algo_name == "ppo":
         from srl.algorithms.ppo import PPO
+
         agent = PPO(
             model,
-            config=_build_algo_config(PPOConfig, train_cfg, num_envs=getattr(env, "num_envs", args.n_envs)),
+            config=_build_algo_config(
+                PPOConfig, train_cfg, num_envs=getattr(env, "num_envs", args.n_envs)
+            ),
             device=device,
         )
+        visualizer_handle = _maybe_start_visualizer(agent, args, device)
         callbacks = [CheckpointCallback(cm, save_interval=100_000, model=agent)]
         if args.resume:
             start_step = int(cm.load(agent, args.resume, device=device).get("step", 0))
@@ -544,11 +683,15 @@ def main(argv: list[str] | None = None) -> int:
 
     elif algo_name == "a2c":
         from srl.algorithms.a2c import A2C
+
         agent = A2C(
             model,
-            config=_build_algo_config(A2CConfig, train_cfg, num_envs=getattr(env, "num_envs", args.n_envs)),
+            config=_build_algo_config(
+                A2CConfig, train_cfg, num_envs=getattr(env, "num_envs", args.n_envs)
+            ),
             device=device,
         )
+        visualizer_handle = _maybe_start_visualizer(agent, args, device)
         callbacks = [CheckpointCallback(cm, save_interval=100_000, model=agent)]
         if args.resume:
             start_step = int(cm.load(agent, args.resume, device=device).get("step", 0))
@@ -556,10 +699,16 @@ def main(argv: list[str] | None = None) -> int:
         _run_on_policy(agent, env, args, callbacks, logger, start_step=start_step, device=device)
 
     elif algo_name == "a3c":
-        from srl.algorithms.a3c import A3C
         from functools import partial
 
-        agent = A3C(model, config=_build_algo_config(A3CConfig, train_cfg, n_workers=args.n_envs), device=device)
+        from srl.algorithms.a3c import A3C
+
+        agent = A3C(
+            model,
+            config=_build_algo_config(A3CConfig, train_cfg, n_workers=args.n_envs),
+            device=device,
+        )
+        visualizer_handle = _maybe_start_visualizer(agent, args, device)
         agent.train(
             total_timesteps=args.steps,
             env_fn=partial(_make_cli_env, args.env, device, args.n_envs, args.env_type),
@@ -569,6 +718,7 @@ def main(argv: list[str] | None = None) -> int:
 
     elif algo_name == "sac":
         from srl.algorithms.sac import SAC
+
         target = copy.deepcopy(model)
         agent = SAC(
             model,
@@ -581,6 +731,7 @@ def main(argv: list[str] | None = None) -> int:
             ),
             device=device,
         )
+        visualizer_handle = _maybe_start_visualizer(agent, args, device)
         callbacks = [CheckpointCallback(cm, save_interval=100_000, model=agent)]
         if args.resume:
             start_step = int(cm.load(agent, args.resume, device=device).get("step", 0))
@@ -589,6 +740,7 @@ def main(argv: list[str] | None = None) -> int:
 
     elif algo_name == "ddpg":
         from srl.algorithms.ddpg import DDPG
+
         target = copy.deepcopy(model)
         agent = DDPG(
             model,
@@ -601,6 +753,7 @@ def main(argv: list[str] | None = None) -> int:
             ),
             device=device,
         )
+        visualizer_handle = _maybe_start_visualizer(agent, args, device)
         callbacks = [CheckpointCallback(cm, save_interval=100_000, model=agent)]
         if args.resume:
             start_step = int(cm.load(agent, args.resume, device=device).get("step", 0))
@@ -609,6 +762,7 @@ def main(argv: list[str] | None = None) -> int:
 
     elif algo_name == "td3":
         from srl.algorithms.td3 import TD3
+
         target = copy.deepcopy(model)
         agent = TD3(
             model,
@@ -621,6 +775,7 @@ def main(argv: list[str] | None = None) -> int:
             ),
             device=device,
         )
+        visualizer_handle = _maybe_start_visualizer(agent, args, device)
         callbacks = [CheckpointCallback(cm, save_interval=100_000, model=agent)]
         if args.resume:
             start_step = int(cm.load(agent, args.resume, device=device).get("step", 0))
@@ -631,6 +786,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[srl-train] Unknown algorithm: {algo_name}", file=sys.stderr)
         return 1
 
+    _stop_visualizer(visualizer_handle)
     cm.save(agent if algo_name != "a3c" else model, step=args.steps, tag="final")
     logger.set_step(args.steps)
     logger.close()
@@ -642,6 +798,7 @@ def main(argv: list[str] | None = None) -> int:
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers for mapping obs keys to encoder names
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def _remap_obs_to_encoders(
     obs_dict: dict,
@@ -689,7 +846,8 @@ def _remap_obs_to_encoders(
 
 
 def _obs_to_tensors(obs_dict: dict, device, *, force_batch: bool) -> dict:
-    import torch, numpy as np
+    import numpy as np
+    import torch
 
     tensor_obs = {}
     for key, value in obs_dict.items():
@@ -700,7 +858,18 @@ def _obs_to_tensors(obs_dict: dict, device, *, force_batch: bool) -> dict:
     return tensor_obs
 
 
-def _split_vector_transition(obs: dict, next_obs: dict, action, reward, done, trunc) -> list[tuple[dict, dict, object, float, bool]]:
+def _split_vector_transition(
+    obs: dict, next_obs: dict, action, reward, done, trunc
+) -> list[tuple[dict, dict, object, float, bool, bool]]:
+    """Split a batched (vectorized-env) step into per-env transition tuples.
+
+    `done`/`trunc` are kept SEPARATE in the returned tuples (last two fields:
+    terminated, truncated) rather than OR'd into one -- off-policy bootstrap
+    targets (`(1 - terminated) * next_q` in sac.py/ddpg.py/td3.py) must see
+    true termination only. Callers that want "episode ended for any reason"
+    (resets, episode-length logging) OR these two themselves at the point
+    they need it; do not re-combine them here.
+    """
     import numpy as np
 
     rewards = np.asarray(reward, dtype=np.float32).reshape(-1)
@@ -720,7 +889,8 @@ def _split_vector_transition(obs: dict, next_obs: dict, action, reward, done, tr
                 next_obs_i,
                 np.asarray(actions[index], dtype=np.float32),
                 float(rewards[index]),
-                bool(dones[index] or truncs[index]),
+                bool(dones[index]),
+                bool(truncs[index]),
             )
         )
     return transitions
@@ -730,9 +900,11 @@ def _split_vector_transition(obs: dict, next_obs: dict, action, reward, done, tr
 # Training loops
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _run_on_policy(agent, env, args, callbacks, logger, *, start_step: int = 0, device: str = "cpu") -> None:
-    import torch, numpy as np
-    from srl.core.rollout_buffer import RolloutBuffer
+
+def _run_on_policy(
+    agent, env, args, callbacks, logger, *, start_step: int = 0, device: str = "cpu"
+) -> None:
+    import numpy as np
 
     n_steps = agent.cfg.n_steps
     obs, _ = env.reset(seed=args.seed)
@@ -758,7 +930,9 @@ def _run_on_policy(agent, env, args, callbacks, logger, *, start_step: int = 0, 
             next_obs, reward, done, trunc, info = env.step(action_np)
             logger.update_episodes(reward, done, trunc, step=step, info=info)
             agent.buffer.add(
-                obs=obs, action=action_np, reward=np.asarray(reward),
+                obs=obs,
+                action=action_np,
+                reward=np.asarray(reward),
                 done=np.asarray(done),
                 log_prob=log_prob.cpu().numpy() if log_prob is not None else None,
                 value=value.cpu().numpy() if value is not None else None,
@@ -781,15 +955,19 @@ def _run_on_policy(agent, env, args, callbacks, logger, *, start_step: int = 0, 
         logger.record_metrics(metrics, step=step, total_steps=args.steps)
         for cb in callbacks:
             cb.on_step_end(step, metrics)
-        next_eval_step = _maybe_run_evaluation(agent, args, logger, device=device, step=step, next_eval_step=next_eval_step)
+        next_eval_step = _maybe_run_evaluation(
+            agent, args, logger, device=device, step=step, next_eval_step=next_eval_step
+        )
 
     eval_freq = int(getattr(args, "eval_freq", 0))
     if next_eval_step is not None and (step < next_eval_step or next_eval_step - eval_freq != step):
         _maybe_run_evaluation(agent, args, logger, device=device, step=step, next_eval_step=step)
 
 
-def _run_off_policy(agent, env, args, callbacks, logger, *, start_step: int = 0, device: str = "cpu") -> None:
-    import torch, numpy as np
+def _run_off_policy(
+    agent, env, args, callbacks, logger, *, start_step: int = 0, device: str = "cpu"
+) -> None:
+    import numpy as np
 
     # ------------------------------------------------------------------
     # Async / GPU-buffer fast path (v0.2.0)
@@ -800,8 +978,11 @@ def _run_off_policy(agent, env, args, callbacks, logger, *, start_step: int = 0,
     if _runner_cfg is None:
         # Check if algo_config dict has runner_cfg keys
         _algo_cfg = getattr(args, "algo_config", {}) or {}
-        if isinstance(_algo_cfg, dict) and (_algo_cfg.get("use_async") or _algo_cfg.get("use_gpu_buffer")):
+        if isinstance(_algo_cfg, dict) and (
+            _algo_cfg.get("use_async") or _algo_cfg.get("use_gpu_buffer")
+        ):
             from srl.core.config import AsyncRunnerConfig
+
             _runner_cfg = AsyncRunnerConfig(
                 use_async=bool(_algo_cfg.get("use_async", False)),
                 use_gpu_buffer=bool(_algo_cfg.get("use_gpu_buffer", False)),
@@ -809,9 +990,16 @@ def _run_off_policy(agent, env, args, callbacks, logger, *, start_step: int = 0,
 
     if _runner_cfg is not None and (_runner_cfg.use_async or _runner_cfg.use_gpu_buffer):
         from srl.runners import AsyncOffPolicyRunner
-        _random_steps = getattr(agent.cfg, "start_steps", None) or getattr(agent.cfg, "learning_starts", 10_000)
-        _update_after = getattr(agent.cfg, "update_after", None) or getattr(agent.cfg, "learning_starts", 10_000)
-        _update_every = getattr(agent.cfg, "update_every", None) or getattr(agent.cfg, "train_freq", 1)
+
+        _random_steps = getattr(agent.cfg, "start_steps", None) or getattr(
+            agent.cfg, "learning_starts", 10_000
+        )
+        _update_after = getattr(agent.cfg, "update_after", None) or getattr(
+            agent.cfg, "learning_starts", 10_000
+        )
+        _update_every = getattr(agent.cfg, "update_every", None) or getattr(
+            agent.cfg, "train_freq", 1
+        )
         _gradient_steps = max(int(getattr(agent.cfg, "gradient_steps", 1)), 1)
 
         def _log_fn(step: int, metrics: dict) -> None:
@@ -880,7 +1068,10 @@ def _run_off_policy(agent, env, args, callbacks, logger, *, start_step: int = 0,
                 # (num_envs, action_dim).
                 per_env_space = getattr(env, "single_act_space", env.act_space)
                 action_np = np.stack(
-                    [_sample_action_space(per_env_space) for _ in range(getattr(env, "num_envs", 1))],
+                    [
+                        _sample_action_space(per_env_space)
+                        for _ in range(getattr(env, "num_envs", 1))
+                    ],
                     axis=0,
                 )
             else:
@@ -913,20 +1104,25 @@ def _run_off_policy(agent, env, args, callbacks, logger, *, start_step: int = 0,
                 done,
                 trunc,
             )[:active_envs]
-            for env_index, (obs_i, next_obs_i, action_i, reward_i, done_i) in enumerate(transitions):
+            for env_index, (obs_i, next_obs_i, action_i, reward_i, done_i, trunc_i) in enumerate(
+                transitions
+            ):
                 agent.buffer.add(
                     obs=obs_i,
                     action=action_i,
                     reward=np.array([reward_i], dtype=np.float32),
                     done=np.array([done_i], dtype=bool),
+                    truncated=np.array([trunc_i], dtype=bool),
                     next_obs=next_obs_i,
                     env_idx=env_index,
                 )
         else:
             agent.buffer.add(
-                obs=obs, action=action_np,
+                obs=obs,
+                action=action_np,
                 reward=np.array([reward], dtype=np.float32),
                 done=np.array([done], dtype=bool),
+                truncated=np.array([trunc], dtype=bool),
                 next_obs=next_obs,
             )
         obs = next_obs
@@ -949,20 +1145,23 @@ def _run_off_policy(agent, env, args, callbacks, logger, *, start_step: int = 0,
                     for key, value in metric.items():
                         sums[key] = sums.get(key, 0.0) + float(value)
                         counts[key] = counts.get(key, 0) + 1
-                merged = {
-                    key: sums[key] / counts[key]
-                    for key in sums
-                }
+                merged = {key: sums[key] / counts[key] for key in sums}
                 merged["train/utd_ratio"] = gradient_steps / max(update_span, 1)
                 logger.set_step(env_step)
                 logger.record_metrics(merged, step=env_step, total_steps=args.steps)
                 for cb in callbacks:
                     cb.on_step_end(env_step, merged)
-        next_eval_step = _maybe_run_evaluation(agent, args, logger, device=device, step=env_step, next_eval_step=next_eval_step)
+        next_eval_step = _maybe_run_evaluation(
+            agent, args, logger, device=device, step=env_step, next_eval_step=next_eval_step
+        )
 
     eval_freq = int(getattr(args, "eval_freq", 0))
-    if next_eval_step is not None and (env_step < next_eval_step or next_eval_step - eval_freq != env_step):
-        _maybe_run_evaluation(agent, args, logger, device=device, step=env_step, next_eval_step=env_step)
+    if next_eval_step is not None and (
+        env_step < next_eval_step or next_eval_step - eval_freq != env_step
+    ):
+        _maybe_run_evaluation(
+            agent, args, logger, device=device, step=env_step, next_eval_step=env_step
+        )
 
 
 if __name__ == "__main__":

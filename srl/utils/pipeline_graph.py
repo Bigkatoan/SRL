@@ -7,7 +7,6 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-
 _KIND_COLORS = {
     "config": "#F4F1DE",
     "encoder": "#DDECF7",
@@ -47,7 +46,9 @@ def render_pipeline_bundle(
     return outputs
 
 
-def render_model_pipeline(raw_cfg: dict[str, Any], *, config_path: str, output_path: str | Path) -> None:
+def render_model_pipeline(
+    raw_cfg: dict[str, Any], *, config_path: str, output_path: str | Path
+) -> None:
     nodes: list[tuple[str, str, str]] = []
     edges: list[tuple[str, str, str]] = []
 
@@ -114,7 +115,7 @@ def render_training_pipeline(
     env_name: str,
     output_path: str | Path,
 ) -> None:
-    visualization = (raw_cfg.get("visualization") or {})
+    visualization = raw_cfg.get("visualization") or {}
     custom_pipeline = visualization.get("training_pipeline") or {}
     custom_nodes = custom_pipeline.get("nodes") or []
     custom_edges = custom_pipeline.get("edges") or []
@@ -128,12 +129,11 @@ def render_training_pipeline(
             )
             for node in custom_nodes
         ]
-        edges = [
-            _edge_from_any(edge)
-            for edge in custom_edges
-        ]
+        edges = [_edge_from_any(edge) for edge in custom_edges]
     else:
-        nodes, edges = _default_training_pipeline(raw_cfg, config_path=config_path, algo_name=algo_name, env_name=env_name)
+        nodes, edges = _default_training_pipeline(
+            raw_cfg, config_path=config_path, algo_name=algo_name, env_name=env_name
+        )
 
     dot = _build_dot(
         title=f"Training Pipeline: {algo_name.upper()} | {env_name}",
@@ -144,13 +144,23 @@ def render_training_pipeline(
     _render_dot_png(dot, output_path)
 
 
-def _default_training_pipeline(raw_cfg: dict[str, Any], *, config_path: str, algo_name: str, env_name: str):
+def _default_training_pipeline(
+    raw_cfg: dict[str, Any], *, config_path: str, algo_name: str, env_name: str
+):
     train_cfg = raw_cfg.get("train") or {}
     off_policy = algo_name in {"sac", "ddpg", "td3"}
     nodes = [
-        ("yaml_config", _label("YAML Config", [Path(config_path).name, f"algo={algo_name}"]), "config"),
+        (
+            "yaml_config",
+            _label("YAML Config", [Path(config_path).name, f"algo={algo_name}"]),
+            "config",
+        ),
         ("build_model", _label("Build Model", ["ModelBuilder.from_yaml"]), "process"),
-        ("create_env", _label("Create Environment", [env_name, f"n_envs={train_cfg.get('n_envs', 1)}"]), "env"),
+        (
+            "create_env",
+            _label("Create Environment", [env_name, f"n_envs={train_cfg.get('n_envs', 1)}"]),
+            "env",
+        ),
         ("collect", _label("Collect Rollouts", ["policy -> env.step"]), "process"),
         ("logger", _label("Logger / Artifacts", ["metrics", "plots", "summary"]), "artifact"),
         ("checkpoint", _label("Checkpoint", ["periodic saves"]), "artifact"),
@@ -165,34 +175,70 @@ def _default_training_pipeline(raw_cfg: dict[str, Any], *, config_path: str, alg
     ]
 
     if off_policy:
-        nodes.extend([
-            ("replay_buffer", _label("Replay Buffer", [f"batch_size={train_cfg.get('batch_size', 256)}"]), "buffer"),
-            ("critic_update", _label("Critic Update", [f"gradient_steps={train_cfg.get('gradient_steps', 1)}"]), "update"),
-            ("actor_update", _label("Actor Update", ["policy gradient"]), "update"),
-            ("target_update", _label("Target Sync", [f"tau={train_cfg.get('tau', 0.005)}"]), "update"),
-        ])
-        edges.extend([
-            ("collect", "replay_buffer", "store"),
-            ("replay_buffer", "critic_update", "sample"),
-            ("critic_update", "actor_update", "q-values"),
-            ("actor_update", "target_update", "weights"),
-            ("critic_update", "logger", "losses"),
-            ("actor_update", "logger", "losses"),
-            ("target_update", "checkpoint", "weights"),
-        ])
+        nodes.extend(
+            [
+                (
+                    "replay_buffer",
+                    _label("Replay Buffer", [f"batch_size={train_cfg.get('batch_size', 256)}"]),
+                    "buffer",
+                ),
+                (
+                    "critic_update",
+                    _label(
+                        "Critic Update", [f"gradient_steps={train_cfg.get('gradient_steps', 1)}"]
+                    ),
+                    "update",
+                ),
+                ("actor_update", _label("Actor Update", ["policy gradient"]), "update"),
+                (
+                    "target_update",
+                    _label("Target Sync", [f"tau={train_cfg.get('tau', 0.005)}"]),
+                    "update",
+                ),
+            ]
+        )
+        edges.extend(
+            [
+                ("collect", "replay_buffer", "store"),
+                ("replay_buffer", "critic_update", "sample"),
+                ("critic_update", "actor_update", "q-values"),
+                ("actor_update", "target_update", "weights"),
+                ("critic_update", "logger", "losses"),
+                ("actor_update", "logger", "losses"),
+                ("target_update", "checkpoint", "weights"),
+            ]
+        )
     else:
-        nodes.extend([
-            ("rollout_buffer", _label("Rollout Buffer", [f"n_steps={train_cfg.get('n_steps', 0)}"]), "buffer"),
-            ("compute_adv", _label("Compute Returns / GAE", [f"gae_lambda={train_cfg.get('gae_lambda', 0.95)}"]), "update"),
-            ("policy_update", _label("Policy / Value Update", [f"n_epochs={train_cfg.get('n_epochs', 1)}"]), "update"),
-        ])
-        edges.extend([
-            ("collect", "rollout_buffer", "store"),
-            ("rollout_buffer", "compute_adv", "returns"),
-            ("compute_adv", "policy_update", "batches"),
-            ("policy_update", "logger", "losses"),
-            ("policy_update", "checkpoint", "weights"),
-        ])
+        nodes.extend(
+            [
+                (
+                    "rollout_buffer",
+                    _label("Rollout Buffer", [f"n_steps={train_cfg.get('n_steps', 0)}"]),
+                    "buffer",
+                ),
+                (
+                    "compute_adv",
+                    _label(
+                        "Compute Returns / GAE", [f"gae_lambda={train_cfg.get('gae_lambda', 0.95)}"]
+                    ),
+                    "update",
+                ),
+                (
+                    "policy_update",
+                    _label("Policy / Value Update", [f"n_epochs={train_cfg.get('n_epochs', 1)}"]),
+                    "update",
+                ),
+            ]
+        )
+        edges.extend(
+            [
+                ("collect", "rollout_buffer", "store"),
+                ("rollout_buffer", "compute_adv", "returns"),
+                ("compute_adv", "policy_update", "batches"),
+                ("policy_update", "logger", "losses"),
+                ("policy_update", "checkpoint", "weights"),
+            ]
+        )
     return nodes, edges
 
 
@@ -230,13 +276,19 @@ def _edge_from_any(edge: Any) -> tuple[str, str, str]:
     return (edge["src"], edge["dst"], edge.get("label", ""))
 
 
-def _build_dot(*, title: str, nodes: list[tuple[str, str, str]], edges: list[tuple[str, str, str]], rankdir: str) -> str:
+def _build_dot(
+    *,
+    title: str,
+    nodes: list[tuple[str, str, str]],
+    edges: list[tuple[str, str, str]],
+    rankdir: str,
+) -> str:
     lines = [
         "digraph Pipeline {",
-        "  graph [fontname=Helvetica, rankdir=%s, bgcolor=white, labeljust=l, labelloc=t, fontsize=20];" % rankdir,
-        '  node [shape=box, style="rounded,filled", fontname=Helvetica, fontsize=11, color="#3A506B"];',
+        f"  graph [fontname=Helvetica, rankdir={rankdir}, bgcolor=white, labeljust=l, labelloc=t, fontsize=20];",  # noqa: E501
+        '  node [shape=box, style="rounded,filled", fontname=Helvetica, fontsize=11, color="#3A506B"];',  # noqa: E501
         '  edge [fontname=Helvetica, fontsize=10, color="#5C677D"];',
-        f'  labelloc="t";',
+        '  labelloc="t";',
         f'  label="{_escape(title)}";',
     ]
     for node_id, label, kind in nodes:

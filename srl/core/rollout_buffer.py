@@ -7,8 +7,8 @@ Supports GAE-λ advantage computation and mini-batch iteration.
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from dataclasses import dataclass
-from typing import Generator
 
 import numpy as np
 import torch
@@ -61,7 +61,7 @@ class RolloutBuffer:
         use_fp16: bool = False,
     ) -> None:
         self.n_steps = capacity if capacity is not None else n_steps
-        self.n_envs  = num_envs if num_envs is not None else n_envs
+        self.n_envs = num_envs if num_envs is not None else n_envs
         self.gamma = gamma
         self.gae_lambda = gae_lambda if gae_lambda is not None else lam
         self.device = torch.device(device)
@@ -74,14 +74,14 @@ class RolloutBuffer:
         S, N = self.n_steps, self.n_envs
         self._obs: dict[str, np.ndarray] = {}
         self._actions: np.ndarray | None = None
-        self._rewards   = np.zeros((S, N), dtype=np.float32)
-        self._dones     = np.zeros((S, N), dtype=np.float32)
-        self._values    = np.zeros((S, N), dtype=np.float32)
+        self._rewards = np.zeros((S, N), dtype=np.float32)
+        self._dones = np.zeros((S, N), dtype=np.float32)
+        self._values = np.zeros((S, N), dtype=np.float32)
         self._log_probs = np.zeros((S, N), dtype=np.float32)
         self.advantages = np.zeros((S, N), dtype=np.float32)
-        self.returns    = np.zeros((S, N), dtype=np.float32)
+        self.returns = np.zeros((S, N), dtype=np.float32)
         self._hidden: np.ndarray | None = None
-        self._cell:   np.ndarray | None = None
+        self._cell: np.ndarray | None = None
         self._pos = 0
         self._full = False
 
@@ -96,7 +96,11 @@ class RolloutBuffer:
             shape = single.shape[1:] if single.shape[0] == N and single.ndim > 1 else single.shape
             self._obs[k] = np.zeros((S, N, *shape), dtype=np.float32)
         a = np.asarray(action)
-        act_shape = a.shape[1:] if a.shape[0] == N and a.ndim > 1 else (a.shape[-1],) if a.ndim > 0 else (1,)
+        act_shape = (
+            a.shape[1:]
+            if a.shape[0] == N and a.ndim > 1
+            else (a.shape[-1],) if a.ndim > 0 else (1,)
+        )
         self._actions = np.zeros((S, N, *act_shape), dtype=np.float32)
         self._initialized = True
 
@@ -120,7 +124,7 @@ class RolloutBuffer:
             self._obs[k][t] = np.asarray(v, dtype=np.float32)
         self._actions[t] = np.asarray(action, dtype=np.float32)
         self._rewards[t] = np.asarray(reward, dtype=np.float32).reshape(self.n_envs)
-        self._dones[t]   = np.asarray(done, dtype=np.float32).reshape(self.n_envs)
+        self._dones[t] = np.asarray(done, dtype=np.float32).reshape(self.n_envs)
         if value is not None:
             self._values[t] = np.asarray(value, dtype=np.float32).reshape(self.n_envs)
         if log_prob is not None:
@@ -129,9 +133,9 @@ class RolloutBuffer:
             h, c = np.asarray(hidden), np.asarray(cell)
             if self._hidden is None:
                 self._hidden = np.zeros((self.n_steps, *h.shape), dtype=np.float32)
-                self._cell   = np.zeros((self.n_steps, *c.shape), dtype=np.float32)
+                self._cell = np.zeros((self.n_steps, *c.shape), dtype=np.float32)
             self._hidden[t] = h
-            self._cell[t]   = c
+            self._cell[t] = c
 
         self._pos = (self._pos + 1) % self.n_steps
         if self._pos == 0:
@@ -171,9 +175,7 @@ class RolloutBuffer:
                 next_values = self._values[t + 1]
 
             delta = (
-                self._rewards[t]
-                + self.gamma * next_values * next_non_terminal
-                - self._values[t]
+                self._rewards[t] + self.gamma * next_values * next_non_terminal - self._values[t]
             )
             last_gae = delta + self.gamma * self.gae_lambda * next_non_terminal * last_gae
             self.advantages[t] = last_gae
@@ -188,21 +190,22 @@ class RolloutBuffer:
         def _flat(arr: np.ndarray) -> np.ndarray:
             return arr.reshape(total, *arr.shape[2:])
 
-        obs_flat     = {k: _flat(v) for k, v in self._obs.items()}
+        obs_flat = {k: _flat(v) for k, v in self._obs.items()}
         actions_flat = _flat(self._actions)
-        lp_flat      = _flat(self._log_probs)
-        adv_flat     = _flat(self.advantages)
-        ret_flat     = _flat(self.returns)
-        val_flat     = _flat(self._values)
+        lp_flat = _flat(self._log_probs)
+        adv_flat = _flat(self.advantages)
+        ret_flat = _flat(self.returns)
+        val_flat = _flat(self._values)
         h_flat = _flat(self._hidden) if self._hidden is not None else None
-        c_flat = _flat(self._cell)   if self._cell   is not None else None
+        c_flat = _flat(self._cell) if self._cell is not None else None
 
         dev = self.device
 
-        def _t(x): return torch.from_numpy(x.copy()).float().to(dev)
+        def _t(x):
+            return torch.from_numpy(x.copy()).float().to(dev)
 
         for start in range(0, total, batch_size):
-            idx = indices[start: start + batch_size]
+            idx = indices[start : start + batch_size]
             yield RolloutBatch(
                 obs={k: _t(v[idx]) for k, v in obs_flat.items()},
                 actions=_t(actions_flat[idx]),
@@ -211,15 +214,21 @@ class RolloutBuffer:
                 returns=_t(ret_flat[idx]),
                 values=_t(val_flat[idx]),
                 hidden_states=_t(h_flat[idx]) if h_flat is not None else None,
-                cell_states=_t(c_flat[idx])   if c_flat is not None else None,
+                cell_states=_t(c_flat[idx]) if c_flat is not None else None,
             )
 
     def get_batch(self) -> RolloutBatch:
         """Return the whole buffer as a single batch (no shuffling)."""
         total = self.n_steps * self.n_envs
-        def _flat(arr): return arr.reshape(total, *arr.shape[2:])
+
+        def _flat(arr):
+            return arr.reshape(total, *arr.shape[2:])
+
         dev = self.device
-        def _t(x): return torch.from_numpy(x.copy()).float().to(dev)
+
+        def _t(x):
+            return torch.from_numpy(x.copy()).float().to(dev)
+
         return RolloutBatch(
             obs={k: _t(_flat(v)) for k, v in self._obs.items()},
             actions=_t(_flat(self._actions)),
@@ -234,4 +243,3 @@ class RolloutBuffer:
 
     def __len__(self) -> int:
         return self.n_steps * self.n_envs if self._full else self._pos * self.n_envs
-from typing import Generator

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from typing import Any
-import warnings
 
 import torch
 import torch.nn as nn
@@ -65,6 +64,7 @@ class AgentModel(nn.Module):
         action: torch.Tensor | None = None,
         *,
         detach_encoders: bool = False,
+        actor_action: torch.Tensor | None = None,
     ) -> dict[str, Any]:
         """Run the full forward pass.
 
@@ -77,7 +77,22 @@ class AgentModel(nn.Module):
         hidden_states:
             Optional LSTM hidden states per encoder name.
         action:
-            Action tensor — passed to Q-function heads when present.
+            Action tensor — passed to Q-function critic heads when present
+            (DDPG/TD3/SAC-style Q(s, a)). Deliberately a separate parameter
+            from `actor_action` below: a `ValueHead` (PPO/A2C's on-policy
+            critic) only accepts `(z)`, so this is only ever forwarded to
+            critic types that declared an `action_dim` (Q-function/TwinQ).
+        actor_action:
+            Action tensor to re-evaluate under the CURRENT actor distribution
+            for on-policy algorithms (PPO/A2C-style importance-sampling
+            ratio). When set and the actor head implements
+            `evaluate_actions(z, action)`, `actor_out` is `{"action":
+            actor_action, "log_prob": ..., "entropy": ...}` computed against
+            *this* action instead of a freshly sampled one -- without this,
+            `actor_out["log_prob"]` would be the log-prob of an unrelated new
+            sample, which silently breaks the PPO ratio (`new_log_prob -
+            old_log_prob` is meaningless unless both refer to the same
+            action).
 
         Returns
         -------
@@ -134,7 +149,17 @@ class AgentModel(nn.Module):
                 actor_latent = torch.cat(list(latents.values()), dim=-1)
             else:
                 raise RuntimeError("No latents available for actor head.")
-            actor_out = self.actor(actor_latent)
+            if actor_action is not None and hasattr(self.actor, "evaluate_actions"):
+                eval_log_prob, eval_entropy = self.actor.evaluate_actions(
+                    actor_latent, actor_action
+                )
+                actor_out = {
+                    "action": actor_action,
+                    "log_prob": eval_log_prob,
+                    "entropy": eval_entropy,
+                }
+            else:
+                actor_out = self.actor(actor_latent)
 
         # Compute critic head input
         value_out = None
@@ -310,6 +335,7 @@ class AgentModel(nn.Module):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _run_encoder(encoder: nn.Module, obs: torch.Tensor, hidden=None):
     """Call encoder with optional hidden state."""

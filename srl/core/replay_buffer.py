@@ -22,8 +22,14 @@ class ReplayBatch:
     rewards: torch.Tensor
     next_observations: torch.Tensor | dict[str, torch.Tensor]
     dones: torch.Tensor
-    weights: torch.Tensor | None = None   # IS weights (PER)
-    indices: np.ndarray | None = None
+    # True termination only (episode actually ended), never OR'd with
+    # truncation -- see gymnasium_wrapper.py's step() for why bootstrap
+    # targets need this distinction. `truncated` is stored alongside it for
+    # callers that do want "episode ended for any reason" (e.g. n-step
+    # return accumulation cutting a rollout short).
+    truncated: torch.Tensor | None = None
+    weights: torch.Tensor | None = None  # IS weights (PER)
+    indices: np.ndarray | None = None  # buffer indices (PER update)
 
     @property
     def obs(self):
@@ -32,7 +38,6 @@ class ReplayBatch:
     @property
     def next_obs(self):
         return self.next_observations
-    indices: np.ndarray | None = None     # buffer indices (PER update)
 
 
 class ReplayBuffer:
@@ -93,7 +98,8 @@ class ReplayBuffer:
             self._next_obs = {}
             self._actions = None
             self._rewards = np.zeros((self.capacity,), dtype=np.float32)
-            self._dones   = np.zeros((self.capacity,), dtype=np.float32)
+            self._dones = np.zeros((self.capacity,), dtype=np.float32)
+            self._truncated = np.zeros((self.capacity,), dtype=np.float32)
 
         # n-step rolling buffers per env
         if n_step > 1:
@@ -120,6 +126,7 @@ class ReplayBuffer:
         self._actions = np.zeros((self.capacity, self.action_dim), dtype=self.storage_dtype)
         self._rewards = np.zeros((self.capacity,), dtype=np.float32)
         self._dones = np.zeros((self.capacity,), dtype=np.float32)
+        self._truncated = np.zeros((self.capacity,), dtype=np.float32)
 
     # ------------------------------------------------------------------
     # Write
@@ -132,7 +139,7 @@ class ReplayBuffer:
         for k, v in obs.items():
             arr = np.asarray(v)
             shape = arr.shape[1:] if arr.ndim > 1 else arr.shape
-            self._obs[k]      = np.zeros((self.capacity, *shape), dtype=self.storage_dtype)
+            self._obs[k] = np.zeros((self.capacity, *shape), dtype=self.storage_dtype)
             self._next_obs[k] = np.zeros((self.capacity, *shape), dtype=self.storage_dtype)
         a = np.asarray(action)
         act_shape = a.shape[1:] if a.ndim > 1 else a.shape
@@ -150,24 +157,41 @@ class ReplayBuffer:
         # keyword-arg aliases
         truncated=None,
     ) -> None:
-        """Add a single transition (or pass to n-step buffer if n_step > 1)."""
+        """Add a single transition (or pass to n-step buffer if n_step > 1).
+
+        `done` must be TRUE TERMINATION only (episode actually ended), never
+        OR'd with `truncated` -- SAC/DDPG/TD3 bootstrap target Q as
+        `(1 - dones) * next_q`, gated on true termination. `truncated` is
+        stored separately; a time-limit cutoff still ends the n-step
+        accumulation (below) but does not zero the one-step bootstrap.
+        """
         if not self._initialized and next_obs is not None:
             self._lazy_init_from(obs, action, next_obs)
 
         effective_done = done
         if effective_done is None:
             effective_done = np.zeros(self.n_envs, dtype=bool)
+        effective_trunc = truncated
+        if effective_trunc is None:
+            effective_trunc = np.zeros(self.n_envs, dtype=bool)
 
         if self.n_step > 1:
-            self._nstep_bufs[env_idx].append((obs, action, reward, next_obs, effective_done))
-            if len(self._nstep_bufs[env_idx]) == self.n_step or effective_done:
-                obs_n, action_n, reward_n, next_obs_n, done_n = self._compute_nstep(env_idx)
-                self._write(obs_n, action_n, reward_n, next_obs_n, done_n)
+            self._nstep_bufs[env_idx].append(
+                (obs, action, reward, next_obs, effective_done, effective_trunc)
+            )
+            episode_ended = bool(np.asarray(effective_done).any()) or bool(
+                np.asarray(effective_trunc).any()
+            )
+            if len(self._nstep_bufs[env_idx]) == self.n_step or episode_ended:
+                obs_n, action_n, reward_n, next_obs_n, done_n, trunc_n = self._compute_nstep(
+                    env_idx
+                )
+                self._write(obs_n, action_n, reward_n, next_obs_n, done_n, trunc_n)
                 self._nstep_bufs[env_idx].clear()
         else:
-            self._write(obs, action, reward, next_obs, effective_done)
+            self._write(obs, action, reward, next_obs, effective_done, effective_trunc)
 
-    def _write(self, obs, action, reward, next_obs, done) -> None:
+    def _write(self, obs, action, reward, next_obs, done, truncated=None) -> None:
         idx = self._pos
         if self._dict_obs:
             for k in self._obs:
@@ -180,6 +204,7 @@ class ReplayBuffer:
         self._actions[idx] = np.asarray(action, dtype=self.storage_dtype)
         self._rewards[idx] = float(np.asarray(reward).mean())
         self._dones[idx] = float(np.asarray(done).any())
+        self._truncated[idx] = float(np.asarray(truncated).any()) if truncated is not None else 0.0
 
         self._pos = (self._pos + 1) % self.capacity
         self._size = min(self._size + 1, self.capacity)
@@ -187,15 +212,15 @@ class ReplayBuffer:
     def _compute_nstep(self, env_idx: int) -> tuple:
         buf = self._nstep_bufs[env_idx]
         obs, action = buf[0][0], buf[0][1]
-        next_obs, done = buf[-1][3], buf[-1][4]
+        next_obs, done, trunc = buf[-1][3], buf[-1][4], buf[-1][5]
         reward = 0.0
-        for i, (_, _, r, _, d) in enumerate(buf):
-            reward += (self.gamma ** i) * r
-            if d:
-                done = True
+        for i, (_, _, r, _, d, tr) in enumerate(buf):
+            reward += (self.gamma**i) * r
+            if d or tr:
+                done, trunc = d, tr
                 next_obs = buf[i][3]
                 break
-        return obs, action, reward, next_obs, done
+        return obs, action, reward, next_obs, done, trunc
 
     # ------------------------------------------------------------------
     # Sample
@@ -209,9 +234,7 @@ class ReplayBuffer:
         def t(arr):
             return torch.tensor(arr[indices], dtype=self.tensor_dtype, device=self.device)
 
-        obs = (
-            {k: t(v) for k, v in self._obs.items()} if self._dict_obs else t(self._obs)
-        )
+        obs = {k: t(v) for k, v in self._obs.items()} if self._dict_obs else t(self._obs)
         next_obs = (
             {k: t(v) for k, v in self._next_obs.items()} if self._dict_obs else t(self._next_obs)
         )
@@ -226,6 +249,9 @@ class ReplayBuffer:
             rewards=torch.tensor(self._rewards[indices], dtype=torch.float32, device=self.device),
             next_observations=next_obs,
             dones=torch.tensor(self._dones[indices], dtype=torch.float32, device=self.device),
+            truncated=torch.tensor(
+                self._truncated[indices], dtype=torch.float32, device=self.device
+            ),
             weights=w_tensor,
             indices=indices,
         )
@@ -249,6 +275,7 @@ class ReplayBuffer:
             "actions": self._actions,
             "rewards": self._rewards,
             "dones": self._dones,
+            "truncated": self._truncated,
         }
         if self.n_step > 1:
             state["nstep_bufs"] = self._nstep_bufs
@@ -272,6 +299,9 @@ class ReplayBuffer:
         self._actions = state["actions"]
         self._rewards = state["rewards"]
         self._dones = state["dones"]
+        # .get() with a fallback: buffers checkpointed before `truncated` was
+        # tracked separately have no such key.
+        self._truncated = state.get("truncated", np.zeros_like(self._dones))
         if self.n_step > 1:
             self._nstep_bufs = state.get("nstep_bufs", [[] for _ in range(self.n_envs)])
 

@@ -131,6 +131,7 @@ def spr_loss(
         AgentModel that may contain a ``LatentTransitionModel`` submodule.
     """
     from srl.networks.heads.aux_head import LatentTransitionModel
+
     for module in model.modules():
         if isinstance(module, LatentTransitionModel):
             z_pred = module(z_t, actions)

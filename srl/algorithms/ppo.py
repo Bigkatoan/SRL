@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import warnings
 from typing import Any
 
 import torch
@@ -11,6 +11,7 @@ import torch.nn as nn
 from srl.core.base_agent import BaseAgent
 from srl.core.config import PPOConfig
 from srl.core.rollout_buffer import RolloutBuffer
+from srl.losses.aux_losses import reconstruction_loss
 from srl.losses.loss_composer import LossComposer
 from srl.losses.rl_losses import (
     entropy_loss,
@@ -19,7 +20,6 @@ from srl.losses.rl_losses import (
 )
 from srl.utils.checkpoint import CheckpointManager
 from srl.utils.normalizer import RunningNormalizer
-from srl.losses.aux_losses import reconstruction_loss
 
 
 class PPO(BaseAgent):
@@ -72,7 +72,12 @@ class PPO(BaseAgent):
                 for aux_name in self.model.aux_modules.keys():
                     if aux_name.endswith("_aux"):
                         enc_name = aux_name[:-4]
-                        enc = self.model.encoders.get(enc_name)
+                        # nn.ModuleDict has no .get() -- membership + indexing instead.
+                        enc = (
+                            self.model.encoders[enc_name]
+                            if enc_name in self.model.encoders
+                            else None
+                        )
                         if enc is not None:
                             aux_params += list(enc.parameters())
             if aux_params:
@@ -81,9 +86,7 @@ class PPO(BaseAgent):
             else:
                 self.encoder_optimizer = None
         else:
-            self.optimizer = torch.optim.Adam(
-                self.model.parameters(), lr=self.cfg.lr, eps=1e-5
-            )
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.cfg.lr, eps=1e-5)
             self._head_params = list(self.model.parameters())
             self.encoder_optimizer = None
 
@@ -152,26 +155,33 @@ class PPO(BaseAgent):
         for _ in range(self.cfg.n_epochs):
             for mini in self.buffer.get_batches(self.cfg.batch_size):
                 obs = {k: v.to(self.device) for k, v in mini.obs.items()}
+                actions = mini.actions.to(self.device)
                 # Detach encoder latents so policy/value updates do not backpropagate
                 # into encoder parameters (encoders are updated only via aux optimizer).
-                result = self.model(obs, detach_encoders=True)
+                # actor_action=actions: re-evaluate the SAME action taken during
+                # rollout under the current policy (via the actor head's
+                # evaluate_actions()) instead of a freshly resampled one -- the
+                # PPO ratio exp(new_log_prob - old_log_prob) is only meaningful
+                # when both log-probs refer to the same action.
+                result = self.model(obs, detach_encoders=True, actor_action=actions)
                 actor_out = result["actor_out"]
 
                 if isinstance(actor_out, dict):
                     log_prob_eval = actor_out.get("log_prob")
-                    ent_raw = torch.zeros(1, device=self.device)
+                    ent_raw = actor_out.get("entropy")
+                    if ent_raw is None:
+                        dist = actor_out.get("dist")
+                        ent_raw = (
+                            dist.entropy()
+                            if dist is not None
+                            else torch.zeros(1, device=self.device)
+                        )
                 elif isinstance(actor_out, tuple):
                     _, log_prob_eval = actor_out
                     ent_raw = torch.zeros(1, device=self.device)
                 else:
                     log_prob_eval = actor_out
                     ent_raw = torch.zeros(1, device=self.device)
-
-                # Try to get entropy from distribution if available
-                if hasattr(self.model, "actor") and hasattr(self.model.actor, "get_distribution"):
-                    dist = self.model.actor.get_distribution(result.get("actor_latent", obs))
-                    if dist is not None:
-                        ent_raw = dist.entropy().mean()
                 ent = ent_raw
 
                 adv = mini.advantages.to(self.device)
@@ -183,7 +193,11 @@ class PPO(BaseAgent):
                     adv,
                     clip_eps=self.cfg.clip_range,
                 )
-                value_clip = self.cfg.clip_range_vf if self.cfg.clip_range_vf is not None else self.cfg.clip_range
+                value_clip = (
+                    self.cfg.clip_range_vf
+                    if self.cfg.clip_range_vf is not None
+                    else self.cfg.clip_range
+                )
                 val_loss = ppo_value_loss(
                     result["value"].squeeze(-1),
                     mini.returns.to(self.device),
@@ -208,8 +222,13 @@ class PPO(BaseAgent):
                 # Clip grads only for head params
                 try:
                     nn.utils.clip_grad_norm_(self._head_params, self.cfg.max_grad_norm)
-                except Exception:
+                except Exception as exc:
                     # Fallback to full model params if head list unavailable
+                    warnings.warn(
+                        f"Gradient clipping on _head_params failed ({exc!r}); "
+                        "clipping all model parameters instead.",
+                        stacklevel=2,
+                    )
                     nn.utils.clip_grad_norm_(self.model.parameters(), self.cfg.max_grad_norm)
                 self.optimizer.step()
 
@@ -224,7 +243,9 @@ class PPO(BaseAgent):
 
             # --- Auxiliary losses / encoder updates ---
             # Run auxiliary reconstruction losses (if any) and update encoders separately.
-            if getattr(self, "encoder_optimizer", None) is not None and getattr(self.model, "aux_modules", None):
+            if getattr(self, "encoder_optimizer", None) is not None and getattr(
+                self.model, "aux_modules", None
+            ):
                 # Build a batch-level aux loss across available aux heads
                 aux_loss: torch.Tensor | None = None
                 for aux_name, aux_module in self.model.aux_modules.items():
@@ -247,7 +268,12 @@ class PPO(BaseAgent):
                         continue
                     obs_tensor = obs_tensor.to(self.device)
                     # Encoder forward (will create grads for encoder parameters)
-                    enc = self.model.encoders.get(enc_name) if enc_name else None
+                    # nn.ModuleDict has no .get() -- membership + indexing instead.
+                    enc = (
+                        self.model.encoders[enc_name]
+                        if enc_name and enc_name in self.model.encoders
+                        else None
+                    )
                     if enc is None:
                         continue
                     latent = enc(obs_tensor)
@@ -256,8 +282,13 @@ class PPO(BaseAgent):
                     # Try compute reconstruction loss if shapes match
                     try:
                         loss = reconstruction_loss(recon, obs_tensor)
-                    except Exception:
-                        # Unsupported aux head / loss combination — skip
+                    except Exception as exc:
+                        warnings.warn(
+                            f"Skipping aux loss for '{aux_name}': reconstruction_loss "
+                            f"raised {exc!r} (unsupported aux head / loss combination, "
+                            "or a shape mismatch worth checking).",
+                            stacklevel=2,
+                        )
                         continue
                     aux_loss = loss if aux_loss is None else aux_loss + loss
 
@@ -270,8 +301,15 @@ class PPO(BaseAgent):
                     try:
                         enc_params = self.encoder_optimizer.param_groups[0]["params"]
                         nn.utils.clip_grad_norm_(enc_params, self.cfg.max_grad_norm)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        # Not fatal (the un-clipped step below still runs), but
+                        # worth surfacing -- an unclipped encoder step can let
+                        # gradient explosions go unnoticed.
+                        warnings.warn(
+                            f"Gradient clipping on encoder_optimizer params failed "
+                            f"({exc!r}); proceeding with an unclipped encoder step.",
+                            stacklevel=2,
+                        )
                     self.encoder_optimizer.step()
 
         self.buffer.reset()
@@ -279,10 +317,12 @@ class PPO(BaseAgent):
 
     def save(self, path: str) -> None:
         import torch
+
         torch.save(self.checkpoint_payload(), path)
 
     def load(self, path: str) -> None:
         import torch
+
         ckpt = torch.load(path, map_location=self.device, weights_only=False)
         self.load_checkpoint_payload(ckpt)
 
@@ -290,7 +330,11 @@ class PPO(BaseAgent):
         return {
             "model_state": self.model.state_dict(),
             "optimizer_state": self.optimizer.state_dict(),
-            "encoder_optimizer_state": self.encoder_optimizer.state_dict() if getattr(self, "encoder_optimizer", None) is not None else None,
+            "encoder_optimizer_state": (
+                self.encoder_optimizer.state_dict()
+                if getattr(self, "encoder_optimizer", None) is not None
+                else None
+            ),
             "algo_step": self._global_step,
         }
 

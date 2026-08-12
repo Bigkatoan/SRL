@@ -36,7 +36,9 @@ class LogCallback(BaseCallback):
 class CheckpointCallback(BaseCallback):
     """Save a checkpoint every *save_interval* steps."""
 
-    def __init__(self, checkpoint_manager, save_interval: int = 10_000, model=None, optimizer=None) -> None:
+    def __init__(
+        self, checkpoint_manager, save_interval: int = 10_000, model=None, optimizer=None
+    ) -> None:
         self.cm = checkpoint_manager
         self.save_interval = save_interval
         self.model = model

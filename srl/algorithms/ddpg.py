@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from srl.core.base_agent import BaseAgent
 from srl.core.config import DDPGConfig
@@ -85,9 +84,6 @@ class DDPG(BaseAgent):
         self.target_model.load_state_dict(self.model.state_dict())
         for p in self.target_model.parameters():
             p.requires_grad = False
-
-        actor_encoder_params = _encoder_params_for_head(self.model, "actor")
-        critic_encoder_params = _encoder_params_for_head(self.model, "critic")
 
         # ------------------------------------------------------------------
         # Three-optimizer design (v0.2.0): encoder separated from heads
@@ -172,10 +168,8 @@ class DDPG(BaseAgent):
         # TwinQHead: compute loss for both Q networks
         if isinstance(q_raw, tuple):
             critic_loss = ddpg_q_loss(q_raw[0], target_q) + ddpg_q_loss(q_raw[1], target_q)
-            q_for_log = q_raw[0]
         else:
             critic_loss = ddpg_q_loss(q_raw, target_q)
-            q_for_log = q_raw
 
         if self.encoder_optimizer is not None:
             self.encoder_optimizer.zero_grad()
@@ -263,7 +257,7 @@ class DDPG(BaseAgent):
 
 
 def _soft_update(src, tgt, tau):
-    for sp, tp in zip(src.parameters(), tgt.parameters()):
+    for sp, tp in zip(src.parameters(), tgt.parameters(), strict=True):
         tp.data.mul_(1.0 - tau).add_(sp.data * tau)
 
 
@@ -287,7 +281,7 @@ def _zero_param_grads(params: list[nn.Parameter]) -> None:
 
 
 def _encoder_params_for_head(model: nn.Module, head_name: str) -> list[nn.Parameter]:
-    encoder_names = getattr(model, "encoder_names_for_head")(head_name)
+    encoder_names = model.encoder_names_for_head(head_name)
     params: list[nn.Parameter] = []
     for encoder_name in encoder_names:
         params.extend(list(model.encoders[encoder_name].parameters()))

@@ -67,9 +67,9 @@ class TwinQHead(nn.Module):
 # ──────────────────────────────────────────────────────────────────────────────
 
 _CRITIC_HEADS = {
-    "value":       ValueHead,
-    "q_function":  QFunctionHead,
-    "twin_q":      TwinQHead,
+    "value": ValueHead,
+    "q_function": QFunctionHead,
+    "twin_q": TwinQHead,
 }
 
 

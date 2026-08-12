@@ -8,8 +8,8 @@ can use ``achieved_goal`` / ``desired_goal`` directly.
 
 from __future__ import annotations
 
-import numpy as np
 import gymnasium as gym
+import numpy as np
 
 
 class GoalEnvWrapper(gym.Wrapper):
@@ -42,9 +42,9 @@ class GoalEnvWrapper(gym.Wrapper):
         self.num_envs = 1
 
         obs_space = env.observation_space
-        obs_dim   = int(np.prod(obs_space["observation"].shape))
-        ag_dim    = int(np.prod(obs_space["achieved_goal"].shape))
-        dg_dim    = int(np.prod(obs_space["desired_goal"].shape))
+        obs_dim = int(np.prod(obs_space["observation"].shape))
+        ag_dim = int(np.prod(obs_space["achieved_goal"].shape))
+        dg_dim = int(np.prod(obs_space["desired_goal"].shape))
 
         if include_goal:
             total_dim = obs_dim + ag_dim + dg_dim
@@ -53,7 +53,7 @@ class GoalEnvWrapper(gym.Wrapper):
 
         self.flat_obs_dim = total_dim
         # Expose a flat observation_space so downstream code can query it
-        low  = np.full(total_dim, -np.inf, dtype=np.float32)
+        low = np.full(total_dim, -np.inf, dtype=np.float32)
         high = np.full(total_dim, +np.inf, dtype=np.float32)
         self.observation_space = gym.spaces.Box(low=low, high=high, dtype=np.float32)
 
@@ -79,12 +79,13 @@ class GoalEnvWrapper(gym.Wrapper):
 
     def reset(self, **kwargs) -> tuple[dict[str, np.ndarray], dict]:
         raw_obs, info = self.env.reset(**kwargs)
-        info["goal_obs"] = raw_obs          # preserve for HER
+        info["goal_obs"] = raw_obs  # preserve for HER
         return {self.obs_key: self._flatten(raw_obs)}, info
 
     def step(self, action: np.ndarray):
         raw_obs, reward, terminated, truncated, info = self.env.step(action)
-        info["goal_obs"] = raw_obs          # preserve for HER
-        done = terminated or truncated
+        info["goal_obs"] = raw_obs  # preserve for HER
+        # Return `terminated` as-is -- see gymnasium_wrapper.py's step() for why
+        # collapsing truncation into it biases off-policy bootstrap targets.
         flat = self._flatten(raw_obs)
-        return {self.obs_key: flat}, float(reward), done, truncated, info
+        return {self.obs_key: flat}, float(reward), terminated, truncated, info

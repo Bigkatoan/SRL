@@ -1,5 +1,6 @@
 from srl.cli.benchmark import _build_parser as build_benchmark_parser
-from srl.cli.train import _build_parser as build_train_parser, _normalize_env_name
+from srl.cli.train import _build_parser as build_train_parser
+from srl.cli.train import _normalize_env_name
 from srl.cli.visualize import _build_parser as build_visualize_parser
 
 

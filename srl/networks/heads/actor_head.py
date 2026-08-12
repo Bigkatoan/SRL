@@ -7,8 +7,8 @@ from typing import Any
 import torch
 import torch.nn as nn
 
-from srl.networks.layers.mlp_builder import build_mlp
 from srl.networks.distributions import DiagonalGaussian, SquashedGaussian
+from srl.networks.layers.mlp_builder import build_mlp
 
 
 class DeterministicActorHead(nn.Module):
@@ -18,9 +18,18 @@ class DeterministicActorHead(nn.Module):
 
     def __init__(self, input_dim: int, action_dim: int, layer_configs: list, **kw):
         super().__init__()
-        mlp_kw = {k: v for k, v in kw.items() if k in (
-            "default_activation", "default_norm", "default_dropout", "norm_order", "weight_init"
-        )}
+        mlp_kw = {
+            k: v
+            for k, v in kw.items()
+            if k
+            in (
+                "default_activation",
+                "default_norm",
+                "default_dropout",
+                "norm_order",
+                "weight_init",
+            )
+        }
         self.net, hid = build_mlp(layer_configs, input_dim, **mlp_kw)
         self.out = nn.Sequential(nn.Linear(hid, action_dim), nn.Tanh())
 
@@ -37,12 +46,27 @@ class GaussianActorHead(nn.Module):
 
     type_name = "gaussian"
 
-    def __init__(self, input_dim: int, action_dim: int, layer_configs: list,
-                 state_dependent_std: bool = True, **kw):
+    def __init__(
+        self,
+        input_dim: int,
+        action_dim: int,
+        layer_configs: list,
+        state_dependent_std: bool = True,
+        **kw,
+    ):
         super().__init__()
-        mlp_kw = {k: v for k, v in kw.items() if k in (
-            "default_activation", "default_norm", "default_dropout", "norm_order", "weight_init"
-        )}
+        mlp_kw = {
+            k: v
+            for k, v in kw.items()
+            if k
+            in (
+                "default_activation",
+                "default_norm",
+                "default_dropout",
+                "norm_order",
+                "weight_init",
+            )
+        }
         log_std_init = float(kw.get("log_std_init", 0.0))
         log_std_min = float(kw.get("log_std_min", -20.0))
         log_std_max = float(kw.get("log_std_max", 2.0))
@@ -95,9 +119,18 @@ class SquashedGaussianActorHead(nn.Module):
 
     def __init__(self, input_dim: int, action_dim: int, layer_configs: list, **kw):
         super().__init__()
-        mlp_kw = {k: v for k, v in kw.items() if k in (
-            "default_activation", "default_norm", "default_dropout", "norm_order", "weight_init"
-        )}
+        mlp_kw = {
+            k: v
+            for k, v in kw.items()
+            if k
+            in (
+                "default_activation",
+                "default_norm",
+                "default_dropout",
+                "norm_order",
+                "weight_init",
+            )
+        }
         log_std_min = float(kw.get("log_std_min", -20.0))
         log_std_max = float(kw.get("log_std_max", 2.0))
         self.net, hid = build_mlp(layer_configs, input_dim, **mlp_kw)
@@ -134,9 +167,9 @@ class SquashedGaussianActorHead(nn.Module):
 # ──────────────────────────────────────────────────────────────────────────────
 
 _ACTOR_HEADS = {
-    "deterministic":       DeterministicActorHead,
-    "gaussian":            GaussianActorHead,
-    "squashed_gaussian":   SquashedGaussianActorHead,
+    "deterministic": DeterministicActorHead,
+    "gaussian": GaussianActorHead,
+    "squashed_gaussian": SquashedGaussianActorHead,
 }
 
 
@@ -148,7 +181,5 @@ def build_actor_head(
     **kwargs: Any,
 ) -> nn.Module:
     if head_type not in _ACTOR_HEADS:
-        raise ValueError(
-            f"Unknown actor head type '{head_type}'. Options: {sorted(_ACTOR_HEADS)}"
-        )
+        raise ValueError(f"Unknown actor head type '{head_type}'. Options: {sorted(_ACTOR_HEADS)}")
     return _ACTOR_HEADS[head_type](input_dim, action_dim, layer_configs, **kwargs)

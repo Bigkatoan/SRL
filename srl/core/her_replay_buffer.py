@@ -15,12 +15,12 @@ The reward function is provided externally via *reward_fn(achieved, desired, inf
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
 import torch
 
-from srl.core.replay_buffer import ReplayBatch, ReplayBuffer
+from srl.core.replay_buffer import ReplayBatch
 
 
 class HERReplayBuffer:
@@ -76,6 +76,14 @@ class HERReplayBuffer:
         self._ag = np.zeros((max_episodes, max_episode_len + 1, goal_dim), dtype=np.float32)
         self._dg = np.zeros((max_episodes, max_episode_len, goal_dim), dtype=np.float32)
         self._actions = np.zeros((max_episodes, max_episode_len, action_dim), dtype=np.float32)
+        # Real per-timestep termination, against the ORIGINAL desired_goal --
+        # kept separate from the HER-relabelled reward-based "done" computed
+        # in sample(). Needed for the (1 - her_ratio) fraction of a batch that
+        # is NOT goal-relabelled: without it, sample() had no record of
+        # whether those transitions truly ended the episode, and fabricated a
+        # `done` from `reward == 0.0` for every sampled transition regardless,
+        # discarding real termination info even for the un-relabelled slice.
+        self._done = np.zeros((max_episodes, max_episode_len), dtype=np.float32)
         self._ep_len = np.zeros(max_episodes, dtype=np.int32)
 
         self._ep_ptr = 0
@@ -107,11 +115,12 @@ class HERReplayBuffer:
         T = len(ep)
         idx = self._ep_ptr
 
-        for t, (o, ag, dg, a, *_) in enumerate(ep):
+        for t, (o, ag, dg, a, _next_o, _next_ag, d) in enumerate(ep):
             self._obs[idx, t] = o
             self._ag[idx, t] = ag
             self._dg[idx, t] = dg
             self._actions[idx, t] = a
+            self._done[idx, t] = float(d)
         # store last obs/ag
         last_no, last_nag = ep[-1][4], ep[-1][5]
         self._obs[idx, T] = last_no
@@ -128,9 +137,7 @@ class HERReplayBuffer:
 
     def sample(self, batch_size: int) -> ReplayBatch:
         ep_idx = np.random.randint(0, self._n_stored, size=batch_size)
-        t_idx = np.array(
-            [np.random.randint(0, self._ep_len[e]) for e in ep_idx], dtype=np.int32
-        )
+        t_idx = np.array([np.random.randint(0, self._ep_len[e]) for e in ep_idx], dtype=np.int32)
 
         n_her = int(batch_size * self.her_ratio)
         her_mask = np.zeros(batch_size, dtype=bool)
@@ -139,7 +146,6 @@ class HERReplayBuffer:
 
         obs = self._obs[ep_idx, t_idx]
         next_obs = self._obs[ep_idx, t_idx + 1]
-        ag = self._ag[ep_idx, t_idx]
         next_ag = self._ag[ep_idx, t_idx + 1]
         dg = self._dg[ep_idx, t_idx].copy()
         actions = self._actions[ep_idx, t_idx]
@@ -165,7 +171,20 @@ class HERReplayBuffer:
             [self.reward_fn(next_ag[i], dg[i], {}) for i in range(batch_size)],
             dtype=np.float32,
         )
-        dones = (rewards == 0.0).astype(np.float32)  # sparse: reward 0 = achieved
+        # `done` per transition: for the her_mask fraction (goal relabelled),
+        # standard HER practice is right -- termination follows the NEW
+        # (relabelled) goal, i.e. "reward 0 against the relabelled goal" IS
+        # the terminal condition for that synthetic trajectory. For the rest
+        # (still using the true original desired_goal), termination must
+        # come from what the episode actually did -- the real stored `done`
+        # -- not this reward heuristic, which would silently discard genuine
+        # failure/timeout terminations any time the reward isn't purely
+        # "0 iff goal achieved" (i.e. anything beyond the simplest sparse
+        # case), and even in that case is redundant with information already
+        # recorded at collection time.
+        reward_done = (rewards == 0.0).astype(np.float32)  # sparse: reward 0 = achieved
+        real_done = self._done[ep_idx, t_idx]
+        dones = np.where(her_mask, reward_done, real_done).astype(np.float32)
 
         def _t(arr):
             return torch.tensor(arr, dtype=torch.float32, device=self.device)

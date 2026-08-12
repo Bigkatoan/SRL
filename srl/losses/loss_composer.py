@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from typing import Callable
+from collections.abc import Callable
 
 import torch
 
@@ -39,7 +39,7 @@ class LossComposer:
         total_steps: int = 1_000_000,
         min_weight: float = 0.0,
         custom_fn: Callable[[int], float] | None = None,
-    ) -> "LossComposer":
+    ) -> LossComposer:
         self._terms[name] = {
             "weight": weight,
             "schedule": schedule,
@@ -102,7 +102,7 @@ class LossComposer:
         return total, info
 
     @classmethod
-    def from_loss_configs(cls, loss_configs: list) -> "LossComposer":
+    def from_loss_configs(cls, loss_configs: list) -> LossComposer:
         """Build from a list of :class:`~srl.registry.config_schema.LossConfig`."""
         composer = cls()
         for lc in loss_configs:

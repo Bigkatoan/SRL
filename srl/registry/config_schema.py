@@ -5,17 +5,18 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # Layer-level config (shared by MLP / CNN layer lists)
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class LayerConfig:
     """A single layer description inside an encoder or head."""
+
     # For shorthand int entries in YAML the builder converts them automatically
-    out_features: int | None = None          # MLP
-    out_channels: int | None = None          # CNN
+    out_features: int | None = None  # MLP
+    out_channels: int | None = None  # CNN
     kernel_size: int = 3
     stride: int = 1
     padding: int = 0
@@ -27,7 +28,7 @@ class LayerConfig:
     pooling_kernel: int = 2
     residual: bool = False
     depthwise: bool = False
-    norm_order: str = "post"                 # "pre" | "post"
+    norm_order: str = "post"  # "pre" | "post"
     weight_init: str = "none"
 
 
@@ -35,22 +36,23 @@ class LayerConfig:
 # Encoder config
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class EncoderConfig:
     name: str
-    type: str                                # "mlp" | "cnn" | "lstm" | "text" | custom
+    type: str  # "mlp" | "cnn" | "lstm" | "text" | custom
     # Explicit obs key this encoder reads from.  When set, routing is by name
     # and takes priority over all heuristic rules.  Leave None for auto-routing.
     input_name: str | None = None
     # mlp-specific
     input_dim: int | None = None
     # cnn-specific
-    input_shape: list[int] | None = None     # [C, H, W]
+    input_shape: list[int] | None = None  # [C, H, W]
     # shared
     latent_dim: int = 128
     layers: list[Any] = field(default_factory=list)
     # Auxiliary representation
-    aux_type: str | None = None              # "autoencoder" | "contrastive" | "byol"
+    aux_type: str | None = None  # "autoencoder" | "contrastive" | "byol"
     aux_latent_dim: int = 64
     # Momentum / EMA encoder
     use_momentum: bool = False
@@ -64,7 +66,7 @@ class EncoderConfig:
     extra: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "EncoderConfig":
+    def from_dict(cls, d: dict[str, Any]) -> EncoderConfig:
         allowed = cls.__dataclass_fields__.keys()
         known = {k: v for k, v in d.items() if k in allowed}
         extra = {k: v for k, v in d.items() if k not in allowed}
@@ -77,10 +79,11 @@ class EncoderConfig:
 # Head config (actor / critic / value)
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class HeadConfig:
     name: str
-    type: str                                # "gaussian" | "squashed_gaussian" | "deterministic" | "value" | "twin_q" | "q"
+    type: str  # "gaussian" | "squashed_gaussian" | "deterministic" | "value" | "twin_q" | "q"
     action_dim: int | None = None
     layers: list[Any] = field(default_factory=list)
     log_std_init: float = -1.0
@@ -90,7 +93,7 @@ class HeadConfig:
     extra: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "HeadConfig":
+    def from_dict(cls, d: dict[str, Any]) -> HeadConfig:
         allowed = cls.__dataclass_fields__.keys()
         known = {k: v for k, v in d.items() if k in allowed}
         extra = {k: v for k, v in d.items() if k not in allowed}
@@ -103,6 +106,7 @@ class HeadConfig:
 # Loss config
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class LossConfig:
     name: str
@@ -112,7 +116,7 @@ class LossConfig:
     extra: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "LossConfig":
+    def from_dict(cls, d: dict[str, Any]) -> LossConfig:
         allowed = cls.__dataclass_fields__.keys()
         known = {k: v for k, v in d.items() if k in allowed}
         extra = {k: v for k, v in d.items() if k not in allowed}
@@ -136,7 +140,7 @@ class PipelineEdgeConfig:
     label: str = ""
 
     @classmethod
-    def from_any(cls, value: Any) -> "PipelineEdgeConfig":
+    def from_any(cls, value: Any) -> PipelineEdgeConfig:
         if isinstance(value, str):
             src, dst = [part.strip() for part in value.split("->", 1)]
             return cls(src=src, dst=dst)
@@ -154,7 +158,7 @@ class VisualizationConfig:
     training_pipeline_edges: list[PipelineEdgeConfig] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any] | None) -> "VisualizationConfig":
+    def from_dict(cls, data: dict[str, Any] | None) -> VisualizationConfig:
         if not data:
             return cls()
         pipeline_data = data.get("training_pipeline") or {}
@@ -186,7 +190,7 @@ class ROS2ObservationConfig:
     queue_size: int = 10
 
     @classmethod
-    def from_any(cls, value: Any) -> "ROS2ObservationConfig":
+    def from_any(cls, value: Any) -> ROS2ObservationConfig:
         if isinstance(value, str):
             return cls(topic=value)
         return cls(
@@ -204,13 +208,12 @@ class ROS2Config:
     action_queue_size: int = 10
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any] | None) -> "ROS2Config":
+    def from_dict(cls, data: dict[str, Any] | None) -> ROS2Config:
         if not data:
             return cls()
         observations_raw = data.get("observations") or data.get("obs_topics") or {}
         observations = {
-            name: ROS2ObservationConfig.from_any(spec)
-            for name, spec in observations_raw.items()
+            name: ROS2ObservationConfig.from_any(spec) for name, spec in observations_raw.items()
         }
         return cls(
             observations=observations,
@@ -223,6 +226,7 @@ class ROS2Config:
 # ---------------------------------------------------------------------------
 # Top-level agent config
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class AgentModelConfig:
@@ -275,7 +279,7 @@ class AgentModelConfig:
     ros2: ROS2Config = field(default_factory=ROS2Config)
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "AgentModelConfig":
+    def from_dict(cls, d: dict[str, Any]) -> AgentModelConfig:
         encoders = [EncoderConfig.from_dict(e) for e in d.get("encoders", [])]
         flows = d.get("flows", [])
 
@@ -285,7 +289,7 @@ class AgentModelConfig:
         critic_d = d.get("critic")
         critic = HeadConfig.from_dict(critic_d) if critic_d else None
 
-        losses = [LossConfig.from_dict(l) for l in d.get("losses", [])]
+        losses = [LossConfig.from_dict(loss_d) for loss_d in d.get("losses", [])]
         visualization = VisualizationConfig.from_dict(d.get("visualization"))
         ros2 = ROS2Config.from_dict(d.get("ros2"))
 

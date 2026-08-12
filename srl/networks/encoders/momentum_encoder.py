@@ -42,5 +42,5 @@ class MomentumEncoder(nn.Module):
     @torch.no_grad()
     def update_target(self) -> None:
         """Perform one EMA step: target = τ·target + (1−τ)·online."""
-        for p_o, p_t in zip(self.online.parameters(), self.target.parameters()):
+        for p_o, p_t in zip(self.online.parameters(), self.target.parameters(), strict=True):
             p_t.data.mul_(self.tau).add_((1.0 - self.tau) * p_o.data)

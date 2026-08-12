@@ -54,7 +54,11 @@ class A2C(BaseAgent):
             result = self.model(obs, hidden_states=hidden)
         actor_out = result["actor_out"]
         if isinstance(actor_out, dict):
-            action = actor_out.get("mean", actor_out.get("action")) if deterministic else actor_out.get("action")
+            action = (
+                actor_out.get("mean", actor_out.get("action"))
+                if deterministic
+                else actor_out.get("action")
+            )
             log_prob = actor_out.get("log_prob")
         elif isinstance(actor_out, tuple):
             action, log_prob = actor_out
@@ -71,23 +75,30 @@ class A2C(BaseAgent):
 
         for mini in self.buffer.get_batches(self.cfg.batch_size):
             obs = {k: v.to(self.device) for k, v in mini.obs.items()}
-            result = self.model(obs)
+            actions = mini.actions.to(self.device)
+            # actor_action=actions: re-evaluate the action actually taken under
+            # the current policy, not a freshly resampled one -- see PPO.update()
+            # for why (same actor-head evaluate_actions() mechanism).
+            result = self.model(obs, actor_action=actions)
             actor_out = result["actor_out"]
 
             if isinstance(actor_out, dict):
                 log_prob = actor_out.get("log_prob")
+                ent = actor_out.get("entropy")
+                if ent is None:
+                    dist = actor_out.get("dist")
+                    ent = dist.entropy() if dist is not None else torch.zeros(1, device=self.device)
             elif isinstance(actor_out, tuple):
                 _, log_prob = actor_out
+                ent = torch.zeros(1, device=self.device)
             else:
                 log_prob = actor_out
+                ent = torch.zeros(1, device=self.device)
 
             adv = mini.advantages.to(self.device)
 
             pol_loss = a2c_policy_loss(log_prob, adv)
-            val_loss = a2c_value_loss(
-                result["value"].squeeze(-1), mini.returns.to(self.device)
-            )
-            ent = torch.zeros(1, device=self.device)
+            val_loss = a2c_value_loss(result["value"].squeeze(-1), mini.returns.to(self.device))
             ent_loss = entropy_loss(ent)
 
             total, info = self.composer.compute(
