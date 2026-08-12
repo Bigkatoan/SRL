@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import numpy as np
-import torch
 
-from srl.core.replay_buffer import ReplayBuffer, ReplayBatch
-
+from srl.core.replay_buffer import ReplayBatch, ReplayBuffer
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Segment Trees
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class _SegmentTree:
     """Base segment tree backed by a flat array of size 2*capacity."""
@@ -80,6 +79,7 @@ class MinTree(_SegmentTree):
 # PrioritizedReplayBuffer
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class PrioritizedReplayBuffer(ReplayBuffer):
     """Prioritized Experience Replay (Schaul et al., 2015).
 
@@ -121,10 +121,10 @@ class PrioritizedReplayBuffer(ReplayBuffer):
     # Write — assign max priority to new transitions
     # ------------------------------------------------------------------
 
-    def _write(self, obs, action, reward, next_obs, done) -> None:
+    def _write(self, obs, action, reward, next_obs, done, truncated=None) -> None:
         idx = self._pos
-        super()._write(obs, action, reward, next_obs, done)
-        priority = self._max_priority ** self.alpha
+        super()._write(obs, action, reward, next_obs, done, truncated)
+        priority = self._max_priority**self.alpha
         self._sum_tree.update(idx, priority)
         self._min_tree.update(idx, priority)
 
@@ -160,7 +160,7 @@ class PrioritizedReplayBuffer(ReplayBuffer):
 
     def update_priorities(self, indices: np.ndarray, td_errors: np.ndarray) -> None:
         priorities = (np.abs(td_errors) + self.eps) ** self.alpha
-        for idx, p in zip(indices, priorities):
+        for idx, p in zip(indices, priorities, strict=True):
             self._sum_tree.update(int(idx), float(p))
             self._min_tree.update(int(idx), float(p))
         self._max_priority = max(self._max_priority, priorities.max())

@@ -31,4 +31,4 @@ jobs:
 
       - name: Run unit tests
         run: |
-          pytest tests/test_obs_remap.py tests/test_ros2_config.py -q
+          pytest tests/ -q
