@@ -11,7 +11,15 @@ from dataclasses import fields
 from srl.utils.spaces import sample_action_space as _sample_action_space
 
 
-def _make_cli_env(env_name: str, device: str, n_envs: int, env_type: str = "flat"):
+def _make_cli_env(
+    env_name: str, device: str, n_envs: int, env_type: str = "flat", render: bool = False
+):
+    """Build an env for training/eval, or (``render=True``) for the
+    ``--visualize`` live viewer's plain-Gymnasium path (flat/goal/racecar
+    only -- isaaclab/mjlab visualization goes through
+    ``srl.utils.live_viewer`` instead, since they need a differently-built
+    raw env; ``render`` is a no-op for those two branches here).
+    """
     import gymnasium as gym
 
     from srl.envs.goal_env_wrapper import GoalEnvWrapper
@@ -20,6 +28,7 @@ def _make_cli_env(env_name: str, device: str, n_envs: int, env_type: str = "flat
 
     normalized_env_type = (env_type or "flat").strip().lower()
     normalized_env_name = _normalize_env_name(env_name, normalized_env_type)
+    make_kwargs = {"render_mode": "human"} if render else {}
 
     if normalized_env_type == "isaaclab" or normalized_env_name.startswith("isaaclab:"):
         from srl.envs.isaac_lab_wrapper import IsaacLabWrapper
@@ -62,14 +71,14 @@ def _make_cli_env(env_name: str, device: str, n_envs: int, env_type: str = "flat
         import gymnasium_robotics
 
         gymnasium_robotics.register_robotics_envs()
-        return GoalEnvWrapper(gym.make(normalized_env_name))
+        return GoalEnvWrapper(gym.make(normalized_env_name, **make_kwargs))
 
     if normalized_env_type == "racecar":
         import racecar_gym  # noqa: F401
 
-        return RacecarWrapper(gym.make(normalized_env_name))
+        return RacecarWrapper(gym.make(normalized_env_name, **make_kwargs))
 
-    base = gym.make(normalized_env_name)
+    base = gym.make(normalized_env_name, **make_kwargs)
     return GymnasiumWrapper(base)
 
 
@@ -170,6 +179,16 @@ Examples
     p.add_argument("--eval-freq", type=int, default=50_000, help="Evaluation frequency in steps")
     p.add_argument("--eval-episodes", type=int, default=10, help="Episodes per evaluation")
     p.add_argument("--render", action="store_true", help="Render environment during eval")
+    p.add_argument(
+        "--visualize",
+        action="store_true",
+        help=(
+            "Run one extra single env in the background doing live inference "
+            "with the current (training) model, rendered while training runs. "
+            "mjlab uses its own interactive viewer; flat/goal/racecar envs "
+            "open a render window. Not supported for isaaclab."
+        ),
+    )
     return p
 
 
@@ -407,6 +426,64 @@ def _maybe_run_evaluation(
     return next_eval_step + eval_freq
 
 
+def _maybe_start_visualizer(agent, args, device: str):
+    """Start the ``--visualize`` background viewer, if requested.
+
+    Returns a ``srl.utils.live_viewer.VisualizerHandle`` (or None if
+    ``--visualize`` wasn't passed, isn't supported for this env type, or
+    failed to start). Callers should ``.stop()`` and ``.thread.join(...)``
+    the handle before the process exits -- see that module's docstring for
+    why. Never raises: visualization is a nice-to-have and a failure here (a
+    missing optional dependency, an env that can't be constructed twice,
+    whatever) must not take training down with it.
+    """
+    if not getattr(args, "visualize", False):
+        return None
+
+    encoder_names = list(agent.model.encoders.keys())
+    encoder_input_names = getattr(agent.model, "encoder_input_names", None)
+
+    def _remap(obs):
+        return _remap_obs_to_encoders(obs, encoder_names, encoder_input_names=encoder_input_names)
+
+    if args.env_type == "isaaclab" or args.env.startswith("isaaclab:"):
+        print(
+            "[srl-train] --visualize: not supported for isaaclab envs (a single "
+            "process hosts one Isaac Sim render context, shared by every env in "
+            "it, so a second view-only env can't be added alongside headless "
+            "training envs) -- skipping.",
+            file=sys.stderr,
+        )
+        return None
+
+    from srl.utils.live_viewer import start_gym_visualizer, start_mjlab_visualizer
+
+    if args.env_type == "mjlab" or args.env.startswith("mjlab:"):
+        task_name = args.env.split(":", 1)[1]
+        return start_mjlab_visualizer(agent, task_name, device, remap_obs_fn=_remap)
+
+    return start_gym_visualizer(
+        agent,
+        lambda: _make_cli_env(args.env, device, 1, args.env_type, render=True),
+        remap_obs_fn=_remap,
+        obs_to_tensor_fn=lambda obs, dev: _obs_to_tensors(obs, dev, force_batch=True),
+    )
+
+
+def _stop_visualizer(handle) -> None:
+    """Best-effort graceful shutdown of a `--visualize` handle before the
+    process exits -- see `srl.utils.live_viewer`'s module docstring for why
+    this matters (an abruptly-killed daemon thread mid-GPU-call can
+    segfault/core-dump on interpreter shutdown)."""
+    if handle is None:
+        return
+    try:
+        handle.stop()
+        handle.thread.join(timeout=5.0)
+    except Exception:
+        pass
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -585,6 +662,7 @@ def main(argv: list[str] | None = None) -> int:
     action_dim = int(np.prod(getattr(env.act_space, "shape", ()) or (1,)))
 
     start_step = 0
+    visualizer_handle = None
 
     if algo_name == "ppo":
         from srl.algorithms.ppo import PPO
@@ -596,6 +674,7 @@ def main(argv: list[str] | None = None) -> int:
             ),
             device=device,
         )
+        visualizer_handle = _maybe_start_visualizer(agent, args, device)
         callbacks = [CheckpointCallback(cm, save_interval=100_000, model=agent)]
         if args.resume:
             start_step = int(cm.load(agent, args.resume, device=device).get("step", 0))
@@ -612,6 +691,7 @@ def main(argv: list[str] | None = None) -> int:
             ),
             device=device,
         )
+        visualizer_handle = _maybe_start_visualizer(agent, args, device)
         callbacks = [CheckpointCallback(cm, save_interval=100_000, model=agent)]
         if args.resume:
             start_step = int(cm.load(agent, args.resume, device=device).get("step", 0))
@@ -628,6 +708,7 @@ def main(argv: list[str] | None = None) -> int:
             config=_build_algo_config(A3CConfig, train_cfg, n_workers=args.n_envs),
             device=device,
         )
+        visualizer_handle = _maybe_start_visualizer(agent, args, device)
         agent.train(
             total_timesteps=args.steps,
             env_fn=partial(_make_cli_env, args.env, device, args.n_envs, args.env_type),
@@ -650,6 +731,7 @@ def main(argv: list[str] | None = None) -> int:
             ),
             device=device,
         )
+        visualizer_handle = _maybe_start_visualizer(agent, args, device)
         callbacks = [CheckpointCallback(cm, save_interval=100_000, model=agent)]
         if args.resume:
             start_step = int(cm.load(agent, args.resume, device=device).get("step", 0))
@@ -671,6 +753,7 @@ def main(argv: list[str] | None = None) -> int:
             ),
             device=device,
         )
+        visualizer_handle = _maybe_start_visualizer(agent, args, device)
         callbacks = [CheckpointCallback(cm, save_interval=100_000, model=agent)]
         if args.resume:
             start_step = int(cm.load(agent, args.resume, device=device).get("step", 0))
@@ -692,6 +775,7 @@ def main(argv: list[str] | None = None) -> int:
             ),
             device=device,
         )
+        visualizer_handle = _maybe_start_visualizer(agent, args, device)
         callbacks = [CheckpointCallback(cm, save_interval=100_000, model=agent)]
         if args.resume:
             start_step = int(cm.load(agent, args.resume, device=device).get("step", 0))
@@ -702,6 +786,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[srl-train] Unknown algorithm: {algo_name}", file=sys.stderr)
         return 1
 
+    _stop_visualizer(visualizer_handle)
     cm.save(agent if algo_name != "a3c" else model, step=args.steps, tag="final")
     logger.set_step(args.steps)
     logger.close()
