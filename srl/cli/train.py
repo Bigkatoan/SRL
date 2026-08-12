@@ -30,6 +30,32 @@ def _make_cli_env(env_name: str, device: str, n_envs: int, env_type: str = "flat
         base_env = ManagerBasedRLEnv(cfg=env_cfg)
         return IsaacLabWrapper(base_env)
 
+    if normalized_env_type == "mjlab" or normalized_env_name.startswith("mjlab:"):
+        # mjlab (github.com/mujocolab/mjlab) is a MuJoCo-Warp GPU-batched
+        # env stack that mirrors Isaac Lab's ManagerBasedRLEnv API closely
+        # enough that IsaacLabWrapper works unchanged -- no real Isaac Sim/
+        # isaaclab install needed, which is the whole point of this branch:
+        # same "one process, num_envs already batched on GPU" shape, without
+        # the multi-GB Omniverse runtime. Task lookup goes through mjlab's
+        # own registry (mjlab.tasks.registry), populated by auto-importing
+        # every package registered under the "mjlab.tasks" entry-point group
+        # -- the same mechanism `import mjlab` itself runs at import time, so
+        # any task package installed alongside mjlab (e.g. a project's own
+        # `your_pkg.tasks` registered via
+        # `[project.entry-points."mjlab.tasks"]` in its pyproject.toml) is
+        # already discoverable here with no extra wiring.
+        from srl.envs.isaac_lab_wrapper import IsaacLabWrapper
+
+        task_name = normalized_env_name.split(":", 1)[1]
+        import mjlab  # noqa: F401  (side effect: discovers installed mjlab.tasks packages)
+        from mjlab.envs import ManagerBasedRlEnv
+        from mjlab.tasks.registry import load_env_cfg
+
+        env_cfg = load_env_cfg(task_name)
+        env_cfg.scene.num_envs = n_envs
+        base_env = ManagerBasedRlEnv(env_cfg, device=device)
+        return IsaacLabWrapper(base_env)
+
     if normalized_env_type == "goal":
         import gymnasium_robotics
 
@@ -45,6 +71,37 @@ def _make_cli_env(env_name: str, device: str, n_envs: int, env_type: str = "flat
     return GymnasiumWrapper(base)
 
 
+def _sample_action_space(space):
+    """Uniform-random sample from an action space, for off-policy warmup.
+
+    Real gymnasium spaces have `.sample()`; isaaclab/mjlab envs expose their
+    own lightweight `mjlab.utils.spaces.Box`-style dataclass instead (just
+    `shape`/`low`/`high`/`dtype`, no `.sample()` method), so fall back to a
+    plain numpy uniform draw over its bounds when `.sample()` isn't there.
+
+    mjlab action spaces are typically declared unbounded ([-inf, inf] --
+    action terms do their own internal scale/clip, e.g.
+    OdriveVelocityActionCfg's `scale`), since the raw policy output is what
+    the space describes, not the physical actuator range. `np.random.uniform`
+    can't sample a non-finite range (raises OverflowError), and a genuinely
+    unbounded warmup action wouldn't be a sane "explore near zero" sample
+    anyway -- fall back to [-1, 1], the conventional bounded range a
+    Tanh/Gaussian-squashed policy actually outputs before that internal
+    scaling, on any non-finite bound.
+    """
+    import numpy as np
+
+    if hasattr(space, "sample"):
+        return space.sample()
+
+    shape = getattr(space, "shape", ())
+    low = np.broadcast_to(np.asarray(getattr(space, "low", -1.0), dtype=np.float32), shape).copy()
+    high = np.broadcast_to(np.asarray(getattr(space, "high", 1.0), dtype=np.float32), shape).copy()
+    low[~np.isfinite(low)] = -1.0
+    high[~np.isfinite(high)] = 1.0
+    return np.random.uniform(low, high).astype(np.float32)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="srl-train",
@@ -58,7 +115,7 @@ Examples
         """,
     )
     p.add_argument("--config",  required=True, help="Path to the YAML model config file")
-    p.add_argument("--env",     required=False, default=None, help="Gymnasium environment id or 'isaaclab:<task>'")
+    p.add_argument("--env",     required=False, default=None, help="Gymnasium environment id, 'isaaclab:<task>', or 'mjlab:<task>'")
     p.add_argument("--algo",    default=None,  help="Algorithm override: ppo|sac|ddpg|td3|a2c|a3c (auto-detected from config)")
     p.add_argument("--steps",   type=int, default=None, help="Total environment steps (defaults to train.total_steps or 1M)")
     p.add_argument("--n-envs",  type=int, default=None, help="Parallel environments (defaults to train.n_envs or 1)")
@@ -118,11 +175,12 @@ def _resolve_env_type(raw_cfg: dict) -> str:
 
 
 def _normalize_env_name(env_name: str, env_type: str) -> str:
-    if env_type != "isaaclab":
+    if env_type not in ("isaaclab", "mjlab"):
         return env_name
-    if env_name.startswith("isaaclab:"):
+    prefix = f"{env_type}:"
+    if env_name.startswith(prefix):
         return env_name
-    return f"isaaclab:{env_name}"
+    return f"{prefix}{env_name}"
 
 
 def _resolve_env_spec(cli_env: str | None, raw_cfg: dict) -> tuple[str, str]:
@@ -238,7 +296,13 @@ def _evaluate_agent(agent, *, env_name: str, env_type: str, device: str, seed: i
                 obs_t = _obs_to_tensors(obs_remapped, agent.device, force_batch=True)
                 action, _, _, _ = agent.predict(obs_t, deterministic=True)
                 action_np = action.detach().cpu().numpy()
-                if action_np.ndim > 1 and action_np.shape[0] == 1:
+                # isaaclab/mjlab envs always expect a batched (num_envs,
+                # action_dim) action, even at num_envs=1 -- IsaacLabWrapper
+                # never unbatches, unlike a plain gymnasium.Env. Squeezing
+                # here for those env types produces a 1-D action and
+                # `action.shape[1]` in the env's action manager raises
+                # IndexError.
+                if env_type not in ("isaaclab", "mjlab") and action_np.ndim > 1 and action_np.shape[0] == 1:
                     action_np = action_np.squeeze(0)
                 next_obs, reward, done, truncated, info = eval_env.step(action_np)
                 score += float(np.asarray(reward).reshape(-1)[0])
@@ -412,7 +476,11 @@ def main(argv: list[str] | None = None) -> int:
         return _make_cli_env(args.env, device, args.n_envs, args.env_type)
 
     print(f"[srl-train] Creating {args.n_envs} × {args.env}")
-    uses_internal_vectorization = args.env_type == "isaaclab" or args.env.startswith("isaaclab:")
+    uses_internal_vectorization = (
+        args.env_type in ("isaaclab", "mjlab")
+        or args.env.startswith("isaaclab:")
+        or args.env.startswith("mjlab:")
+    )
     if uses_internal_vectorization or args.n_envs == 1:
         env = _make_env()
     else:
@@ -782,7 +850,12 @@ def _run_off_policy(agent, env, args, callbacks, logger, *, start_step: int = 0,
     update_every = max(int(update_every), 1)
     obs, _ = env.reset(seed=args.seed)
     encoder_names = list(agent.model.encoders.keys())
-    vectorized_env = args.env_type == "isaaclab" or args.env.startswith("isaaclab:") or getattr(env, "num_envs", 1) > 1
+    vectorized_env = (
+        args.env_type in ("isaaclab", "mjlab")
+        or args.env.startswith("isaaclab:")
+        or args.env.startswith("mjlab:")
+        or getattr(env, "num_envs", 1) > 1
+    )
     step_increment = getattr(env, "num_envs", 1) if vectorized_env else 1
     env_step = start_step
     since_last_update = 0
@@ -799,12 +872,19 @@ def _run_off_policy(agent, env, args, callbacks, logger, *, start_step: int = 0,
         obs_t = _obs_to_tensors(obs_remapped, agent.device, force_batch=not vectorized_env)
         if env_step < random_steps:
             if vectorized_env:
+                # `env.act_space` on isaaclab/mjlab envs is already the
+                # BATCHED (num_envs, action_dim) space -- use
+                # `single_act_space` (one env's space) per sample, else
+                # stacking N samples of the already-batched space produces
+                # an (N, num_envs, action_dim) array instead of
+                # (num_envs, action_dim).
+                per_env_space = getattr(env, "single_act_space", env.act_space)
                 action_np = np.stack(
-                    [env.act_space.sample() for _ in range(getattr(env, "num_envs", 1))],
+                    [_sample_action_space(per_env_space) for _ in range(getattr(env, "num_envs", 1))],
                     axis=0,
                 )
             else:
-                action_np = env.act_space.sample()
+                action_np = _sample_action_space(env.act_space)
         else:
             action, _, _, _ = agent.predict(obs_t)
             action_np = action.cpu().numpy()

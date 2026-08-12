@@ -6,6 +6,40 @@ The format follows Keep a Changelog and the project uses Semantic Versioning as 
 
 ## [Unreleased]
 
+### Added
+- **mjlab integration** — `--env mjlab:<task>` / `env_type: mjlab`, a lighter-weight
+  alternative to the Isaac Lab integration for projects using
+  [mjlab](https://github.com/mujocolab/mjlab) (MuJoCo-Warp, GPU-batched) instead of
+  real Isaac Sim. Task ids resolve through mjlab's own registry (auto-discovered from
+  any project's `mjlab.tasks` entry point, the same mechanism `import mjlab` itself
+  uses), and the env is wrapped with the existing `IsaacLabWrapper` — no new wrapper
+  class needed, the two envs' APIs are close enough. See
+  `docs/integrations/mjlab.md`.
+
+### Fixed
+- **Double obs-remap `KeyError`** — `srl/cli/train.py`'s rollout loops remap the obs
+  dict to encoder names before calling `agent.predict()`/`model()`, and
+  `AgentModel.forward()` remapped it *again* internally, expecting the *original* raw
+  obs key — which no longer existed once the first pass had renamed it away. Any YAML
+  config using an encoder's explicit `input_name` hit this on every forward pass.
+  `AgentModel._remap_obs_dict` now short-circuits when the incoming dict's keys
+  already exactly match the encoder names.
+- **Isaac Lab/mjlab eval action shape** — `_evaluate_agent` unconditionally squeezed
+  the batch dimension off actions for single-env evaluation. isaaclab/mjlab envs
+  always expect a batched `(1, action_dim)` action, even at `num_envs=1`; the squeeze
+  produced a 1-D action and the env's action manager raised `IndexError`.
+- **Isaac Lab/mjlab off-policy warmup** — random-action warmup called `.sample()` on
+  the action space directly, which isaaclab/mjlab's lightweight `Box`-style space
+  dataclass doesn't implement (`AttributeError`); the fallback also needs to handle
+  unbounded (`[-inf, inf]`) action spaces, which those envs declare by convention
+  (action terms do their own internal scale/clip) and which `np.random.uniform` can't
+  sample directly (`OverflowError`). Falls back to `[-1, 1]` on any non-finite bound.
+  Separately, `env.action_space` on these envs is already the *batched*
+  `(num_envs, action_dim)` space, not one env's space — stacking N samples of it
+  produced an `(N, num_envs, action_dim)` array instead of `(num_envs, action_dim)`.
+  `IsaacLabWrapper` now also exposes `single_act_space` (falling back to `act_space`
+  for envs that don't distinguish the two) for exactly this per-env sampling case.
+
 ## [0.2.0] - 2026-04-12
 
 ### Added

@@ -48,7 +48,14 @@ class IsaacLabWrapper:
         self.obs_key = obs_key
         self.num_envs: int = getattr(env, "num_envs", 1)
         self.obs_space = getattr(env, "observation_space", None)
+        # `action_space` on Isaac Lab/mjlab envs is the BATCHED space (shape
+        # (num_envs, action_dim), matching gymnasium's VectorEnv convention),
+        # not one env's space -- callers that need to sample a single action
+        # per env (e.g. off-policy random-action warmup) want
+        # `single_act_space` instead. Falls back to `act_space` itself for
+        # envs that don't distinguish the two (already a single-env space).
         self.act_space = getattr(env, "action_space", None)
+        self.single_act_space = getattr(env, "single_action_space", None) or self.act_space
 
     @property
     def device(self):
