@@ -98,5 +98,6 @@ class RacecarWrapper(gym.Wrapper):
     def step(self, action: np.ndarray):
         dict_action = self._to_dict_action(action)
         obs, reward, terminated, truncated, info = self.env.step(dict_action)
-        done = terminated or truncated
-        return {self.obs_key: self._flatten_obs(obs)}, float(reward), done, truncated, info
+        # Return `terminated` as-is -- see gymnasium_wrapper.py's step() for why
+        # collapsing truncation into it biases off-policy bootstrap targets.
+        return {self.obs_key: self._flatten_obs(obs)}, float(reward), terminated, truncated, info

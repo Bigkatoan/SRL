@@ -78,6 +78,10 @@ class GPUReplayBuffer:
         self._action_buf: torch.Tensor | None = None
         self._reward_buf: torch.Tensor | None = None
         self._done_buf: torch.Tensor | None = None
+        # True termination only, kept separate from `truncated` -- see
+        # replay_buffer.py's ReplayBatch docstring for why SAC/DDPG/TD3's
+        # bootstrap target must not treat a time-limit cutoff as termination.
+        self._truncated_buf: torch.Tensor | None = None
 
         self._ptr: int = 0
         self._size: int = 0
@@ -96,6 +100,7 @@ class GPUReplayBuffer:
             self._nstep_act: list[list] = [[] for _ in range(num_envs)]
             self._nstep_rew: list[list] = [[] for _ in range(num_envs)]
             self._nstep_done: list[list] = [[] for _ in range(num_envs)]
+            self._nstep_trunc: list[list] = [[] for _ in range(num_envs)]
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -127,6 +132,9 @@ class GPUReplayBuffer:
             (self.capacity, 1), dtype=torch.float32, device=self.device
         )
         self._done_buf = torch.zeros(
+            (self.capacity, 1), dtype=torch.float32, device=self.device
+        )
+        self._truncated_buf = torch.zeros(
             (self.capacity, 1), dtype=torch.float32, device=self.device
         )
 
@@ -169,12 +177,16 @@ class GPUReplayBuffer:
         reward: float | torch.Tensor,
         done: bool | torch.Tensor,
         next_obs: dict[str, torch.Tensor] | torch.Tensor,
+        truncated: bool | torch.Tensor | None = None,
     ) -> None:
         """Add one transition (or a batch from a vectorised env).
 
         Accepts CUDA tensors directly — no host copy if already on correct device.
         Accepts numpy arrays via implicit ``torch.as_tensor`` conversion.
         Thread-safe.
+
+        `done` must be true termination only, not OR'd with `truncated` -- see
+        replay_buffer.py's ReplayBatch docstring.
         """
         # Convert numpy / scalars
         if not isinstance(action, torch.Tensor):
@@ -183,6 +195,10 @@ class GPUReplayBuffer:
             reward = torch.as_tensor(reward, dtype=torch.float32)
         if not isinstance(done, torch.Tensor):
             done = torch.as_tensor(done, dtype=torch.float32)
+        if truncated is None:
+            truncated = torch.zeros_like(done)
+        elif not isinstance(truncated, torch.Tensor):
+            truncated = torch.as_tensor(truncated, dtype=torch.float32)
         if isinstance(obs, dict):
             obs = {k: torch.as_tensor(v) if not isinstance(v, torch.Tensor) else v for k, v in obs.items()}
         else:
@@ -198,7 +214,7 @@ class GPUReplayBuffer:
             for i in range(batch_size):
                 _obs_i = {k: v[i] for k, v in obs.items()} if isinstance(obs, dict) else obs[i]
                 _nobs_i = {k: v[i] for k, v in next_obs.items()} if isinstance(next_obs, dict) else next_obs[i]
-                self.add(_obs_i, action[i], reward[i], done[i], _nobs_i)
+                self.add(_obs_i, action[i], reward[i], done[i], _nobs_i, truncated[i])
             return
 
         with self._lock:
@@ -208,6 +224,7 @@ class GPUReplayBuffer:
                 # All envs share one sequential buffer env_idx=0 when called per-sample
                 self._nstep_rew[0].append(float(reward))
                 self._nstep_done[0].append(float(done))
+                self._nstep_trunc[0].append(float(truncated))
                 self._nstep_act[0].append(action)
                 if isinstance(self._nstep_obs[0], list) and len(self._nstep_obs[0]) == 0:
                     self._nstep_obs[0] = []
@@ -222,15 +239,17 @@ class GPUReplayBuffer:
                     _, _nobs_last = self._nstep_obs[0][-1]
                     _act0 = self._nstep_act[0][0]
                     _done_last = self._nstep_done[0][-1]
+                    _trunc_last = self._nstep_trunc[0][-1]
                     self._nstep_rew[0].pop(0)
                     self._nstep_done[0].pop(0)
+                    self._nstep_trunc[0].pop(0)
                     self._nstep_act[0].pop(0)
                     self._nstep_obs[0].pop(0)
-                    self._write_single(_obs0, _act0, ret, _done_last, _nobs_last)
+                    self._write_single(_obs0, _act0, ret, _done_last, _nobs_last, _trunc_last)
             else:
-                self._write_single(obs, action, float(reward), float(done), next_obs)
+                self._write_single(obs, action, float(reward), float(done), next_obs, float(truncated))
 
-    def _write_single(self, obs, action, reward, done, next_obs) -> None:
+    def _write_single(self, obs, action, reward, done, next_obs, truncated: float = 0.0) -> None:
         idx = self._ptr
         self._write_obs(self._obs_buf, idx, obs)
         self._write_obs(self._next_obs_buf, idx, next_obs)
@@ -238,6 +257,7 @@ class GPUReplayBuffer:
         self._action_buf[idx].copy_(act.view(-1))
         self._reward_buf[idx, 0] = float(reward)
         self._done_buf[idx, 0] = float(done)
+        self._truncated_buf[idx, 0] = float(truncated)
         self._ptr = (self._ptr + 1) % self.capacity
         self._size = min(self._size + 1, self.capacity)
 
@@ -260,6 +280,7 @@ class GPUReplayBuffer:
             rewards=self._reward_buf[indices],
             next_observations=next_obs_out,
             dones=self._done_buf[indices],
+            truncated=self._truncated_buf[indices],
         )
 
     def __len__(self) -> int:
@@ -284,6 +305,7 @@ class GPUReplayBuffer:
             "action_buf": _to_cpu(self._action_buf),
             "reward_buf": _to_cpu(self._reward_buf),
             "done_buf": _to_cpu(self._done_buf),
+            "truncated_buf": _to_cpu(self._truncated_buf),
         }
         if isinstance(self._obs_buf, dict):
             sd["obs_buf"] = {k: _to_cpu(v) for k, v in self._obs_buf.items()}
@@ -305,6 +327,11 @@ class GPUReplayBuffer:
             self._action_buf = _to_dev(sd["action_buf"])
             self._reward_buf = _to_dev(sd["reward_buf"])
             self._done_buf = _to_dev(sd["done_buf"])
+            # .get() fallback: buffers checkpointed before `truncated` was
+            # tracked separately have no such key.
+            self._truncated_buf = (
+                _to_dev(sd["truncated_buf"]) if "truncated_buf" in sd else torch.zeros_like(self._done_buf)
+            )
             obs_buf = sd.get("obs_buf")
             if isinstance(obs_buf, dict):
                 self._obs_buf = {k: _to_dev(v) for k, v in obs_buf.items()}

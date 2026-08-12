@@ -35,5 +35,11 @@ class GymnasiumWrapper(gym.Wrapper):
 
     def step(self, action: np.ndarray):
         obs, reward, terminated, truncated, info = self.env.step(action)
-        done = terminated or truncated
-        return {self.obs_key: np.asarray(obs)}, float(reward), done, truncated, info
+        # Return `terminated` as-is, not `terminated or truncated`: SAC/DDPG/TD3
+        # bootstrap target Q as `(1 - dones) * next_q`, which must be gated on
+        # true termination only. Collapsing truncation into `dones` here zeroed
+        # the bootstrap on every time-limit cutoff, biasing Q-values low on
+        # every task with an episode time limit (i.e. nearly everything).
+        # Callers that want "episode ended for any reason" already OR these
+        # two themselves (see srl/cli/train.py's reset/logging call sites).
+        return {self.obs_key: np.asarray(obs)}, float(reward), terminated, truncated, info

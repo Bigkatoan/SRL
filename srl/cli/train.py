@@ -9,6 +9,8 @@ import os
 import re
 import sys
 
+from srl.utils.spaces import sample_action_space as _sample_action_space
+
 
 def _make_cli_env(env_name: str, device: str, n_envs: int, env_type: str = "flat"):
     from srl.envs.goal_env_wrapper import GoalEnvWrapper
@@ -69,37 +71,6 @@ def _make_cli_env(env_name: str, device: str, n_envs: int, env_type: str = "flat
 
     base = gym.make(normalized_env_name)
     return GymnasiumWrapper(base)
-
-
-def _sample_action_space(space):
-    """Uniform-random sample from an action space, for off-policy warmup.
-
-    Real gymnasium spaces have `.sample()`; isaaclab/mjlab envs expose their
-    own lightweight `mjlab.utils.spaces.Box`-style dataclass instead (just
-    `shape`/`low`/`high`/`dtype`, no `.sample()` method), so fall back to a
-    plain numpy uniform draw over its bounds when `.sample()` isn't there.
-
-    mjlab action spaces are typically declared unbounded ([-inf, inf] --
-    action terms do their own internal scale/clip, e.g.
-    OdriveVelocityActionCfg's `scale`), since the raw policy output is what
-    the space describes, not the physical actuator range. `np.random.uniform`
-    can't sample a non-finite range (raises OverflowError), and a genuinely
-    unbounded warmup action wouldn't be a sane "explore near zero" sample
-    anyway -- fall back to [-1, 1], the conventional bounded range a
-    Tanh/Gaussian-squashed policy actually outputs before that internal
-    scaling, on any non-finite bound.
-    """
-    import numpy as np
-
-    if hasattr(space, "sample"):
-        return space.sample()
-
-    shape = getattr(space, "shape", ())
-    low = np.broadcast_to(np.asarray(getattr(space, "low", -1.0), dtype=np.float32), shape).copy()
-    high = np.broadcast_to(np.asarray(getattr(space, "high", 1.0), dtype=np.float32), shape).copy()
-    low[~np.isfinite(low)] = -1.0
-    high[~np.isfinite(high)] = 1.0
-    return np.random.uniform(low, high).astype(np.float32)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -700,7 +671,16 @@ def _obs_to_tensors(obs_dict: dict, device, *, force_batch: bool) -> dict:
     return tensor_obs
 
 
-def _split_vector_transition(obs: dict, next_obs: dict, action, reward, done, trunc) -> list[tuple[dict, dict, object, float, bool]]:
+def _split_vector_transition(obs: dict, next_obs: dict, action, reward, done, trunc) -> list[tuple[dict, dict, object, float, bool, bool]]:
+    """Split a batched (vectorized-env) step into per-env transition tuples.
+
+    `done`/`trunc` are kept SEPARATE in the returned tuples (last two fields:
+    terminated, truncated) rather than OR'd into one -- off-policy bootstrap
+    targets (`(1 - terminated) * next_q` in sac.py/ddpg.py/td3.py) must see
+    true termination only. Callers that want "episode ended for any reason"
+    (resets, episode-length logging) OR these two themselves at the point
+    they need it; do not re-combine them here.
+    """
     import numpy as np
 
     rewards = np.asarray(reward, dtype=np.float32).reshape(-1)
@@ -720,7 +700,8 @@ def _split_vector_transition(obs: dict, next_obs: dict, action, reward, done, tr
                 next_obs_i,
                 np.asarray(actions[index], dtype=np.float32),
                 float(rewards[index]),
-                bool(dones[index] or truncs[index]),
+                bool(dones[index]),
+                bool(truncs[index]),
             )
         )
     return transitions
@@ -913,12 +894,13 @@ def _run_off_policy(agent, env, args, callbacks, logger, *, start_step: int = 0,
                 done,
                 trunc,
             )[:active_envs]
-            for env_index, (obs_i, next_obs_i, action_i, reward_i, done_i) in enumerate(transitions):
+            for env_index, (obs_i, next_obs_i, action_i, reward_i, done_i, trunc_i) in enumerate(transitions):
                 agent.buffer.add(
                     obs=obs_i,
                     action=action_i,
                     reward=np.array([reward_i], dtype=np.float32),
                     done=np.array([done_i], dtype=bool),
+                    truncated=np.array([trunc_i], dtype=bool),
                     next_obs=next_obs_i,
                     env_idx=env_index,
                 )
@@ -927,6 +909,7 @@ def _run_off_policy(agent, env, args, callbacks, logger, *, start_step: int = 0,
                 obs=obs, action=action_np,
                 reward=np.array([reward], dtype=np.float32),
                 done=np.array([done], dtype=bool),
+                truncated=np.array([trunc], dtype=bool),
                 next_obs=next_obs,
             )
         obs = next_obs

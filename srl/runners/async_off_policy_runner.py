@@ -55,6 +55,7 @@ import torch
 
 from srl.core.base_agent import BaseAgent
 from srl.core.config import AsyncRunnerConfig
+from srl.utils.spaces import sample_action_space
 
 
 class AsyncOffPolicyRunner:
@@ -176,18 +177,36 @@ class AsyncOffPolicyRunner:
             obs_t = self._obs_to_tensor(obs, self.device)
 
             if step < self.random_steps:
-                action = self.env.action_space.sample()
+                # `.act_space`, not `.action_space`: IsaacLabWrapper is a
+                # plain class (not a gym.Wrapper subclass), so it only
+                # exposes `.act_space`; GymnasiumWrapper answers to both via
+                # gymnasium's own Wrapper property, so this works either
+                # way. sample_action_space() falls back to a plain uniform
+                # draw when the space has no `.sample()` (isaaclab/mjlab's
+                # lightweight space dataclass doesn't).
+                action = sample_action_space(self.env.act_space)
                 action_t = torch.as_tensor(action, dtype=torch.float32, device=self.device)
             else:
                 action_t, _, _, _ = self.agent.predict(obs_t, deterministic=False)
                 action = action_t.cpu().numpy() if hasattr(action_t, "cpu") else action_t
 
             result = self.env.step(action)
-            next_obs, reward, terminated, truncated, info = result if len(result) == 5 else (*result[:4], {})
+            next_obs, reward, terminated, truncated, info = result if len(result) == 5 else (*result[:4], False)
             done = terminated
 
-            # Add to buffer — GPU buffer accepts CUDA tensors directly
-            self.agent.buffer.add(obs_t, action_t, reward, done, self._obs_to_tensor(next_obs, self.device))
+            # Add to buffer — GPU buffer accepts CUDA tensors directly.
+            # Keyword args, not positional: ReplayBuffer.add()'s positional
+            # order is (obs, action, reward, next_obs, done, ...) while
+            # GPUReplayBuffer.add()'s is (obs, action, reward, done,
+            # next_obs, ...) -- genuinely different between the two classes,
+            # so positional calls silently swap next_obs/done on whichever
+            # one doesn't match. `done` is true termination only, never OR'd
+            # with `truncated` -- see replay_buffer.py's ReplayBatch
+            # docstring for why SAC/DDPG/TD3's bootstrap target needs that.
+            self.agent.buffer.add(
+                obs=obs_t, action=action_t, reward=reward, next_obs=self._obs_to_tensor(next_obs, self.device),
+                done=done, truncated=truncated,
+            )
 
             obs = next_obs
             if isinstance(terminated, (bool,)) and terminated or (hasattr(terminated, "any") and terminated.any()):
@@ -233,17 +252,24 @@ class AsyncOffPolicyRunner:
                 obs_t = self._obs_to_tensor(obs, self.device)
 
                 if step < self.random_steps:
-                    action = self.env.action_space.sample()
+                    # See _run_sync's comment on the same line.
+                    action = sample_action_space(self.env.act_space)
                     action_t = torch.as_tensor(action, dtype=torch.float32, device=self.device)
                 else:
                     action_t, _, _, _ = self.agent.predict(obs_t, deterministic=False)
                     action = action_t.detach().cpu().numpy() if hasattr(action_t, "cpu") else action_t
 
                 result = self.env.step(action)
-                next_obs, reward, terminated, truncated, info = result if len(result) == 5 else (*result[:4], {})
+                next_obs, reward, terminated, truncated, info = result if len(result) == 5 else (*result[:4], False)
                 done = terminated
 
-                self.agent.buffer.add(obs_t, action_t, reward, done, self._obs_to_tensor(next_obs, self.device))
+                # Keyword args -- see _run_sync's comment on the same call
+                # for why (ReplayBuffer/GPUReplayBuffer positional orders
+                # differ, and `done` must stay true-termination-only).
+                self.agent.buffer.add(
+                    obs=obs_t, action=action_t, reward=reward, next_obs=self._obs_to_tensor(next_obs, self.device),
+                    done=done, truncated=truncated,
+                )
 
                 obs = next_obs
                 is_done = bool(terminated) if isinstance(terminated, bool) else bool(terminated.any())

@@ -85,6 +85,7 @@ class GoalEnvWrapper(gym.Wrapper):
     def step(self, action: np.ndarray):
         raw_obs, reward, terminated, truncated, info = self.env.step(action)
         info["goal_obs"] = raw_obs          # preserve for HER
-        done = terminated or truncated
+        # Return `terminated` as-is -- see gymnasium_wrapper.py's step() for why
+        # collapsing truncation into it biases off-policy bootstrap targets.
         flat = self._flatten(raw_obs)
-        return {self.obs_key: flat}, float(reward), done, truncated, info
+        return {self.obs_key: flat}, float(reward), terminated, truncated, info
