@@ -253,12 +253,27 @@ class AgentModel(nn.Module):
         ----------
         - If an encoder declares input_name and that obs key is missing → KeyError.
         - If explicit routing leaves obs keys unused → warnings.warn.
+
+        Idempotency
+        -----------
+        Callers that already know the encoder layout (e.g. srl/cli/train.py's
+        rollout loops, which remap once before calling agent.predict()/model())
+        may pass in an obs_dict whose keys already match every encoder name.
+        Remapping it a second time here would be wrong, not just redundant: Rule
+        0's explicit input_name lookup searches for the ORIGINAL raw obs key,
+        which no longer exists once the first pass has already renamed it away
+        -- every explicit-input_name config would KeyError on its second forward
+        pass. Short-circuit when nothing is left to do.
         """
         from srl.utils.obs_remap import apply_obs_remap
 
+        encoder_names = list(self.encoders.keys())
+        if set(obs_dict.keys()) == set(encoder_names):
+            return obs_dict
+
         return apply_obs_remap(
             obs_dict,
-            list(self.encoders.keys()),
+            encoder_names,
             self.encoder_input_names,
         )
 

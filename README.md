@@ -5,7 +5,7 @@ SRL is a modular reinforcement learning library for continuous-control environme
 ## What is included
 
 - Algorithms: PPO, SAC, DDPG, TD3, A2C, A3C
-- Environment adapters: Gymnasium, Box2D, MuJoCo, Fetch robotics, Isaac Lab, racecar_gym
+- Environment adapters: Gymnasium, Box2D, MuJoCo, Fetch robotics, Isaac Lab, mjlab, racecar_gym
 - YAML-driven model graph builder for encoders, heads, flows, and multimodal policies
 - CLI tools: `srl-train`, `srl-benchmark`, `srl-visualize`
 - Pipeline visualization export for model graphs and training graphs
@@ -116,6 +116,7 @@ srl-benchmark --config configs/envs/halfcheetah_sac.yaml \
 | MuJoCo | HalfCheetah, Ant, Hopper, Walker2d, Humanoid, Swimmer, Pusher, Reacher | `GymnasiumWrapper` |
 | Robotics | FetchReach, FetchPush, FetchPickAndPlace, FetchSlide | `GoalEnvWrapper` |
 | Isaac Lab | Isaac-Cartpole, Isaac-Ant, Isaac-Humanoid | `IsaacLabWrapper` |
+| mjlab (`--env mjlab:<task>`) | any task registered via a project's own `mjlab.tasks` entry point | `IsaacLabWrapper` |
 | M3bot task repo | Isaac-M3-Reach, Isaac-M3-Lift, Isaac-M3-Push, Isaac-M3-PickPlace | external Isaac Lab task repo |
 | racecar_gym | SingleAgentAustria | `RacecarWrapper` |
 

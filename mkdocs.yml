@@ -58,6 +58,7 @@ nav:
   - Integrations:
     - Overview: integrations/index.md
     - Isaac Lab: integrations/isaaclab.md
+    - mjlab: integrations/mjlab.md
     - Gymnasium: integrations/gymnasium.md
     - ROS 2: ros2.md
 
