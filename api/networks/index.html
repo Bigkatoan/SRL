@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -1110,6 +1110,34 @@
     
   
     Isaac Lab
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/mjlab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    mjlab
   
 
     
@@ -2765,7 +2793,22 @@ aux_modules:
 <span class="normal"><a href="#__codelineno-0-289">289</a></span>
 <span class="normal"><a href="#__codelineno-0-290">290</a></span>
 <span class="normal"><a href="#__codelineno-0-291">291</a></span>
-<span class="normal"><a href="#__codelineno-0-292">292</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-14" name="__codelineno-0-14"></a><span class="k">class</span><span class="w"> </span><span class="nc">AgentModel</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="normal"><a href="#__codelineno-0-292">292</a></span>
+<span class="normal"><a href="#__codelineno-0-293">293</a></span>
+<span class="normal"><a href="#__codelineno-0-294">294</a></span>
+<span class="normal"><a href="#__codelineno-0-295">295</a></span>
+<span class="normal"><a href="#__codelineno-0-296">296</a></span>
+<span class="normal"><a href="#__codelineno-0-297">297</a></span>
+<span class="normal"><a href="#__codelineno-0-298">298</a></span>
+<span class="normal"><a href="#__codelineno-0-299">299</a></span>
+<span class="normal"><a href="#__codelineno-0-300">300</a></span>
+<span class="normal"><a href="#__codelineno-0-301">301</a></span>
+<span class="normal"><a href="#__codelineno-0-302">302</a></span>
+<span class="normal"><a href="#__codelineno-0-303">303</a></span>
+<span class="normal"><a href="#__codelineno-0-304">304</a></span>
+<span class="normal"><a href="#__codelineno-0-305">305</a></span>
+<span class="normal"><a href="#__codelineno-0-306">306</a></span>
+<span class="normal"><a href="#__codelineno-0-307">307</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-14" name="__codelineno-0-14"></a><span class="k">class</span><span class="w"> </span><span class="nc">AgentModel</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
 <a id="__codelineno-0-15" name="__codelineno-0-15"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;A dynamic neural network built from a :class:`~srl.registry.flow_graph.FlowGraph`.</span>
 <a id="__codelineno-0-16" name="__codelineno-0-16"></a>
 <a id="__codelineno-0-17" name="__codelineno-0-17"></a><span class="sd">    Parameters</span>
@@ -3007,43 +3050,58 @@ aux_modules:
 <a id="__codelineno-0-253" name="__codelineno-0-253"></a><span class="sd">        ----------</span>
 <a id="__codelineno-0-254" name="__codelineno-0-254"></a><span class="sd">        - If an encoder declares input_name and that obs key is missing → KeyError.</span>
 <a id="__codelineno-0-255" name="__codelineno-0-255"></a><span class="sd">        - If explicit routing leaves obs keys unused → warnings.warn.</span>
-<a id="__codelineno-0-256" name="__codelineno-0-256"></a><span class="sd">        &quot;&quot;&quot;</span>
-<a id="__codelineno-0-257" name="__codelineno-0-257"></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">srl.utils.obs_remap</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_obs_remap</span>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a>
-<a id="__codelineno-0-259" name="__codelineno-0-259"></a>        <span class="k">return</span> <span class="n">apply_obs_remap</span><span class="p">(</span>
-<a id="__codelineno-0-260" name="__codelineno-0-260"></a>            <span class="n">obs_dict</span><span class="p">,</span>
-<a id="__codelineno-0-261" name="__codelineno-0-261"></a>            <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">encoders</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">encoder_input_names</span><span class="p">,</span>
-<a id="__codelineno-0-263" name="__codelineno-0-263"></a>        <span class="p">)</span>
-<a id="__codelineno-0-264" name="__codelineno-0-264"></a>
-<a id="__codelineno-0-265" name="__codelineno-0-265"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">act</span><span class="p">(</span>
-<a id="__codelineno-0-266" name="__codelineno-0-266"></a>        <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-0-267" name="__codelineno-0-267"></a>        <span class="n">obs_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
-<a id="__codelineno-0-268" name="__codelineno-0-268"></a>        <span class="n">hidden_states</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-269" name="__codelineno-0-269"></a>        <span class="n">deterministic</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-270" name="__codelineno-0-270"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
-<a id="__codelineno-0-271" name="__codelineno-0-271"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Encode → actor → return (action, new_hidden).&quot;&quot;&quot;</span>
-<a id="__codelineno-0-272" name="__codelineno-0-272"></a>        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">obs_dict</span><span class="p">,</span> <span class="n">hidden_states</span><span class="o">=</span><span class="n">hidden_states</span><span class="p">)</span>
-<a id="__codelineno-0-273" name="__codelineno-0-273"></a>        <span class="n">actor_out</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;actor_out&quot;</span><span class="p">]</span>
-<a id="__codelineno-0-274" name="__codelineno-0-274"></a>        <span class="k">if</span> <span class="n">actor_out</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-275" name="__codelineno-0-275"></a>            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;No actor head configured.&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-276" name="__codelineno-0-276"></a>
-<a id="__codelineno-0-277" name="__codelineno-0-277"></a>        <span class="k">if</span> <span class="n">deterministic</span><span class="p">:</span>
-<a id="__codelineno-0-278" name="__codelineno-0-278"></a>            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">actor_out</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
-<a id="__codelineno-0-279" name="__codelineno-0-279"></a>                <span class="n">action</span> <span class="o">=</span> <span class="n">actor_out</span>
-<a id="__codelineno-0-280" name="__codelineno-0-280"></a>            <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">actor_out</span><span class="p">,</span> <span class="s2">&quot;mean&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-281" name="__codelineno-0-281"></a>                <span class="n">action</span> <span class="o">=</span> <span class="n">actor_out</span><span class="o">.</span><span class="n">mean</span>
-<a id="__codelineno-0-282" name="__codelineno-0-282"></a>            <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-283" name="__codelineno-0-283"></a>                <span class="n">action</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">actor_out</span>
-<a id="__codelineno-0-284" name="__codelineno-0-284"></a>        <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-285" name="__codelineno-0-285"></a>            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">actor_out</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
-<a id="__codelineno-0-286" name="__codelineno-0-286"></a>                <span class="n">action</span> <span class="o">=</span> <span class="n">actor_out</span>
-<a id="__codelineno-0-287" name="__codelineno-0-287"></a>            <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">actor_out</span><span class="p">,</span> <span class="s2">&quot;rsample&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-288" name="__codelineno-0-288"></a>                <span class="n">action</span> <span class="o">=</span> <span class="n">actor_out</span><span class="o">.</span><span class="n">rsample</span><span class="p">()</span>
-<a id="__codelineno-0-289" name="__codelineno-0-289"></a>            <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-290" name="__codelineno-0-290"></a>                <span class="n">action</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">actor_out</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a><span class="sd">        Idempotency</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a><span class="sd">        -----------</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a><span class="sd">        Callers that already know the encoder layout (e.g. srl/cli/train.py&#39;s</span>
+<a id="__codelineno-0-260" name="__codelineno-0-260"></a><span class="sd">        rollout loops, which remap once before calling agent.predict()/model())</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a><span class="sd">        may pass in an obs_dict whose keys already match every encoder name.</span>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a><span class="sd">        Remapping it a second time here would be wrong, not just redundant: Rule</span>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a><span class="sd">        0&#39;s explicit input_name lookup searches for the ORIGINAL raw obs key,</span>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a><span class="sd">        which no longer exists once the first pass has already renamed it away</span>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a><span class="sd">        -- every explicit-input_name config would KeyError on its second forward</span>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a><span class="sd">        pass. Short-circuit when nothing is left to do.</span>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a><span class="sd">        &quot;&quot;&quot;</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">srl.utils.obs_remap</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_obs_remap</span>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a>
+<a id="__codelineno-0-270" name="__codelineno-0-270"></a>        <span class="n">encoder_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">encoders</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+<a id="__codelineno-0-271" name="__codelineno-0-271"></a>        <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">obs_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">==</span> <span class="nb">set</span><span class="p">(</span><span class="n">encoder_names</span><span class="p">):</span>
+<a id="__codelineno-0-272" name="__codelineno-0-272"></a>            <span class="k">return</span> <span class="n">obs_dict</span>
+<a id="__codelineno-0-273" name="__codelineno-0-273"></a>
+<a id="__codelineno-0-274" name="__codelineno-0-274"></a>        <span class="k">return</span> <span class="n">apply_obs_remap</span><span class="p">(</span>
+<a id="__codelineno-0-275" name="__codelineno-0-275"></a>            <span class="n">obs_dict</span><span class="p">,</span>
+<a id="__codelineno-0-276" name="__codelineno-0-276"></a>            <span class="n">encoder_names</span><span class="p">,</span>
+<a id="__codelineno-0-277" name="__codelineno-0-277"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">encoder_input_names</span><span class="p">,</span>
+<a id="__codelineno-0-278" name="__codelineno-0-278"></a>        <span class="p">)</span>
+<a id="__codelineno-0-279" name="__codelineno-0-279"></a>
+<a id="__codelineno-0-280" name="__codelineno-0-280"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">act</span><span class="p">(</span>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a>        <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a>        <span class="n">obs_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a>        <span class="n">hidden_states</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a>        <span class="n">deterministic</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-285" name="__codelineno-0-285"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<a id="__codelineno-0-286" name="__codelineno-0-286"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Encode → actor → return (action, new_hidden).&quot;&quot;&quot;</span>
+<a id="__codelineno-0-287" name="__codelineno-0-287"></a>        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">obs_dict</span><span class="p">,</span> <span class="n">hidden_states</span><span class="o">=</span><span class="n">hidden_states</span><span class="p">)</span>
+<a id="__codelineno-0-288" name="__codelineno-0-288"></a>        <span class="n">actor_out</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;actor_out&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a>        <span class="k">if</span> <span class="n">actor_out</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-290" name="__codelineno-0-290"></a>            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;No actor head configured.&quot;</span><span class="p">)</span>
 <a id="__codelineno-0-291" name="__codelineno-0-291"></a>
-<a id="__codelineno-0-292" name="__codelineno-0-292"></a>        <span class="k">return</span> <span class="n">action</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;new_hidden&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a>        <span class="k">if</span> <span class="n">deterministic</span><span class="p">:</span>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a>            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">actor_out</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a>                <span class="n">action</span> <span class="o">=</span> <span class="n">actor_out</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a>            <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">actor_out</span><span class="p">,</span> <span class="s2">&quot;mean&quot;</span><span class="p">):</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a>                <span class="n">action</span> <span class="o">=</span> <span class="n">actor_out</span><span class="o">.</span><span class="n">mean</span>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a>            <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a>                <span class="n">action</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">actor_out</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a>            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">actor_out</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a>                <span class="n">action</span> <span class="o">=</span> <span class="n">actor_out</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a>            <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">actor_out</span><span class="p">,</span> <span class="s2">&quot;rsample&quot;</span><span class="p">):</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a>                <span class="n">action</span> <span class="o">=</span> <span class="n">actor_out</span><span class="o">.</span><span class="n">rsample</span><span class="p">()</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a>            <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a>                <span class="n">action</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">actor_out</span>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a>        <span class="k">return</span> <span class="n">action</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;new_hidden&quot;</span><span class="p">]</span>
 </code></pre></div></td></tr></table></div>
               </details>
 
@@ -3076,22 +3134,7 @@ aux_modules:
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>srl/networks/agent_model.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-265">265</a></span>
-<span class="normal"><a href="#__codelineno-0-266">266</a></span>
-<span class="normal"><a href="#__codelineno-0-267">267</a></span>
-<span class="normal"><a href="#__codelineno-0-268">268</a></span>
-<span class="normal"><a href="#__codelineno-0-269">269</a></span>
-<span class="normal"><a href="#__codelineno-0-270">270</a></span>
-<span class="normal"><a href="#__codelineno-0-271">271</a></span>
-<span class="normal"><a href="#__codelineno-0-272">272</a></span>
-<span class="normal"><a href="#__codelineno-0-273">273</a></span>
-<span class="normal"><a href="#__codelineno-0-274">274</a></span>
-<span class="normal"><a href="#__codelineno-0-275">275</a></span>
-<span class="normal"><a href="#__codelineno-0-276">276</a></span>
-<span class="normal"><a href="#__codelineno-0-277">277</a></span>
-<span class="normal"><a href="#__codelineno-0-278">278</a></span>
-<span class="normal"><a href="#__codelineno-0-279">279</a></span>
-<span class="normal"><a href="#__codelineno-0-280">280</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-280">280</a></span>
 <span class="normal"><a href="#__codelineno-0-281">281</a></span>
 <span class="normal"><a href="#__codelineno-0-282">282</a></span>
 <span class="normal"><a href="#__codelineno-0-283">283</a></span>
@@ -3103,34 +3146,49 @@ aux_modules:
 <span class="normal"><a href="#__codelineno-0-289">289</a></span>
 <span class="normal"><a href="#__codelineno-0-290">290</a></span>
 <span class="normal"><a href="#__codelineno-0-291">291</a></span>
-<span class="normal"><a href="#__codelineno-0-292">292</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-265" name="__codelineno-0-265"></a><span class="k">def</span><span class="w"> </span><span class="nf">act</span><span class="p">(</span>
-<a id="__codelineno-0-266" name="__codelineno-0-266"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-0-267" name="__codelineno-0-267"></a>    <span class="n">obs_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
-<a id="__codelineno-0-268" name="__codelineno-0-268"></a>    <span class="n">hidden_states</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-269" name="__codelineno-0-269"></a>    <span class="n">deterministic</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-270" name="__codelineno-0-270"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
-<a id="__codelineno-0-271" name="__codelineno-0-271"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Encode → actor → return (action, new_hidden).&quot;&quot;&quot;</span>
-<a id="__codelineno-0-272" name="__codelineno-0-272"></a>    <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">obs_dict</span><span class="p">,</span> <span class="n">hidden_states</span><span class="o">=</span><span class="n">hidden_states</span><span class="p">)</span>
-<a id="__codelineno-0-273" name="__codelineno-0-273"></a>    <span class="n">actor_out</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;actor_out&quot;</span><span class="p">]</span>
-<a id="__codelineno-0-274" name="__codelineno-0-274"></a>    <span class="k">if</span> <span class="n">actor_out</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-275" name="__codelineno-0-275"></a>        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;No actor head configured.&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-276" name="__codelineno-0-276"></a>
-<a id="__codelineno-0-277" name="__codelineno-0-277"></a>    <span class="k">if</span> <span class="n">deterministic</span><span class="p">:</span>
-<a id="__codelineno-0-278" name="__codelineno-0-278"></a>        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">actor_out</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
-<a id="__codelineno-0-279" name="__codelineno-0-279"></a>            <span class="n">action</span> <span class="o">=</span> <span class="n">actor_out</span>
-<a id="__codelineno-0-280" name="__codelineno-0-280"></a>        <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">actor_out</span><span class="p">,</span> <span class="s2">&quot;mean&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-281" name="__codelineno-0-281"></a>            <span class="n">action</span> <span class="o">=</span> <span class="n">actor_out</span><span class="o">.</span><span class="n">mean</span>
-<a id="__codelineno-0-282" name="__codelineno-0-282"></a>        <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-283" name="__codelineno-0-283"></a>            <span class="n">action</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">actor_out</span>
-<a id="__codelineno-0-284" name="__codelineno-0-284"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-285" name="__codelineno-0-285"></a>        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">actor_out</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
-<a id="__codelineno-0-286" name="__codelineno-0-286"></a>            <span class="n">action</span> <span class="o">=</span> <span class="n">actor_out</span>
-<a id="__codelineno-0-287" name="__codelineno-0-287"></a>        <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">actor_out</span><span class="p">,</span> <span class="s2">&quot;rsample&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-288" name="__codelineno-0-288"></a>            <span class="n">action</span> <span class="o">=</span> <span class="n">actor_out</span><span class="o">.</span><span class="n">rsample</span><span class="p">()</span>
-<a id="__codelineno-0-289" name="__codelineno-0-289"></a>        <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-290" name="__codelineno-0-290"></a>            <span class="n">action</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">actor_out</span>
+<span class="normal"><a href="#__codelineno-0-292">292</a></span>
+<span class="normal"><a href="#__codelineno-0-293">293</a></span>
+<span class="normal"><a href="#__codelineno-0-294">294</a></span>
+<span class="normal"><a href="#__codelineno-0-295">295</a></span>
+<span class="normal"><a href="#__codelineno-0-296">296</a></span>
+<span class="normal"><a href="#__codelineno-0-297">297</a></span>
+<span class="normal"><a href="#__codelineno-0-298">298</a></span>
+<span class="normal"><a href="#__codelineno-0-299">299</a></span>
+<span class="normal"><a href="#__codelineno-0-300">300</a></span>
+<span class="normal"><a href="#__codelineno-0-301">301</a></span>
+<span class="normal"><a href="#__codelineno-0-302">302</a></span>
+<span class="normal"><a href="#__codelineno-0-303">303</a></span>
+<span class="normal"><a href="#__codelineno-0-304">304</a></span>
+<span class="normal"><a href="#__codelineno-0-305">305</a></span>
+<span class="normal"><a href="#__codelineno-0-306">306</a></span>
+<span class="normal"><a href="#__codelineno-0-307">307</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-280" name="__codelineno-0-280"></a><span class="k">def</span><span class="w"> </span><span class="nf">act</span><span class="p">(</span>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a>    <span class="n">obs_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a>    <span class="n">hidden_states</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a>    <span class="n">deterministic</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-285" name="__codelineno-0-285"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<a id="__codelineno-0-286" name="__codelineno-0-286"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Encode → actor → return (action, new_hidden).&quot;&quot;&quot;</span>
+<a id="__codelineno-0-287" name="__codelineno-0-287"></a>    <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">obs_dict</span><span class="p">,</span> <span class="n">hidden_states</span><span class="o">=</span><span class="n">hidden_states</span><span class="p">)</span>
+<a id="__codelineno-0-288" name="__codelineno-0-288"></a>    <span class="n">actor_out</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;actor_out&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a>    <span class="k">if</span> <span class="n">actor_out</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-290" name="__codelineno-0-290"></a>        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;No actor head configured.&quot;</span><span class="p">)</span>
 <a id="__codelineno-0-291" name="__codelineno-0-291"></a>
-<a id="__codelineno-0-292" name="__codelineno-0-292"></a>    <span class="k">return</span> <span class="n">action</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;new_hidden&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a>    <span class="k">if</span> <span class="n">deterministic</span><span class="p">:</span>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a>        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">actor_out</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a>            <span class="n">action</span> <span class="o">=</span> <span class="n">actor_out</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a>        <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">actor_out</span><span class="p">,</span> <span class="s2">&quot;mean&quot;</span><span class="p">):</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a>            <span class="n">action</span> <span class="o">=</span> <span class="n">actor_out</span><span class="o">.</span><span class="n">mean</span>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a>            <span class="n">action</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">actor_out</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a>        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">actor_out</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a>            <span class="n">action</span> <span class="o">=</span> <span class="n">actor_out</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a>        <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">actor_out</span><span class="p">,</span> <span class="s2">&quot;rsample&quot;</span><span class="p">):</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a>            <span class="n">action</span> <span class="o">=</span> <span class="n">actor_out</span><span class="o">.</span><span class="n">rsample</span><span class="p">()</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a>            <span class="n">action</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">actor_out</span>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a>    <span class="k">return</span> <span class="n">action</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;new_hidden&quot;</span><span class="p">]</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3618,7 +3676,7 @@ action:
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

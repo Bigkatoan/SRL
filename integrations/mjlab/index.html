@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://bigkatoan.github.io/SRL/integrations/isaaclab/">
+        <link rel="canonical" href="https://bigkatoan.github.io/SRL/integrations/mjlab/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../isaaclab/">
       
       
-        <link rel="next" href="../mjlab/">
+        <link rel="next" href="../gymnasium/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Isaac Lab - SRL — Simple Reinforcement Learning</title>
+        <title>mjlab - SRL — Simple Reinforcement Learning</title>
       
     
     
@@ -90,7 +90,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#isaac-lab-integration" class="md-skip">
+        <a href="#mjlab-integration" class="md-skip">
           Skip to content
         </a>
       
@@ -126,7 +126,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Isaac Lab
+              mjlab
             
           </span>
         </div>
@@ -1102,6 +1102,34 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../isaaclab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Isaac Lab
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -1121,7 +1149,7 @@
   <span class="md-ellipsis">
     
   
-    Isaac Lab
+    mjlab
   
 
     
@@ -1139,7 +1167,7 @@
   <span class="md-ellipsis">
     
   
-    Isaac Lab
+    mjlab
   
 
     
@@ -1165,17 +1193,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#yeu-cau" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Yêu cầu
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#setup" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1184,41 +1201,13 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Setup">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-cai-isaac-lab" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Cài Isaac Lab
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-cai-srl-vao-isaac-lab-environment" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Cài SRL vào Isaac Lab environment
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
         <li class="md-nav__item">
-  <a href="#observation-keys" class="md-nav__link">
+  <a href="#task-registration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Observation keys
+        Task registration
       
     </span>
   </a>
@@ -1226,10 +1215,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ppo-isaac-lab-khuyen-nghi" class="md-nav__link">
+  <a href="#usage" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PPO Isaac Lab (khuyến nghị)
+        Usage
       
     </span>
   </a>
@@ -1237,21 +1226,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#sac-async-gpu-buffer" class="md-nav__link">
+  <a href="#why-a-single-encoder-or-explicit-input_name-both-work-now" class="md-nav__link">
     <span class="md-ellipsis">
       
-        SAC + Async + GPU Buffer
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gpu-memory-tips" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GPU memory tips
+        Why a single encoder or explicit input_name both work now
       
     </span>
   </a>
@@ -1270,10 +1248,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#xem-them" class="md-nav__link">
+  <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Xem thêm
+        See also
       
     </span>
   </a>
@@ -1284,34 +1262,6 @@
   
 </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../mjlab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    mjlab
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -2010,17 +1960,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#yeu-cau" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Yêu cầu
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#setup" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2029,41 +1968,13 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Setup">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-cai-isaac-lab" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Cài Isaac Lab
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-cai-srl-vao-isaac-lab-environment" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Cài SRL vào Isaac Lab environment
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
         <li class="md-nav__item">
-  <a href="#observation-keys" class="md-nav__link">
+  <a href="#task-registration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Observation keys
+        Task registration
       
     </span>
   </a>
@@ -2071,10 +1982,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ppo-isaac-lab-khuyen-nghi" class="md-nav__link">
+  <a href="#usage" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PPO Isaac Lab (khuyến nghị)
+        Usage
       
     </span>
   </a>
@@ -2082,21 +1993,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#sac-async-gpu-buffer" class="md-nav__link">
+  <a href="#why-a-single-encoder-or-explicit-input_name-both-work-now" class="md-nav__link">
     <span class="md-ellipsis">
       
-        SAC + Async + GPU Buffer
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gpu-memory-tips" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GPU memory tips
+        Why a single encoder or explicit input_name both work now
       
     </span>
   </a>
@@ -2115,10 +2015,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#xem-them" class="md-nav__link">
+  <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Xem thêm
+        See also
       
     </span>
   </a>
@@ -2193,148 +2093,117 @@
   
 
 
-<h1 id="isaac-lab-integration">Isaac Lab Integration<a class="headerlink" href="#isaac-lab-integration" title="Permanent link">&para;</a></h1>
-<p>Isaac Lab là GPU-accelerated robot learning framework của NVIDIA. SRL tích hợp natively thông qua <code>IsaacLabWrapper</code>.</p>
-<h2 id="yeu-cau">Yêu cầu<a class="headerlink" href="#yeu-cau" title="Permanent link">&para;</a></h2>
-<ul>
-<li>NVIDIA GPU (RTX 3090 hoặc tốt hơn)</li>
-<li>Isaac Sim ≥ 5.1 + Isaac Lab ≥ 0.5</li>
-<li>Python 3.10 hoặc 3.11</li>
-<li>SRL cài vào đúng Isaac Lab Python environment</li>
-</ul>
+<h1 id="mjlab-integration">mjlab Integration<a class="headerlink" href="#mjlab-integration" title="Permanent link">&para;</a></h1>
+<p><a href="https://github.com/mujocolab/mjlab">mjlab</a> is a GPU-batched robot learning stack built on MuJoCo-Warp -- the same "one process, thousands of envs on one GPU" shape as Isaac Lab, without the multi-GB Omniverse/Isaac Sim runtime. SRL integrates it through the same <code>IsaacLabWrapper</code> used for real Isaac Lab (both envs expose a close enough API -- <code>reset()</code>/<code>step()</code>/<code>num_envs</code>/<code>device</code> -- that no separate wrapper class was needed).</p>
+<p>Reach for this instead of <a href="../isaaclab/">Isaac Lab</a> when you don't need Isaac Sim's rendering/asset pipeline and want a lighter install.</p>
 <h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
-<h3 id="1-cai-isaac-lab">1. Cài Isaac Lab<a class="headerlink" href="#1-cai-isaac-lab" title="Permanent link">&para;</a></h3>
-<p>Làm theo <a href="https://isaac-sim.github.io/IsaacLab/">Isaac Lab official guide</a>.</p>
-<h3 id="2-cai-srl-vao-isaac-lab-environment">2. Cài SRL vào Isaac Lab environment<a class="headerlink" href="#2-cai-srl-vao-isaac-lab-environment" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Kích hoạt Isaac Lab environment trước</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">source</span><span class="w"> </span>/path/to/IsaacLab/_isaac_sim/setup_conda_env.sh
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>conda<span class="w"> </span>activate<span class="w"> </span>isaaclab
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># Cài SRL</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/Bigkatoan/SRL.git
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="c1"># Kiểm tra</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import isaaclab; import srl; print(&#39;OK&#39;)&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>mjlab
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/Bigkatoan/SRL.git
 </code></pre></div>
-<div class="admonition warning">
-<p class="admonition-title">Quan trọng</p>
-<p>SRL phải được cài vào đúng Isaac Lab environment. Nếu cài vào environment khác, imports sẽ fail tại runtime dù CLI tìm thấy.</p>
-</div>
-<p><strong>Thứ tự quan trọng:</strong></p>
-<ol>
-<li>Kích hoạt Isaac Lab environment</li>
-<li>Xác nhận <code>python -c "import isaaclab"</code> pass</li>
-<li>Cài SRL vào environment đó</li>
-<li>Chạy <code>srl-train</code> từ shell đó</li>
-</ol>
-<h2 id="observation-keys">Observation keys<a class="headerlink" href="#observation-keys" title="Permanent link">&para;</a></h2>
-<p><code>input_name</code> trong encoder config phải khớp với Isaac Lab observation group key:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">encoders</span><span class="p">:</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">policy_enc</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mlp</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">input_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">policy</span><span class="w">          </span><span class="c1"># ← phải khớp Isaac Lab obs group key</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">input_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+<p>No app bootstrap, no <code>OMNI_KIT_ACCEPT_EULA</code>, no separate runtime interpreter -- mjlab is a normal Python package.</p>
+<h2 id="task-registration">Task registration<a class="headerlink" href="#task-registration" title="Permanent link">&para;</a></h2>
+<p>mjlab resolves tasks by string id through its own registry (<code>mjlab.tasks.registry</code>), populated by auto-importing every package registered under the <code>mjlab.tasks</code> entry-point group -- the same mechanism <code>import mjlab</code> itself runs at import time. Any project that registers its own tasks this way in its <code>pyproject.toml</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[project.entry-points.</span><span class="s2">&quot;mjlab.tasks&quot;</span><span class="k">]</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">your_pkg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;your_pkg.tasks&quot;</span>
 </code></pre></div>
-<p>Kiểm tra keys: <code>python -c "from isaaclab.envs import ...; print(env.observation_space)"</code></p>
-<h2 id="ppo-isaac-lab-khuyen-nghi">PPO Isaac Lab (khuyến nghị)<a class="headerlink" href="#ppo-isaac-lab-khuyen-nghi" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># configs/envs/isaaclab_ant_ppo.yaml</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">env_id</span><span class="p">:</span><span class="w">   </span><span class="l l-Scalar l-Scalar-Plain">Isaac-Ant-v0</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">env_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">flat</span>
+<p>is automatically discoverable here with no extra wiring, as long as it's installed in the same environment as <code>mjlab</code>/<code>srl-rl</code>.</p>
+<h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h2>
+<p><code>--env mjlab:&lt;task&gt;</code> (or <code>env_type: mjlab</code> in the YAML, which prefixes the id automatically -- see <code>_normalize_env_name</code> in <code>srl/cli/train.py</code>):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># configs/envs/mjlab_example_ppo.yaml</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">env_id</span><span class="p">:</span><span class="w">   </span><span class="l l-Scalar l-Scalar-Plain">Your-Task-Id</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">env_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mjlab</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nt">algo</span><span class="p">:</span><span class="w">     </span><span class="l l-Scalar l-Scalar-Plain">ppo</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nt">encoders</span><span class="p">:</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">state_enc</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor_state_enc</span>
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mlp</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nt">input_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">policy</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="nt">input_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">    </span><span class="nt">layers</span><span class="p">:</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">elu</span><span class="p p-Indicator">}</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">128</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">elu</span><span class="p p-Indicator">}</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="nt">flows</span><span class="p">:</span>
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
-<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
-<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>
-<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="nt">actor</span><span class="p">:</span>
-<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor</span>
-<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gaussian</span>
-<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="w">  </span><span class="nt">action_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
-<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>
-<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="nt">critic</span><span class="p">:</span>
-<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">critic</span>
-<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">value</span>
-<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a>
-<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="nt">train</span><span class="p">:</span>
-<a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a><span class="w">  </span><span class="nt">total_steps</span><span class="p">:</span><span class="w">   </span><span class="l l-Scalar l-Scalar-Plain">5_000_000</span>
-<a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a><span class="w">  </span><span class="nt">n_envs</span><span class="p">:</span><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">4096</span>
-<a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a><span class="w">  </span><span class="nt">n_steps</span><span class="p">:</span><span class="w">       </span><span class="l l-Scalar l-Scalar-Plain">32</span>
-<a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a><span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">16384</span>
-<a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a><span class="w">  </span><span class="nt">n_epochs</span><span class="p">:</span><span class="w">      </span><span class="l l-Scalar l-Scalar-Plain">5</span>
-<a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a><span class="w">  </span><span class="nt">lr</span><span class="p">:</span><span class="w">            </span><span class="l l-Scalar l-Scalar-Plain">5e-4</span>
-<a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a><span class="w">  </span><span class="nt">vf_coef</span><span class="p">:</span><span class="w">       </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
-<a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a><span class="w">  </span><span class="nt">entropy_coef</span><span class="p">:</span><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">0.005</span>
-<a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a><span class="w">  </span><span class="nt">max_grad_norm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
-<a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a><span class="w">  </span><span class="nt">gae_lambda</span><span class="p">:</span><span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">0.95</span>
-<a id="__codelineno-2-40" name="__codelineno-2-40" href="#__codelineno-2-40"></a><span class="w">  </span><span class="nt">gamma</span><span class="p">:</span><span class="w">         </span><span class="l l-Scalar l-Scalar-Plain">0.99</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nt">input_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor</span><span class="w">   </span><span class="c1"># mjlab&#39;s obs group name -- check with the task&#39;s</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">                         </span><span class="c1"># own ObservationManager printout at env build time,</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">                         </span><span class="c1"># or your task&#39;s observation config (&quot;actor&quot;/&quot;critic&quot;</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">                         </span><span class="c1"># are common, but not guaranteed)</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">    </span><span class="nt">input_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;your obs dim&gt;</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">    </span><span class="nt">layers</span><span class="p">:</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">elu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">none</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">elu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">none</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">critic_state_enc</span>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mlp</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">    </span><span class="nt">input_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="w">    </span><span class="nt">input_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;your obs dim&gt;</span>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="w">    </span><span class="nt">layers</span><span class="p">:</span>
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">elu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">none</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">elu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">none</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>
+<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="nt">flows</span><span class="p">:</span>
+<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;actor_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
+<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;critic_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
+<a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a>
+<a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a><span class="nt">actor</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">actor</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">gaussian</span><span class="p p-Indicator">,</span><span class="nt"> action_dim</span><span class="p">:</span><span class="w"> </span><span class="nv">&lt;your action dim&gt;</span><span class="p p-Indicator">,</span><span class="nt"> log_std_init</span><span class="p">:</span><span class="w"> </span><span class="nv">-1.0</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a><span class="nt">critic</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">critic</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">value</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a>
+<a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a><span class="nt">losses</span><span class="p">:</span>
+<a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">policy</span><span class="p p-Indicator">,</span><span class="nt">  weight</span><span class="p">:</span><span class="w"> </span><span class="nv">1.0</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">value</span><span class="p p-Indicator">,</span><span class="nt">   weight</span><span class="p">:</span><span class="w"> </span><span class="nv">1.0</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">entropy</span><span class="p p-Indicator">,</span><span class="nt"> weight</span><span class="p">:</span><span class="w"> </span><span class="nv">0.005</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a>
+<a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a><span class="nt">train</span><span class="p">:</span>
+<a id="__codelineno-2-40" name="__codelineno-2-40" href="#__codelineno-2-40"></a><span class="w">  </span><span class="nt">total_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20_000_000</span>
+<a id="__codelineno-2-41" name="__codelineno-2-41" href="#__codelineno-2-41"></a><span class="w">  </span><span class="nt">n_envs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4096</span><span class="w">          </span><span class="c1"># mjlab-sized: GPU-batched inside ONE process, not</span>
+<a id="__codelineno-2-42" name="__codelineno-2-42" href="#__codelineno-2-42"></a><span class="w">                         </span><span class="c1"># N OS processes -- this is not the same knob as a</span>
+<a id="__codelineno-2-43" name="__codelineno-2-43" href="#__codelineno-2-43"></a><span class="w">                         </span><span class="c1"># SyncVectorEnv/AsyncVectorEnv n_envs</span>
+<a id="__codelineno-2-44" name="__codelineno-2-44" href="#__codelineno-2-44"></a><span class="w">  </span><span class="nt">n_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">24</span>
+<a id="__codelineno-2-45" name="__codelineno-2-45" href="#__codelineno-2-45"></a><span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16384</span>
+<a id="__codelineno-2-46" name="__codelineno-2-46" href="#__codelineno-2-46"></a><span class="w">  </span><span class="nt">n_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<a id="__codelineno-2-47" name="__codelineno-2-47" href="#__codelineno-2-47"></a><span class="w">  </span><span class="nt">lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1e-3</span>
+<a id="__codelineno-2-48" name="__codelineno-2-48" href="#__codelineno-2-48"></a><span class="w">  </span><span class="nt">gamma</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.99</span>
+<a id="__codelineno-2-49" name="__codelineno-2-49" href="#__codelineno-2-49"></a><span class="w">  </span><span class="nt">gae_lambda</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.95</span>
+<a id="__codelineno-2-50" name="__codelineno-2-50" href="#__codelineno-2-50"></a><span class="w">  </span><span class="nt">clip_range</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.2</span>
+<a id="__codelineno-2-51" name="__codelineno-2-51" href="#__codelineno-2-51"></a><span class="w">  </span><span class="nt">entropy_coef</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.005</span>
+<a id="__codelineno-2-52" name="__codelineno-2-52" href="#__codelineno-2-52"></a><span class="w">  </span><span class="nt">vf_coef</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+<a id="__codelineno-2-53" name="__codelineno-2-53" href="#__codelineno-2-53"></a><span class="w">  </span><span class="nt">max_grad_norm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>srl-train<span class="w"> </span>--config<span class="w"> </span>configs/envs/isaaclab_ant_ppo.yaml<span class="w"> </span>--device<span class="w"> </span>cuda
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>srl-train<span class="w"> </span>--config<span class="w"> </span>configs/envs/mjlab_example_ppo.yaml<span class="w"> </span>--env<span class="w"> </span>mjlab:Your-Task-Id<span class="w"> </span>--device<span class="w"> </span>cuda
 </code></pre></div>
-<h2 id="sac-async-gpu-buffer">SAC + Async + GPU Buffer<a class="headerlink" href="#sac-async-gpu-buffer" title="Permanent link">&para;</a></h2>
-<p>Tận dụng zero-copy GPU buffer với async runner:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">train</span><span class="p">:</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">use_async</span><span class="p">:</span><span class="w">      </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">use_gpu_buffer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">encoder_update_freq</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
-</code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>srl-train<span class="w"> </span>--config<span class="w"> </span>configs/envs/isaaclab_visual_sac.yaml<span class="w"> </span>--device<span class="w"> </span>cuda
-</code></pre></div>
-<h2 id="gpu-memory-tips">GPU memory tips<a class="headerlink" href="#gpu-memory-tips" title="Permanent link">&para;</a></h2>
+<p>Off-policy (SAC/TD3/DDPG) works the same way -- see <a href="../isaaclab/#sac--async--gpu-buffer">Isaac Lab's SAC section</a> for the async/GPU-buffer knobs, which apply identically here.</p>
+<h2 id="why-a-single-encoder-or-explicit-input_name-both-work-now">Why a single encoder or explicit <code>input_name</code> both work now<a class="headerlink" href="#why-a-single-encoder-or-explicit-input_name-both-work-now" title="Permanent link">&para;</a></h2>
+<p>Earlier versions had a real bug here: <code>srl/cli/train.py</code>'s rollout loop remaps the obs dict to encoder names <em>before</em> calling <code>agent.predict()</code>, and <code>AgentModel.forward()</code> remapped it <em>again</em> internally -- the second pass looked for the <em>original</em> raw obs key, which no longer existed once the first pass had already renamed it, raising <code>KeyError</code> for any config using explicit <code>input_name</code>. <code>AgentModel._remap_obs_dict</code> now short-circuits when the incoming dict's keys already exactly match the encoder names, so remapping only ever happens once regardless of how many places call into it. Two other isaaclab/mjlab-specific gaps were fixed alongside it:</p>
 <ul>
-<li>Dùng <code>elu</code> activations (gradients smoother hơn <code>relu</code>)</li>
-<li><code>vf_coef=1.0</code> cân bằng policy và value loss trong Isaac Lab</li>
-<li>Tăng <code>n_envs</code> thay vì <code>n_steps</code> khi có đủ VRAM</li>
-<li><code>use_gpu_buffer=True</code> để tránh CPU↔GPU copies</li>
+<li><code>_evaluate_agent</code> unconditionally squeezed the batch dim off actions for single-env eval, which broke isaaclab/mjlab envs (they always expect a batched <code>(1, action_dim)</code> action even at <code>num_envs=1</code>).</li>
+<li>Off-policy random-action warmup called <code>.sample()</code> on the action space directly, which isaaclab/mjlab's lightweight <code>Box</code>-style space dataclass doesn't implement, and (once worked around) stacked N samples of the already-<em>batched</em> <code>action_space</code> instead of <code>single_action_space</code>, producing the wrong shape. <code>IsaacLabWrapper</code> now also exposes <code>single_act_space</code> for exactly this.</li>
 </ul>
 <h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Lỗi</th>
-<th>Nguyên nhân</th>
+<th>Error</th>
+<th>Cause</th>
 <th>Fix</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>ModuleNotFoundError: isaaclab</code></td>
-<td>Sai environment</td>
-<td>Kích hoạt đúng Isaac Lab env</td>
+<td><code>KeyError: &lt;task id&gt;</code> in <code>load_env_cfg</code></td>
+<td>Task package not installed / entry point not registered</td>
+<td>Confirm <code>python -c "import mjlab; from mjlab.tasks.registry import list_tasks; print(list_tasks())"</code> lists your task id</td>
 </tr>
 <tr>
-<td><code>ModuleNotFoundError: pxr</code></td>
-<td>Isaac Sim chưa setup</td>
-<td>Chạy <code>source setup_conda_env.sh</code> trước</td>
+<td>Observation routing <code>KeyError</code></td>
+<td><code>input_name</code> doesn't match the task's obs group</td>
+<td>Check the <code>ObservationManager</code> table mjlab prints at env construction time</td>
 </tr>
 <tr>
-<td>Observation routing errors</td>
-<td><code>input_name</code> không khớp</td>
-<td>Kiểm tra <code>env.observation_space</code> keys</td>
-</tr>
-<tr>
-<td>Vision config import fails</td>
-<td>Isaac Lab version cũ</td>
-<td>Nâng cấp hoặc dùng state-based tasks</td>
+<td><code>IndexError</code>/<code>ValueError</code> on action shape during eval or warmup</td>
+<td>Running an SRL build older than this fix</td>
+<td>Update <code>srl-rl</code></td>
 </tr>
 </tbody>
 </table>
-<h2 id="xem-them">Xem thêm<a class="headerlink" href="#xem-them" title="Permanent link">&para;</a></h2>
+<h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
+<li><a href="../isaaclab/">Isaac Lab Integration</a></li>
 <li><a href="../../training/buffers/">GPU Replay Buffer</a></li>
 <li><a href="../../training/runners/">Runners &amp; Training Loop</a></li>
-<li><a href="../../training/algorithms/">Algorithms — PPO</a></li>
-<li><a href="../../environments/isaaclab/">Environments — Isaac Lab</a></li>
 </ul>
 
 
