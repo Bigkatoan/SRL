@@ -48,7 +48,7 @@ pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[racecar]"
 # Everything at once
 pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[all]"
 
-# Development tools (mkdocs, pytest, mypy, …)
+# Development tools (sphinx, pytest, mypy, …)
 pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[dev]"
 ```
 

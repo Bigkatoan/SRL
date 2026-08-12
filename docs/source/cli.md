@@ -86,6 +86,7 @@ srl-train --config configs/envs/pendulum_ppo.yaml \
           --resume checkpoints/ppo_pendulum_ppo/final_0000100000.pt
 ```
 
+(live-viewer-visualize)=
 ### Live viewer (`--visualize`)
 
 ```bash

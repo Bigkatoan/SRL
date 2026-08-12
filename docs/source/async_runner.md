@@ -109,4 +109,4 @@ synchronous runner. The `GPUReplayBuffer` serialises to CPU tensors automaticall
 
 - [gpu_replay_buffer.md](gpu_replay_buffer.md) — GPU circular buffer
 - [algorithms.md](algorithms.md) — encoder optimizer and `encoder_update_freq`
-- [config_reference.md](config_reference.md#asyncrunnerconfig-v020) — full field reference
+- {ref}`config_reference.md <asyncrunnerconfig>` — full field reference

@@ -29,8 +29,10 @@ pip install git+https://github.com/Bigkatoan/SRL.git
 python -c "import isaaclab; import srl; print('OK')"
 ```
 
-!!! warning "Quan trọng"
-    SRL phải được cài vào đúng Isaac Lab environment. Nếu cài vào environment khác, imports sẽ fail tại runtime dù CLI tìm thấy.
+```{admonition} Quan trọng
+:class: warning
+SRL phải được cài vào đúng Isaac Lab environment. Nếu cài vào environment khác, imports sẽ fail tại runtime dù CLI tìm thấy.
+```
 
 **Thứ tự quan trọng:**
 
@@ -103,6 +105,7 @@ train:
 srl-train --config configs/envs/isaaclab_ant_ppo.yaml --device cuda
 ```
 
+(sac-async-gpu-buffer)=
 ## SAC + Async + GPU Buffer
 
 Tận dụng zero-copy GPU buffer với async runner:

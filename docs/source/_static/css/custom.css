@@ -1,0 +1,14 @@
+/* SRL docs — small overrides on top of sphinx-book-theme's defaults. */
+
+:root {
+  --sd-color-tabs-label-active: #4f46e5;
+  --sd-color-tabs-underline-active: #4f46e5;
+}
+
+.bd-sidebar-primary {
+  font-size: 0.9rem;
+}
+
+table.docutils {
+  width: 100%;
+}
