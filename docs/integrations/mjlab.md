@@ -88,7 +88,26 @@ train:
 srl-train --config configs/envs/mjlab_example_ppo.yaml --env mjlab:Your-Task-Id --device cuda
 ```
 
-Off-policy (SAC/TD3/DDPG) works the same way -- see [Isaac Lab's SAC section](isaaclab.md#sac--async--gpu-buffer) for the async/GPU-buffer knobs, which apply identically here.
+Off-policy (SAC/TD3/DDPG) works the same way -- see [Isaac Lab's SAC section](isaaclab.md#sac-async-gpu-buffer) for the async/GPU-buffer knobs, which apply identically here.
+
+## Watching training live: `--visualize`
+
+```bash
+srl-train --config configs/envs/mjlab_example_ppo.yaml --env mjlab:Your-Task-Id --device cuda --visualize
+```
+
+Opens mjlab's own interactive, browser-based `ViserPlayViewer` against a *second*,
+independent single-env instance of the same task -- the main `n_envs`-many training
+envs stay headless and unaffected. The console prints the URL to open
+(`http://localhost:<port>` by default). The viewer runs live inference with the
+current training weights directly (no snapshot/reload step), so what you see always
+reflects the policy as of a moment ago.
+
+This works cleanly for mjlab specifically because each env instance owns independent
+MuJoCo state -- unlike Isaac Lab, where a process hosts exactly one shared Isaac Sim
+render context, so `--visualize` is not supported there. See
+[the CLI reference](../cli.md#live-viewer-visualize) for the full behavior,
+including the other env types' `--visualize` backends.
 
 ## Why a single encoder or explicit `input_name` both work now
 

@@ -11,6 +11,7 @@ The source of truth is [srl/utils/checkpoint.py](https://github.com/Bigkatoan/SR
 - `model_state`: `state_dict()` for plain `torch.nn.Module` models, or the result of `checkpoint_payload()` for richer agent objects
 - `step`: integer training step attached to the save
 - `metrics`: free-form metrics dict attached by the caller
+- `rng_state`: `python`/`numpy`/`torch` (+ CUDA, if available) RNG state at save time
 - `optimizer_state`: included only when an optimizer is passed
 
 If `safetensors` is available and the payload is just model weights plus metadata, SRL writes:
@@ -89,6 +90,10 @@ What resume restores depends on the saved payload:
 
 - model weights are always expected
 - optimizer state is restored only if it was saved and the receiving code passes an optimizer into `load(...)`
+- `python`/`numpy`/`torch` RNG state is restored automatically when present, so a
+  resumed run continues with the same exploration-noise/minibatch-shuffle sequence an
+  uninterrupted run would have had — not just the same model/optimizer/step.
+  Checkpoints saved before this was tracked simply have nothing to restore here.
 - step and metrics are returned in the payload for the caller to interpret
 
 ## Compatibility expectations

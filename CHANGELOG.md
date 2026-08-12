@@ -7,6 +7,95 @@ The format follows Keep a Changelog and the project uses Semantic Versioning as 
 ## [Unreleased]
 
 ### Added
+- **`srl-train --visualize`** — runs one extra single env in a background thread,
+  doing live deterministic inference against the *current* (still-training) model
+  weights and rendering it, while the main training envs keep running headless and
+  unaffected. No snapshotting or reload: the viewer reads `agent.model`/
+  `agent.predict` directly, so it always reflects the live weights. mjlab uses its
+  own interactive, browser-based `ViserPlayViewer`; flat/goal/racecar envs open a
+  `render_mode="human"` window. Not supported for isaaclab (a process hosts exactly
+  one Isaac Sim render context, shared by every isaaclab env in it, so a second
+  view-only env can't be added alongside headless training envs the way it can for
+  mjlab or plain Gymnasium). See `srl/utils/live_viewer.py`.
+- **Config validation in `ModelBuilder`** — missing `action_dim` on actor/critic head
+  types that need it, missing `input_dim`/`input_shape` on mlp/lstm/cnn encoders, an
+  encoder name declared twice with different configs, and unknown encoder/head types
+  now raise a clear error *before* any tensor op runs, instead of failing deep inside
+  the first forward pass with a bare `mat1 and mat2 shapes cannot be multiplied` or
+  `nn.Linear(None, ...)` `TypeError`. The unknown-type error also now reports the real
+  combined list of built-in + registered types, instead of the registry's own
+  `Registered: []` (built-ins are special-cased in `builder.py` and never touch the
+  registry, so that list was always empty unless a project registers custom types).
+- **RNG state in checkpoints** — `python`/`numpy`/`torch` (+ CUDA) RNG state is now
+  saved and restored, so `--resume` actually continues with the same
+  exploration-noise/minibatch-shuffle sequence an uninterrupted run would have had,
+  not just the same model/optimizer/step. Backward compatible: checkpoints saved
+  before this change simply have nothing to restore.
+- `matplotlib` is now a real base dependency (previously imported by the logger but
+  declared nowhere, so a plain `pip install srl-rl` silently disabled
+  `enable_plots=True`'s default PNG export with no indication why); a missing install
+  now also emits a one-time warning as defense-in-depth.
+
+### Fixed
+- **SAC/DDPG/TD3 bootstrap target used `terminated OR truncated`** instead of true
+  termination — `(1 - done) * next_q` was zeroed on every time-limit cutoff (i.e.
+  nearly every episode on nearly every task), silently biasing Q-values low with no
+  crash to surface it. `truncated` is now tracked as a genuinely separate field in
+  `ReplayBuffer`/`GPUReplayBuffer`/`PrioritizedReplayBuffer` (not silently dropped),
+  and the three env wrappers (`GymnasiumWrapper`/`GoalEnvWrapper`/`RacecarWrapper`)
+  return true `terminated` instead of pre-combining it with `truncated`.
+- **PPO/A2C/A3C re-evaluated a freshly sampled action instead of the one actually
+  taken** — `AgentModel.forward()`'s actor branch always called the actor head's
+  plain `forward()`, which draws a fresh `rsample()` every call, so
+  `update()`'s stored-batch re-evaluation compared a *new, unrelated* action's
+  log-prob against the recorded one. This silently broke PPO's clipped
+  importance-sampling ratio and made A2C/A3C's policy gradient an estimator of the
+  wrong quantity, and is also why the `entropy_coef` hyperparameter had zero effect
+  (entropy was hardcoded to 0 via a `get_distribution()` check no actor head ever
+  implemented). Fixed by wiring the actor heads' existing (but previously unused)
+  `evaluate_actions(z, action)` through a new `actor_action` parameter on
+  `AgentModel.forward()`.
+- **`async_off_policy_runner.py`** called `buffer.add(...)` positionally, which
+  silently swapped `next_obs`/`done` for `ReplayBuffer` (its real argument order
+  differs from `GPUReplayBuffer`'s) — crashed `use_async=True` without
+  `use_gpu_buffer`. Also read `env.action_space` where `IsaacLabWrapper` only exposes
+  `.act_space`, and called `.sample()` directly, which isaaclab/mjlab's lightweight
+  space doesn't implement. Fixed with keyword-arg buffer calls and a new shared
+  `srl/utils/spaces.py::sample_action_space()`.
+- **`Collector`** claimed to support both `RolloutBuffer` and `ReplayBuffer` but only
+  actually worked with the former — paired with a `ReplayBuffer` it crashed
+  immediately. Now dispatches on the buffer's actual type.
+- **`HERReplayBuffer`** never stored per-timestep `done`, fabricating
+  `dones = (rewards == 0.0)` for every sampled transition including the fraction that
+  keeps the original (non-relabelled) goal — silently discarding real termination
+  info whenever reward isn't purely sparse. Now stores real `done` and only uses the
+  reward heuristic for the HER-relabelled fraction, where it's actually correct.
+- **`apply_obs_remap`'s broadcast rule** had no case for "1 obs key, N>1 unnamed
+  encoders" (only the N=1 rename case existed) — crashed the library's own flagship
+  example configs (`halfcheetah_ppo.yaml`, `halfcheetah_sac.yaml`, two encoders, no
+  explicit `input_name`) on the very first `agent.predict()`/`update()` call.
+- **`ConvDecoderHead` construction** in the aux-loss (autoencoder) wiring passed a
+  nonexistent `out_channels` kwarg — crashed any `aux_type: autoencoder` config
+  (including the shipped `car_racing_ppo_visual.yaml`) at model-build time. Fixed to
+  pass `output_shape` (the encoder's own `input_shape` — the decoder reconstructs
+  what the encoder read in).
+- Two `nn.ModuleDict.get(...)` calls in PPO's aux-loss wiring (`ModuleDict` has no
+  `.get()`) — crashed constructing *any* `VisualPPOConfig` PPO agent for an aux-loss
+  config before a single gradient step.
+- `PrioritizedReplayBuffer._write()`'s override was missing the `truncated`
+  parameter the base class's `add()` now always passes — every `add()` call raised
+  `TypeError`.
+
+### Changed
+- CI now runs the *entire* `tests/` suite (previously only 2 of 7 test files), plus
+  substantial new coverage: an end-to-end `srl-train` integration test against a fake
+  mjlab/isaaclab-shaped env, one-gradient-step tests for all 6 algorithms, and
+  add/sample round-trip tests for every buffer class.
+- Lint cleaned up (168 `ruff` errors → 0, 58 files reformatted with `black`);
+  `ruff`/`black` versions and an explicit `[tool.ruff.lint] select` are now pinned in
+  `pyproject.toml` so the enforced rule set can't silently drift with the installed
+  tool version.
+
 - **mjlab integration** — `--env mjlab:<task>` / `env_type: mjlab`, a lighter-weight
   alternative to the Isaac Lab integration for projects using
   [mjlab](https://github.com/mujocolab/mjlab) (MuJoCo-Warp, GPU-batched) instead of
