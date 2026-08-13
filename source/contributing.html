@@ -53,7 +53,7 @@
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="prev" title="Ví dụ: Cấu hình Encoders cho SAC / TD3 / Actor-Critic" href="examples/encoder_examples.html" />
+    <link rel="prev" title="Example: Encoder Configurations for SAC / TD3 / Actor-Critic" href="examples/encoder_examples.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -212,7 +212,7 @@
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Training System</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="training/index.html">Training System</a></li>
-<li class="toctree-l1"><a class="reference internal" href="training/algorithms.html">Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms.html">Algorithms</a></li>
 <li class="toctree-l1"><a class="reference internal" href="training/runners.html">Runners &amp; Training Loop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="training/buffers.html">Replay Buffers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="checkpointing.html">Checkpointing</a></li>
@@ -251,10 +251,9 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="algorithms.html">Algorithms</a></li>
 <li class="toctree-l1"><a class="reference internal" href="config_reference.html">Configuration Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="limitations.html">Limitations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="examples/encoder_examples.html">Ví dụ: Cấu hình Encoders cho SAC / TD3 / Actor-Critic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples/encoder_examples.html">Example: Encoder Configurations for SAC / TD3 / Actor-Critic</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Contributing</a></li>
 </ul>
 
@@ -530,8 +529,8 @@ python<span class="w"> </span>tests/test_environments.py
 <li><p>Check if it needs a custom wrapper (Goal → <code class="docutils literal notranslate"><span class="pre">GoalEnvWrapper</span></code>, Isaac → <code class="docutils literal notranslate"><span class="pre">IsaacLabWrapper</span></code>)</p></li>
 <li><p>Create <code class="docutils literal notranslate"><span class="pre">configs/envs/&lt;env&gt;_&lt;algo&gt;.yaml</span></code></p></li>
 <li><p>Add a training script (or extend an existing one) in <code class="docutils literal notranslate"><span class="pre">examples/envs/</span></code></p></li>
-<li><p>Add a smoke test entry in <code class="docutils literal notranslate"><span class="pre">tests/test_environments.py</span></code></p></li>
-<li><p>Add a docs page in <code class="docutils literal notranslate"><span class="pre">docs/environments/</span></code></p></li>
+<li><p>Add a smoke test entry in <code class="docutils literal notranslate"><span class="pre">tests/test_cli_smoke.py</span></code></p></li>
+<li><p>Add a docs page in <code class="docutils literal notranslate"><span class="pre">docs/source/environments/</span></code> and list it in <code class="docutils literal notranslate"><span class="pre">docs/index.rst</span></code></p></li>
 </ol>
 </section>
 <hr class="docutils" />
@@ -542,7 +541,7 @@ python<span class="w"> </span>tests/test_environments.py
 <li><p>Add a <code class="docutils literal notranslate"><span class="pre">&lt;Name&gt;Config</span></code> dataclass in <code class="docutils literal notranslate"><span class="pre">srl/core/config.py</span></code></p></li>
 <li><p>Register losses in <code class="docutils literal notranslate"><span class="pre">srl/losses/rl_losses.py</span></code></p></li>
 <li><p>Add a training script in <code class="docutils literal notranslate"><span class="pre">examples/</span></code></p></li>
-<li><p>Document in <code class="docutils literal notranslate"><span class="pre">docs/algorithms.md</span></code></p></li>
+<li><p>Document in <code class="docutils literal notranslate"><span class="pre">docs/source/algorithms.md</span></code></p></li>
 </ol>
 </section>
 <hr class="docutils" />
@@ -575,7 +574,7 @@ python<span class="w"> </span>tests/test_environments.py
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Ví dụ: Cấu hình Encoders cho SAC / TD3 / Actor-Critic</p>
+        <p class="prev-next-title">Example: Encoder Configurations for SAC / TD3 / Actor-Critic</p>
       </div>
     </a>
 </div>

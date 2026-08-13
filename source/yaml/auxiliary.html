@@ -213,7 +213,7 @@
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Training System</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../training/index.html">Training System</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../training/algorithms.html">Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../algorithms.html">Algorithms</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../training/runners.html">Runners &amp; Training Loop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../training/buffers.html">Replay Buffers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../checkpointing.html">Checkpointing</a></li>
@@ -252,10 +252,9 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../algorithms.html">Algorithms</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../config_reference.html">Configuration Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../limitations.html">Limitations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/encoder_examples.html">Ví dụ: Cấu hình Encoders cho SAC / TD3 / Actor-Critic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/encoder_examples.html">Example: Encoder Configurations for SAC / TD3 / Actor-Critic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
 </ul>
 
@@ -473,9 +472,13 @@
             </div>
             <nav aria-label="Page">
                 <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cau-hinh">Cấu hình</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cac-auxiliary-loss-types">Các auxiliary loss types</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#chi-tiet-tung-loai">Chi tiết từng loại</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-encoder-side-yaml">The encoder side (YAML)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-algorithm-side-python">The algorithm side (Python)</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#auxiliary-loss-types">Auxiliary loss types</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#augmentation-modes">Augmentation modes</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#per-type-notes">Per-type notes</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ae-autoencoder"><code class="docutils literal notranslate"><span class="pre">ae</span></code> — Autoencoder</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#curl-contrastive-unsupervised-representations-for-rl"><code class="docutils literal notranslate"><span class="pre">curl</span></code> — Contrastive Unsupervised Representations for RL</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#byol-bootstrap-your-own-latent"><code class="docutils literal notranslate"><span class="pre">byol</span></code> — Bootstrap Your Own Latent</a></li>
@@ -483,7 +486,7 @@
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#best-practices">Best practices</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#xem-them">Xem thêm</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>
             </nav>
         </div>
@@ -497,65 +500,139 @@
                   
   <section id="auxiliary-representation-learning">
 <h1>Auxiliary Representation Learning<a class="headerlink" href="#auxiliary-representation-learning" title="Link to this heading">#</a></h1>
-<p>Auxiliary losses giúp encoder học biểu diễn tốt hơn cho vision tasks bằng cách thêm objective song song với RL loss chính.</p>
-<section id="cau-hinh">
-<h2>Cấu hình<a class="headerlink" href="#cau-hinh" title="Link to this heading">#</a></h2>
+<p>Auxiliary losses help a visual encoder learn better representations by training it
+against an objective that runs alongside the main RL loss.</p>
+<p>There are two halves to this, and they are configured in different places:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Half</p></th>
+<th class="head"><p>Where</p></th>
+<th class="head"><p>What it does</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>The auxiliary <strong>module</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">encoders[].aux_type</span></code> in YAML</p></td>
+<td><p>Adds a decoder or projection head to the model graph</p></td>
+</tr>
+<tr class="row-odd"><td><p>The auxiliary <strong>objective</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">aux_loss_type</span></code> on <code class="docutils literal notranslate"><span class="pre">VisualSACConfig</span></code></p></td>
+<td><p>Selects which loss SAC computes with that module</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Only the first half is declarative today. <code class="docutils literal notranslate"><span class="pre">srl-train</span></code> always builds a plain <code class="docutils literal notranslate"><span class="pre">SACConfig</span></code>
+from the <code class="docutils literal notranslate"><span class="pre">train:</span></code> block, and <code class="docutils literal notranslate"><span class="pre">aux_loss_type</span></code>, <code class="docutils literal notranslate"><span class="pre">aux_weight</span></code>, <code class="docutils literal notranslate"><span class="pre">encoder_lr</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">encoder_optimize_with_critic</span></code> exist only on <code class="docutils literal notranslate"><span class="pre">VisualSACConfig</span></code>. Putting them in a
+<code class="docutils literal notranslate"><span class="pre">train:</span></code> block has no effect — build the config in Python instead.</p>
+</div>
+<section id="the-encoder-side-yaml">
+<h2>The encoder side (YAML)<a class="headerlink" href="#the-encoder-side-yaml" title="Link to this heading">#</a></h2>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">encoders</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">image_enc</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cnn</span>
 <span class="w">    </span><span class="nt">input_shape</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">84</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">84</span><span class="p p-Indicator">]</span>
 <span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
-<span class="w">    </span><span class="nt">aux_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">curl</span>
+<span class="w">    </span><span class="nt">aux_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">contrastive</span><span class="w">     </span><span class="c1"># autoencoder | contrastive | byol</span>
 <span class="w">    </span><span class="nt">aux_latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
 <span class="w">    </span><span class="nt">use_momentum</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 <span class="w">    </span><span class="nt">momentum_tau</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.99</span>
-
-<span class="nt">train</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">aux_loss_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">curl</span><span class="w">       </span><span class="c1"># none|ae|vae|curl|byol|drq|spr|barlow</span>
-<span class="w">  </span><span class="nt">encoder_update_freq</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
-<span class="w">  </span><span class="nt">encoder_optimize_with_critic</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">layers</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_channels</span><span class="p">:</span><span class="w"> </span><span class="nv">32</span><span class="p p-Indicator">,</span><span class="nt"> kernel</span><span class="p">:</span><span class="w"> </span><span class="nv">8</span><span class="p p-Indicator">,</span><span class="nt"> stride</span><span class="p">:</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="nt"> padding</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">}</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_channels</span><span class="p">:</span><span class="w"> </span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="nt"> kernel</span><span class="p">:</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="nt"> stride</span><span class="p">:</span><span class="w"> </span><span class="nv">2</span><span class="p p-Indicator">,</span><span class="nt"> padding</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">}</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_channels</span><span class="p">:</span><span class="w"> </span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="nt"> kernel</span><span class="p">:</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="nt"> stride</span><span class="p">:</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="nt"> padding</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">}</span>
 </pre></div>
 </div>
-</section>
-<section id="cac-auxiliary-loss-types">
-<h2>Các auxiliary loss types<a class="headerlink" href="#cac-auxiliary-loss-types" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">aux_type</span></code> is what actually adds a module to the graph:</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
-<tr class="row-odd"><th class="head"><p>Type</p></th>
-<th class="head"><p>Phương pháp</p></th>
-<th class="head"><p>Modules cần</p></th>
-<th class="head"><p>Tốt cho</p></th>
+<tr class="row-odd"><th class="head"><p><code class="docutils literal notranslate"><span class="pre">aux_type</span></code></p></th>
+<th class="head"><p>Module added</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">autoencoder</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ConvDecoderHead</span></code></p></td>
+<td><p>CNN encoders only — needs <code class="docutils literal notranslate"><span class="pre">input_shape</span></code> to know the reconstruction target</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">contrastive</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ProjectionHead</span></code></p></td>
+<td><p>Width comes from <code class="docutils literal notranslate"><span class="pre">aux_latent_dim</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">byol</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ProjectionHead</span></code></p></td>
+<td><p>Same head; pair it with <code class="docutils literal notranslate"><span class="pre">use_momentum:</span> <span class="pre">true</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Any other value is ignored and no auxiliary module is built.</p>
+<p><code class="docutils literal notranslate"><span class="pre">use_momentum:</span> <span class="pre">true</span></code> wraps the encoder in a <code class="docutils literal notranslate"><span class="pre">MomentumEncoder</span></code> with EMA rate
+<code class="docutils literal notranslate"><span class="pre">momentum_tau</span></code>. CURL and BYOL both need it — they read the target view through the
+momentum copy, and return no loss at all if it is missing.</p>
+</section>
+<section id="the-algorithm-side-python">
+<h2>The algorithm side (Python)<a class="headerlink" href="#the-algorithm-side-python" title="Link to this heading">#</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.core.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">VisualSACConfig</span>
+
+<span class="n">cfg</span> <span class="o">=</span> <span class="n">VisualSACConfig</span><span class="p">(</span>
+    <span class="n">action_dim</span>                   <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
+    <span class="n">aux_loss_type</span>                <span class="o">=</span> <span class="s2">&quot;curl&quot;</span><span class="p">,</span>   <span class="c1"># none|ae|vae|curl|byol|drq|spr|barlow</span>
+    <span class="n">aux_weight</span>                   <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+    <span class="n">augmentation_mode</span>            <span class="o">=</span> <span class="s2">&quot;curl&quot;</span><span class="p">,</span>   <span class="c1"># drq | curl | aggressive</span>
+    <span class="n">momentum_tau</span>                 <span class="o">=</span> <span class="mf">0.99</span><span class="p">,</span>
+    <span class="n">encoder_lr</span>                   <span class="o">=</span> <span class="mf">1e-4</span><span class="p">,</span>
+    <span class="n">encoder_update_freq</span>          <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="n">encoder_optimize_with_critic</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The auxiliary loss is only computed when the config is a <code class="docutils literal notranslate"><span class="pre">VisualSACConfig</span></code>,
+<code class="docutils literal notranslate"><span class="pre">aux_loss_type</span> <span class="pre">!=</span> <span class="pre">&quot;none&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">aux_weight</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>, and the observation dict contains at least
+one 4-D (pixel) tensor.</p>
+<section id="auxiliary-loss-types">
+<h3>Auxiliary loss types<a class="headerlink" href="#auxiliary-loss-types" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p><code class="docutils literal notranslate"><span class="pre">aux_loss_type</span></code></p></th>
+<th class="head"><p>Method</p></th>
+<th class="head"><p>Requires</p></th>
+<th class="head"><p>Good for</p></th>
 </tr>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">none</span></code></p></td>
-<td><p>Không có auxiliary</p></td>
+<td><p>No auxiliary loss</p></td>
 <td><p>—</p></td>
 <td><p>State-based SAC/TD3</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ae</span></code></p></td>
 <td><p>Autoencoder (MSE reconstruction)</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">ConvDecoderHead</span></code></p></td>
-<td><p>Baseline vision</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ConvDecoderHead</span></code> (<code class="docutils literal notranslate"><span class="pre">aux_type:</span> <span class="pre">autoencoder</span></code>)</p></td>
+<td><p>Vision baseline</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">vae</span></code></p></td>
 <td><p>Variational AE (MSE + KL)</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">VAEHead</span></code>, <code class="docutils literal notranslate"><span class="pre">ConvDecoderHead</span></code></p></td>
-<td><p>Generative representation</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VAEHead</span></code> + <code class="docutils literal notranslate"><span class="pre">ConvDecoderHead</span></code></p></td>
+<td><p>Generative representations</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">curl</span></code></p></td>
 <td><p>CURL InfoNCE contrastive</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">ProjectionHead</span></code></p></td>
-<td><p>Default vision SAC</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ProjectionHead</span></code> + momentum encoder</p></td>
+<td><p>Default for vision SAC</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">byol</span></code></p></td>
 <td><p>BYOL self-prediction</p></td>
-<td><p>Momentum encoder, <code class="docutils literal notranslate"><span class="pre">ProjectionHead</span></code></p></td>
-<td><p>Stable contrastive</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ProjectionHead</span></code> + momentum encoder</p></td>
+<td><p>Stable, no negatives needed</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">drq</span></code></p></td>
-<td><p>DrQ Q-value augmentation consistency</p></td>
-<td><p>Augmentation pipeline</p></td>
+<td><p>DrQ augmented Q-consistency</p></td>
+<td><p>Nothing extra — augments the critic input</p></td>
 <td><p>Data-augmented RL</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">spr</span></code></p></td>
@@ -571,12 +648,42 @@
 </tbody>
 </table>
 </div>
+<p><code class="docutils literal notranslate"><span class="pre">VAEHead</span></code> and <code class="docutils literal notranslate"><span class="pre">LatentTransitionModel</span></code> exist in
+<a class="reference external" href="https://github.com/Bigkatoan/SRL/blob/main/srl/networks/heads/aux_head.py">srl/networks/heads/aux_head.py</a>
+but <code class="docutils literal notranslate"><span class="pre">ModelBuilder</span></code> does not instantiate them from YAML, so <code class="docutils literal notranslate"><span class="pre">vae</span></code> and <code class="docutils literal notranslate"><span class="pre">spr</span></code> need those
+modules attached in Python. If the required module is missing, <code class="docutils literal notranslate"><span class="pre">_compute_aux_loss</span></code>
+returns <code class="docutils literal notranslate"><span class="pre">None</span></code> and training silently continues with the plain RL loss.</p>
 </section>
-<section id="chi-tiet-tung-loai">
-<h2>Chi tiết từng loại<a class="headerlink" href="#chi-tiet-tung-loai" title="Link to this heading">#</a></h2>
+<section id="augmentation-modes">
+<h3>Augmentation modes<a class="headerlink" href="#augmentation-modes" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">augmentation_mode</span></code> controls the view pipeline used by <code class="docutils literal notranslate"><span class="pre">curl</span></code>, <code class="docutils literal notranslate"><span class="pre">byol</span></code>, and <code class="docutils literal notranslate"><span class="pre">barlow</span></code>
+(<code class="docutils literal notranslate"><span class="pre">drq</span></code> always uses random crop):</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Mode</p></th>
+<th class="head"><p>Pipeline</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">drq</span></code></p></td>
+<td><p>Random crop</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">curl</span></code></p></td>
+<td><p>Random crop + colour jitter</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">aggressive</span></code></p></td>
+<td><p>Random crop + colour jitter + translate + cutout</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="per-type-notes">
+<h2>Per-type notes<a class="headerlink" href="#per-type-notes" title="Link to this heading">#</a></h2>
 <section id="ae-autoencoder">
 <h3><code class="docutils literal notranslate"><span class="pre">ae</span></code> — Autoencoder<a class="headerlink" href="#ae-autoencoder" title="Link to this heading">#</a></h3>
-<p>Tái tạo lại observation từ latent. Đơn giản, baseline tốt.</p>
+<p>Reconstructs the observation from the latent. Simple, and a good baseline.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">encoders</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">image_enc</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cnn</span>
@@ -584,18 +691,18 @@
 <span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
 <span class="w">    </span><span class="nt">aux_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">autoencoder</span>
 <span class="w">    </span><span class="nt">layers</span><span class="p">:</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">32</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">8</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">]</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">2</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">]</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">]</span>
-
-<span class="nt">train</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">aux_loss_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ae</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_channels</span><span class="p">:</span><span class="w"> </span><span class="nv">32</span><span class="p p-Indicator">,</span><span class="nt"> kernel</span><span class="p">:</span><span class="w"> </span><span class="nv">8</span><span class="p p-Indicator">,</span><span class="nt"> stride</span><span class="p">:</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="nt"> padding</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">}</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_channels</span><span class="p">:</span><span class="w"> </span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="nt"> kernel</span><span class="p">:</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="nt"> stride</span><span class="p">:</span><span class="w"> </span><span class="nv">2</span><span class="p p-Indicator">,</span><span class="nt"> padding</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">}</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_channels</span><span class="p">:</span><span class="w"> </span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="nt"> kernel</span><span class="p">:</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="nt"> stride</span><span class="p">:</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="nt"> padding</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">}</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cfg</span> <span class="o">=</span> <span class="n">VisualSACConfig</span><span class="p">(</span><span class="n">action_dim</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">aux_loss_type</span><span class="o">=</span><span class="s2">&quot;ae&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
 <section id="curl-contrastive-unsupervised-representations-for-rl">
 <h3><code class="docutils literal notranslate"><span class="pre">curl</span></code> — Contrastive Unsupervised Representations for RL<a class="headerlink" href="#curl-contrastive-unsupervised-representations-for-rl" title="Link to this heading">#</a></h3>
-<p>Học representation bằng cách so sánh augmented views của cùng một observation.</p>
+<p>Learns representations by contrasting two augmented views of the same observation.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">encoders</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">image_enc</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cnn</span>
@@ -606,19 +713,18 @@
 <span class="w">    </span><span class="nt">use_momentum</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 <span class="w">    </span><span class="nt">momentum_tau</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.99</span>
 <span class="w">    </span><span class="nt">layers</span><span class="p">:</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">32</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">8</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">]</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">2</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">]</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">]</span>
-
-<span class="nt">train</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">aux_loss_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">curl</span>
-<span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_channels</span><span class="p">:</span><span class="w"> </span><span class="nv">32</span><span class="p p-Indicator">,</span><span class="nt"> kernel</span><span class="p">:</span><span class="w"> </span><span class="nv">8</span><span class="p p-Indicator">,</span><span class="nt"> stride</span><span class="p">:</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="nt"> padding</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">}</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_channels</span><span class="p">:</span><span class="w"> </span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="nt"> kernel</span><span class="p">:</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="nt"> stride</span><span class="p">:</span><span class="w"> </span><span class="nv">2</span><span class="p p-Indicator">,</span><span class="nt"> padding</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">}</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_channels</span><span class="p">:</span><span class="w"> </span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="nt"> kernel</span><span class="p">:</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="nt"> stride</span><span class="p">:</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="nt"> padding</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">}</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cfg</span> <span class="o">=</span> <span class="n">VisualSACConfig</span><span class="p">(</span><span class="n">action_dim</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">aux_loss_type</span><span class="o">=</span><span class="s2">&quot;curl&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">128</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
 <section id="byol-bootstrap-your-own-latent">
 <h3><code class="docutils literal notranslate"><span class="pre">byol</span></code> — Bootstrap Your Own Latent<a class="headerlink" href="#byol-bootstrap-your-own-latent" title="Link to this heading">#</a></h3>
-<p>Không cần negative samples. Ổn định hơn contrastive trong nhiều tasks.</p>
+<p>No negative samples required, and more stable than contrastive on many tasks.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">encoders</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">image_enc</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cnn</span>
@@ -628,18 +734,17 @@
 <span class="w">    </span><span class="nt">aux_latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
 <span class="w">    </span><span class="nt">use_momentum</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 <span class="w">    </span><span class="nt">momentum_tau</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.995</span>
-
-<span class="nt">train</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">aux_loss_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">byol</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cfg</span> <span class="o">=</span> <span class="n">VisualSACConfig</span><span class="p">(</span><span class="n">action_dim</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">aux_loss_type</span><span class="o">=</span><span class="s2">&quot;byol&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
 <section id="drq-data-regularized-q">
 <h3><code class="docutils literal notranslate"><span class="pre">drq</span></code> — Data-regularized Q<a class="headerlink" href="#drq-data-regularized-q" title="Link to this heading">#</a></h3>
-<p>Áp dụng random augmentation và enforce Q-value consistency.</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">train</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">aux_loss_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">drq</span>
-<span class="w">  </span><span class="nt">encoder_update_freq</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<p>Applies random augmentation and enforces Q-value consistency across views. It needs no
+auxiliary module at all.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cfg</span> <span class="o">=</span> <span class="n">VisualSACConfig</span><span class="p">(</span><span class="n">action_dim</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">aux_loss_type</span><span class="o">=</span><span class="s2">&quot;drq&quot;</span><span class="p">,</span> <span class="n">encoder_update_freq</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -647,18 +752,21 @@
 <section id="best-practices">
 <h2>Best practices<a class="headerlink" href="#best-practices" title="Link to this heading">#</a></h2>
 <ol class="arabic simple">
-<li><p><strong>Batch size</strong>: contrastive losses cần batch &gt;= 128; 256 tốt nhất.</p></li>
-<li><p><strong>Momentum tau</strong>: 0.99 cho contrastive; 0.995 cho BYOL.</p></li>
-<li><p><strong><code class="docutils literal notranslate"><span class="pre">aux_latent_dim</span></code></strong>: thường nhỏ hơn <code class="docutils literal notranslate"><span class="pre">latent_dim</span></code> (ví dụ 64 vs 256).</p></li>
-<li><p><strong>Learning rate</strong>: <code class="docutils literal notranslate"><span class="pre">lr_encoder</span></code> thường thấp hơn <code class="docutils literal notranslate"><span class="pre">lr_critic</span></code> khi dùng auxiliary (1e-4 vs 3e-4).</p></li>
-<li><p><strong>Bắt đầu với <code class="docutils literal notranslate"><span class="pre">ae</span></code></strong> nếu không chắc — đơn giản và đáng tin cậy.</p></li>
+<li><p><strong>Batch size</strong> — contrastive objectives want at least 128; 256 works best.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">momentum_tau</span></code></strong> — 0.99 for contrastive, 0.995 for BYOL.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">aux_latent_dim</span></code></strong> — usually smaller than <code class="docutils literal notranslate"><span class="pre">latent_dim</span></code> (e.g. 64 against 256).</p></li>
+<li><p><strong>Learning rate</strong> — set <code class="docutils literal notranslate"><span class="pre">encoder_lr</span></code> below <code class="docutils literal notranslate"><span class="pre">lr_critic</span></code> when an auxiliary loss is
+active (1e-4 against 3e-4). Without <code class="docutils literal notranslate"><span class="pre">encoder_lr</span></code>, the encoder optimizer inherits
+<code class="docutils literal notranslate"><span class="pre">lr_critic</span></code>.</p></li>
+<li><p><strong>Start with <code class="docutils literal notranslate"><span class="pre">ae</span></code></strong> if you are unsure — it is simple and dependable.</p></li>
 </ol>
 </section>
-<section id="xem-them">
-<h2>Xem thêm<a class="headerlink" href="#xem-them" title="Link to this heading">#</a></h2>
+<section id="see-also">
+<h2>See also<a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="encoders.html"><span class="std std-doc">Encoders</span></a></p></li>
-<li><p><a class="reference internal" href="../training/algorithms.html"><span class="std std-doc">Algorithms</span></a></p></li>
+<li><p><a class="reference internal" href="../algorithms.html"><span class="std std-doc">Algorithms</span></a></p></li>
+<li><p><a class="reference internal" href="../config_reference.html"><span class="std std-doc">Configuration Reference</span></a></p></li>
 </ul>
 </section>
 </section>
@@ -710,9 +818,13 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cau-hinh">Cấu hình</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cac-auxiliary-loss-types">Các auxiliary loss types</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#chi-tiet-tung-loai">Chi tiết từng loại</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-encoder-side-yaml">The encoder side (YAML)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-algorithm-side-python">The algorithm side (Python)</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#auxiliary-loss-types">Auxiliary loss types</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#augmentation-modes">Augmentation modes</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#per-type-notes">Per-type notes</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ae-autoencoder"><code class="docutils literal notranslate"><span class="pre">ae</span></code> — Autoencoder</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#curl-contrastive-unsupervised-representations-for-rl"><code class="docutils literal notranslate"><span class="pre">curl</span></code> — Contrastive Unsupervised Representations for RL</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#byol-bootstrap-your-own-latent"><code class="docutils literal notranslate"><span class="pre">byol</span></code> — Bootstrap Your Own Latent</a></li>
@@ -720,7 +832,7 @@
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#best-practices">Best practices</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#xem-them">Xem thêm</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>
   </nav></div>
 

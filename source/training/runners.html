@@ -54,7 +54,7 @@
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="Replay Buffers" href="buffers.html" />
-    <link rel="prev" title="Algorithms" href="algorithms.html" />
+    <link rel="prev" title="Algorithms" href="../algorithms.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -213,7 +213,7 @@
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Training System</span></p>
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="index.html">Training System</a></li>
-<li class="toctree-l1"><a class="reference internal" href="algorithms.html">Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../algorithms.html">Algorithms</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Runners &amp; Training Loop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="buffers.html">Replay Buffers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../checkpointing.html">Checkpointing</a></li>
@@ -252,10 +252,9 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../algorithms.html">Algorithms</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../config_reference.html">Configuration Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../limitations.html">Limitations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/encoder_examples.html">Ví dụ: Cấu hình Encoders cho SAC / TD3 / Actor-Critic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/encoder_examples.html">Example: Encoder Configurations for SAC / TD3 / Actor-Critic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
 </ul>
 
@@ -473,12 +472,11 @@
             </div>
             <nav aria-label="Page">
                 <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#synchronous-runner-default">Synchronous Runner (default)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#async-off-policy-runner-v0-2-0">Async Off-Policy Runner (v0.2.0)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#asyncrunnerconfig-fields"><code class="docutils literal notranslate"><span class="pre">AsyncRunnerConfig</span></code> fields</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#on-policy-runner-ppo-a2c">On-Policy Runner (PPO/A2C)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#synchronous-runner-default">Synchronous runner (default)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#on-policy-runner-ppo-a2c">On-policy runner (PPO, A2C)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#async-off-policy-runner-v0-2-0">Async off-policy runner (v0.2.0)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#checkpointing">Checkpointing</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#xem-them">Xem thêm</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>
             </nav>
         </div>
@@ -492,120 +490,111 @@
                   
   <section id="runners-training-loop">
 <h1>Runners &amp; Training Loop<a class="headerlink" href="#runners-training-loop" title="Link to this heading">#</a></h1>
-<p>Runner kiểm soát vòng lặp training: thu thập transitions từ môi trường, lưu vào buffer, và trigger gradient updates.</p>
+<p>The runner drives the training loop: it collects transitions from the environment,
+stores them in a buffer, and triggers gradient updates.</p>
 <section id="synchronous-runner-default">
-<h2>Synchronous Runner (default)<a class="headerlink" href="#synchronous-runner-default" title="Link to this heading">#</a></h2>
-<p>Tất cả diễn ra trên cùng một thread theo thứ tự:</p>
+<h2>Synchronous runner (default)<a class="headerlink" href="#synchronous-runner-default" title="Link to this heading">#</a></h2>
+<p>Everything happens on one thread, in order:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>collect → store → sample → update → repeat
 </pre></div>
 </div>
-<p>Đây là default, đủ dùng cho hầu hết trường hợp.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Sync runner — không cần config thêm</span>
+<p>This is what <code class="docutils literal notranslate"><span class="pre">srl-train</span></code> uses, and it is enough for almost every workload.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Sync runner — nothing extra to configure</span>
 srl-train<span class="w"> </span>--config<span class="w"> </span>configs/envs/halfcheetah_sac.yaml
 </pre></div>
 </div>
 </section>
-<section id="async-off-policy-runner-v0-2-0">
-<h2>Async Off-Policy Runner (v0.2.0)<a class="headerlink" href="#async-off-policy-runner-v0-2-0" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">AsyncOffPolicyRunner</span></code> tách collection và training vào 2 threads:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Main thread (collector)            Daemon thread (trainer)
-────────────────────────           ─────────────────────────
-env.step()                    →    trainer_thread.step()
-buf.add(transition)           ←    signals via threading.Condition
-</pre></div>
-</div>
-<p><strong>Lợi ích:</strong></p>
-<ul class="simple">
-<li><p>Collector không bị block bởi gradient computation</p></li>
-<li><p>Đặc biệt hữu ích với Isaac Lab (CUDA context phải ở main thread)</p></li>
-<li><p>Trainer có CUDA stream riêng, không tranh tài nguyên với simulator</p></li>
-</ul>
-<p><strong>Kích hoạt:</strong></p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">train</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">use_async</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<span class="w">  </span><span class="nt">use_gpu_buffer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">   </span><span class="c1"># khuyến nghị kết hợp GPUReplayBuffer</span>
-<span class="w">  </span><span class="nt">prefill_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000</span>
-</pre></div>
-</div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.core.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncRunnerConfig</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">srl.runners</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncOffPolicyRunner</span>
-
-<span class="n">runner_cfg</span> <span class="o">=</span> <span class="n">AsyncRunnerConfig</span><span class="p">(</span>
-    <span class="n">use_async</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">use_gpu_buffer</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">prefill_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
-    <span class="n">queue_maxsize</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-</section>
-<section id="asyncrunnerconfig-fields">
-<h2><code class="docutils literal notranslate"><span class="pre">AsyncRunnerConfig</span></code> fields<a class="headerlink" href="#asyncrunnerconfig-fields" title="Link to this heading">#</a></h2>
-<div class="pst-scrollable-table-container"><table class="table">
-<thead>
-<tr class="row-odd"><th class="head"><p>Field</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Default</p></th>
-<th class="head"><p>Mô tả</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_async</span></code></p></td>
-<td><p>bool</p></td>
-<td><p>False</p></td>
-<td><p>Bật collector/trainer thread split</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_gpu_buffer</span></code></p></td>
-<td><p>bool</p></td>
-<td><p>False</p></td>
-<td><p>Dùng GPUReplayBuffer</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">prefill_steps</span></code></p></td>
-<td><p>int</p></td>
-<td><p>1000</p></td>
-<td><p>Random-action steps trước gradient update đầu</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">queue_maxsize</span></code></p></td>
-<td><p>int</p></td>
-<td><p>4</p></td>
-<td><p>Max transitions queued giữa threads</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
 <section id="on-policy-runner-ppo-a2c">
-<h2>On-Policy Runner (PPO/A2C)<a class="headerlink" href="#on-policy-runner-ppo-a2c" title="Link to this heading">#</a></h2>
+<h2>On-policy runner (PPO, A2C)<a class="headerlink" href="#on-policy-runner-ppo-a2c" title="Link to this heading">#</a></h2>
+<p>On-policy algorithms collect a fixed-size rollout, compute returns and advantages, then
+run several optimisation epochs over that rollout before discarding it. The relevant
+<code class="docutils literal notranslate"><span class="pre">train:</span></code> fields are:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">train</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">n_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2048</span>
+<span class="w">  </span><span class="nt">n_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2048</span><span class="w">      </span><span class="c1"># steps collected per env per rollout</span>
 <span class="w">  </span><span class="nt">n_envs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
 <span class="w">  </span><span class="nt">n_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
 <span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
 </pre></div>
 </div>
+<p>A3C is different again: it spawns <code class="docutils literal notranslate"><span class="pre">n_workers</span></code> CPU worker processes that collect and
+compute gradients asynchronously, and it does not go through the vectorised runner at
+all.</p>
+</section>
+<section id="async-off-policy-runner-v0-2-0">
+<h2>Async off-policy runner (v0.2.0)<a class="headerlink" href="#async-off-policy-runner-v0-2-0" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">AsyncOffPolicyRunner</span></code> splits collection and training across two threads:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Main thread (collector)            Daemon thread (trainer)
+────────────────────────           ─────────────────────────
+env.step()                    →    trainer thread&#39;s agent.update()
+buf.add(transition)           ←    signals via threading.Condition
+</pre></div>
+</div>
+<p><strong>Why:</strong></p>
+<ul class="simple">
+<li><p>The collector is not blocked while gradients are computed.</p></li>
+<li><p>It suits Isaac Lab in particular, where the simulation context has to stay on the
+main thread.</p></li>
+<li><p>The trainer gets its own CUDA stream, so its compute overlaps with environment
+stepping instead of contending with it.</p></li>
+</ul>
+<p><strong>Enabling it:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.core.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncRunnerConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">srl.runners</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncOffPolicyRunner</span>
+
+<span class="n">runner</span> <span class="o">=</span> <span class="n">AsyncOffPolicyRunner</span><span class="p">(</span>
+    <span class="n">agent</span><span class="o">=</span><span class="n">sac_agent</span><span class="p">,</span>          <span class="c1"># SAC / DDPG / TD3</span>
+    <span class="n">env</span><span class="o">=</span><span class="n">env</span><span class="p">,</span>
+    <span class="n">total_steps</span><span class="o">=</span><span class="mi">1_000_000</span><span class="p">,</span>
+    <span class="n">runner_cfg</span><span class="o">=</span><span class="n">AsyncRunnerConfig</span><span class="p">(</span><span class="n">use_async</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">use_gpu_buffer</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+    <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">,</span>
+    <span class="n">random_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>        <span class="c1"># random-action warmup before updates start</span>
+    <span class="n">update_after</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+    <span class="n">update_every</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">gradient_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>With <code class="docutils literal notranslate"><span class="pre">use_async=False</span></code> (the default) the runner falls back to the standard synchronous
+loop; with <code class="docutils literal notranslate"><span class="pre">use_gpu_buffer=True</span></code> alone it swaps in the GPU buffer but keeps collection
+and training on one thread.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The async runner is a Python-API feature. <code class="docutils literal notranslate"><span class="pre">use_async</span></code> / <code class="docutils literal notranslate"><span class="pre">use_gpu_buffer</span></code> in a YAML
+<code class="docutils literal notranslate"><span class="pre">train:</span></code> block are currently ignored: <code class="docutils literal notranslate"><span class="pre">srl-train</span></code> maps the <code class="docutils literal notranslate"><span class="pre">train:</span></code> block onto the
+algorithm config dataclasses only, and never constructs an <code class="docutils literal notranslate"><span class="pre">AsyncRunnerConfig</span></code> from it.</p>
+</div>
+<p>See <a class="reference internal" href="../async_runner.html"><span class="std std-doc">Async Off-Policy Runner</span></a> for the full field reference and the
+Isaac Lab notes.</p>
 </section>
 <section id="checkpointing">
 <h2>Checkpointing<a class="headerlink" href="#checkpointing" title="Link to this heading">#</a></h2>
-<p>Runner tự động lưu checkpoint theo <code class="docutils literal notranslate"><span class="pre">eval_freq</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">runs</span><span class="o">/</span><span class="p">{</span><span class="n">algo</span><span class="p">}</span><span class="n">_</span><span class="p">{</span><span class="n">config_stem</span><span class="p">}</span><span class="o">/</span>
-  <span class="n">checkpoints</span><span class="o">/</span>
-    <span class="n">ckpt_</span><span class="p">{</span><span class="n">step</span><span class="p">:</span><span class="mi">010</span><span class="n">d</span><span class="p">}</span><span class="o">.</span><span class="n">pt</span>
-    <span class="n">final_</span><span class="p">{</span><span class="n">step</span><span class="p">:</span><span class="mi">010</span><span class="n">d</span><span class="p">}</span><span class="o">.</span><span class="n">pt</span>
+<p><code class="docutils literal notranslate"><span class="pre">srl-train</span></code> attaches a <code class="docutils literal notranslate"><span class="pre">CheckpointCallback</span></code> that saves every 100,000 steps, plus a
+<code class="docutils literal notranslate"><span class="pre">final_*</span></code> save when training ends. Checkpoints and run artifacts go to two separate
+top-level directories — <code class="docutils literal notranslate"><span class="pre">--ckptdir</span></code> (default <code class="docutils literal notranslate"><span class="pre">checkpoints/</span></code>) and <code class="docutils literal notranslate"><span class="pre">--logdir</span></code> (default
+<code class="docutils literal notranslate"><span class="pre">runs/</span></code>) — sharing the same <code class="docutils literal notranslate"><span class="pre">{algo}_{config_stem}</span></code> run name:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">checkpoints</span><span class="o">/</span><span class="p">{</span><span class="n">algo</span><span class="p">}</span><span class="n">_</span><span class="p">{</span><span class="n">config_stem</span><span class="p">}</span><span class="o">/</span>
+  <span class="n">ckpt_</span><span class="p">{</span><span class="n">step</span><span class="p">:</span><span class="mi">010</span><span class="n">d</span><span class="p">}</span><span class="o">.</span><span class="n">pt</span>
+  <span class="n">final_</span><span class="p">{</span><span class="n">step</span><span class="p">:</span><span class="mi">010</span><span class="n">d</span><span class="p">}</span><span class="o">.</span><span class="n">pt</span>
+
+<span class="n">runs</span><span class="o">/</span><span class="p">{</span><span class="n">algo</span><span class="p">}</span><span class="n">_</span><span class="p">{</span><span class="n">config_stem</span><span class="p">}</span><span class="o">/</span>
   <span class="n">metrics</span><span class="o">.</span><span class="n">jsonl</span>
+  <span class="n">history</span><span class="o">.</span><span class="n">csv</span>
   <span class="n">summary</span><span class="o">.</span><span class="n">json</span>
   <span class="n">training_curves</span><span class="o">.</span><span class="n">png</span>
 </pre></div>
 </div>
-<p>Resume:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>srl-train<span class="w"> </span>--config<span class="w"> </span>my.yaml<span class="w"> </span>--resume<span class="w"> </span>runs/sac_half/checkpoints/final_0001000000.pt
+<p>Resume by pointing at the exact checkpoint file:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>srl-train<span class="w"> </span>--config<span class="w"> </span>my.yaml<span class="w"> </span>--resume<span class="w"> </span>checkpoints/sac_my/final_0001000000.pt
 </pre></div>
 </div>
 </section>
-<section id="xem-them">
-<h2>Xem thêm<a class="headerlink" href="#xem-them" title="Link to this heading">#</a></h2>
+<section id="see-also">
+<h2>See also<a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="buffers.html"><span class="std std-doc">Replay Buffers</span></a></p></li>
-<li><p><a class="reference internal" href="../async_runner.html"><span class="std std-doc">Async Runner API Reference</span></a></p></li>
+<li><p><a class="reference internal" href="../async_runner.html"><span class="std std-doc">Async Off-Policy Runner</span></a></p></li>
+<li><p><a class="reference internal" href="../checkpointing.html"><span class="std std-doc">Checkpointing</span></a></p></li>
 <li><p><a class="reference internal" href="../integrations/isaaclab.html"><span class="std std-doc">Isaac Lab Integration</span></a></p></li>
 </ul>
 </section>
@@ -623,7 +612,7 @@ buf.add(transition)           ←    signals via threading.Condition
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="algorithms.html"
+       href="../algorithms.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
@@ -658,12 +647,11 @@ buf.add(transition)           ←    signals via threading.Condition
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#synchronous-runner-default">Synchronous Runner (default)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#async-off-policy-runner-v0-2-0">Async Off-Policy Runner (v0.2.0)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#asyncrunnerconfig-fields"><code class="docutils literal notranslate"><span class="pre">AsyncRunnerConfig</span></code> fields</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#on-policy-runner-ppo-a2c">On-Policy Runner (PPO/A2C)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#synchronous-runner-default">Synchronous runner (default)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#on-policy-runner-ppo-a2c">On-policy runner (PPO, A2C)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#async-off-policy-runner-v0-2-0">Async off-policy runner (v0.2.0)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#checkpointing">Checkpointing</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#xem-them">Xem thêm</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>
   </nav></div>
 

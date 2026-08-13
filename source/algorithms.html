@@ -53,8 +53,8 @@
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Configuration Reference" href="config_reference.html" />
-    <link rel="prev" title="srl.utils" href="api/utils.html" />
+    <link rel="next" title="Runners &amp; Training Loop" href="training/runners.html" />
+    <link rel="prev" title="Training System" href="training/index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -211,9 +211,9 @@
 <li class="toctree-l1"><a class="reference internal" href="yaml/training_block.html">Training Block Reference</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Training System</span></p>
-<ul class="nav bd-sidenav">
+<ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="training/index.html">Training System</a></li>
-<li class="toctree-l1"><a class="reference internal" href="training/algorithms.html">Algorithms</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Algorithms</a></li>
 <li class="toctree-l1"><a class="reference internal" href="training/runners.html">Runners &amp; Training Loop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="training/buffers.html">Replay Buffers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="checkpointing.html">Checkpointing</a></li>
@@ -251,11 +251,10 @@
 </details></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
-<ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Algorithms</a></li>
+<ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="config_reference.html">Configuration Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="limitations.html">Limitations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="examples/encoder_examples.html">Ví dụ: Cấu hình Encoders cho SAC / TD3 / Actor-Critic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples/encoder_examples.html">Example: Encoder Configurations for SAC / TD3 / Actor-Critic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing</a></li>
 </ul>
 
@@ -491,6 +490,7 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#a2c-advantage-actor-critic">A2C — Advantage Actor-Critic</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#a3c-asynchronous-advantage-actor-critic">A3C — Asynchronous Advantage Actor-Critic</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#async-off-policy-runner-v0-2-0">Async off-policy runner (v0.2.0)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>
             </nav>
         </div>
@@ -649,10 +649,14 @@ learning-rate that caused distribution shift in earlier versions.</p>
     <span class="n">encoder_update_freq</span>        <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>      <span class="c1"># step encoder every 2 critic updates</span>
     <span class="n">encoder_optimize_with_critic</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="c1"># False → encoder only trains via aux loss</span>
     <span class="n">aux_loss_type</span>              <span class="o">=</span> <span class="s2">&quot;curl&quot;</span><span class="p">,</span> <span class="c1"># none | ae | vae | curl | byol | drq | spr | barlow</span>
-    <span class="n">lr_encoder</span>                 <span class="o">=</span> <span class="mf">1e-4</span><span class="p">,</span>
+    <span class="n">encoder_lr</span>                 <span class="o">=</span> <span class="mf">1e-4</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
+<p><code class="docutils literal notranslate"><span class="pre">VisualSACConfig</span></code> has to be constructed in Python. <code class="docutils literal notranslate"><span class="pre">srl-train</span></code> always builds a plain
+<code class="docutils literal notranslate"><span class="pre">SACConfig</span></code> from the <code class="docutils literal notranslate"><span class="pre">train:</span></code> block, so <code class="docutils literal notranslate"><span class="pre">encoder_lr</span></code>, <code class="docutils literal notranslate"><span class="pre">aux_loss_type</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">encoder_optimize_with_critic</span></code> are not reachable from YAML today. Without
+<code class="docutils literal notranslate"><span class="pre">encoder_lr</span></code>, SAC/DDPG/TD3 fall back to <code class="docutils literal notranslate"><span class="pre">lr_critic</span></code> for the encoder optimizer.</p>
 <p><strong><code class="docutils literal notranslate"><span class="pre">aux_loss_type</span></code> options:</strong></p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
@@ -799,16 +803,26 @@ safety); the trainer runs on a <strong>daemon thread</strong> with its own CUDA 
 <span class="n">runner_cfg</span> <span class="o">=</span> <span class="n">AsyncRunnerConfig</span><span class="p">(</span>
     <span class="n">use_async</span>      <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>    <span class="c1"># enable async collector/trainer split</span>
     <span class="n">use_gpu_buffer</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>    <span class="c1"># swap replay buffer for GPUReplayBuffer</span>
-    <span class="n">prefill_steps</span>  <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>    <span class="c1"># random steps before first gradient update</span>
-    <span class="n">queue_maxsize</span>  <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>       <span class="c1"># max transitions queued between threads</span>
 <span class="p">)</span>
 </pre></div>
 </div>
 <p>When <code class="docutils literal notranslate"><span class="pre">use_async=False</span></code> (default), the runner falls through to the standard synchronous
 training loop. When <code class="docutils literal notranslate"><span class="pre">use_gpu_buffer=True</span></code> only, the GPU buffer is used but collection
 and training remain on the same thread.</p>
+<p><code class="docutils literal notranslate"><span class="pre">AsyncRunnerConfig</span></code> is a Python-API object — <code class="docutils literal notranslate"><span class="pre">srl-train</span></code> does not build one from the
+YAML <code class="docutils literal notranslate"><span class="pre">train:</span></code> block, so <code class="docutils literal notranslate"><span class="pre">use_async</span></code>/<code class="docutils literal notranslate"><span class="pre">use_gpu_buffer</span></code> have no effect there.</p>
 <p>See <a class="reference internal" href="async_runner.html"><span class="std std-doc">async_runner.md</span></a> and <a class="reference internal" href="gpu_replay_buffer.html"><span class="std std-doc">gpu_replay_buffer.md</span></a>
 for detailed usage.</p>
+</section>
+<hr class="docutils" />
+<section id="see-also">
+<h2>See also<a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="training/runners.html"><span class="std std-doc">Runners &amp; Training Loop</span></a> — synchronous, on-policy, and async loops</p></li>
+<li><p><a class="reference internal" href="yaml/auxiliary.html"><span class="std std-doc">Auxiliary Representation Learning</span></a> — encoder-side objectives</p></li>
+<li><p><a class="reference internal" href="config_reference.html"><span class="std std-doc">Configuration Reference</span></a> — field-level schema</p></li>
+<li><p><a class="reference internal" href="checkpointing.html"><span class="std std-doc">Checkpointing</span></a> — what is saved, where, and how resume works</p></li>
+</ul>
 </section>
 </section>
 
@@ -824,20 +838,20 @@ for detailed usage.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="api/utils.html"
+       href="training/index.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">srl.utils</p>
+        <p class="prev-next-title">Training System</p>
       </div>
     </a>
     <a class="right-next"
-       href="config_reference.html"
+       href="training/runners.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Configuration Reference</p>
+        <p class="prev-next-title">Runners &amp; Training Loop</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -877,6 +891,7 @@ for detailed usage.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#a2c-advantage-actor-critic">A2C — Advantage Actor-Critic</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#a3c-asynchronous-advantage-actor-critic">A3C — Asynchronous Advantage Actor-Critic</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#async-off-policy-runner-v0-2-0">Async off-policy runner (v0.2.0)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>
   </nav></div>
 

@@ -102,9 +102,14 @@ cfg = VisualSACConfig(
     encoder_update_freq        = 2,      # step encoder every 2 critic updates
     encoder_optimize_with_critic = True, # False → encoder only trains via aux loss
     aux_loss_type              = "curl", # none | ae | vae | curl | byol | drq | spr | barlow
-    lr_encoder                 = 1e-4,
+    encoder_lr                 = 1e-4,
 )
 ```
+
+`VisualSACConfig` has to be constructed in Python. `srl-train` always builds a plain
+`SACConfig` from the `train:` block, so `encoder_lr`, `aux_loss_type`, and
+`encoder_optimize_with_critic` are not reachable from YAML today. Without
+`encoder_lr`, SAC/DDPG/TD3 fall back to `lr_critic` for the encoder optimizer.
 
 **`aux_loss_type` options:**
 
@@ -229,8 +234,6 @@ from srl.runners import AsyncOffPolicyRunner
 runner_cfg = AsyncRunnerConfig(
     use_async      = True,    # enable async collector/trainer split
     use_gpu_buffer = True,    # swap replay buffer for GPUReplayBuffer
-    prefill_steps  = 1000,    # random steps before first gradient update
-    queue_maxsize  = 4,       # max transitions queued between threads
 )
 ```
 
@@ -238,5 +241,17 @@ When `use_async=False` (default), the runner falls through to the standard synch
 training loop. When `use_gpu_buffer=True` only, the GPU buffer is used but collection
 and training remain on the same thread.
 
+`AsyncRunnerConfig` is a Python-API object — `srl-train` does not build one from the
+YAML `train:` block, so `use_async`/`use_gpu_buffer` have no effect there.
+
 See [async_runner.md](async_runner.md) and [gpu_replay_buffer.md](gpu_replay_buffer.md)
 for detailed usage.
+
+---
+
+## See also
+
+- [Runners & Training Loop](training/runners.md) — synchronous, on-policy, and async loops
+- [Auxiliary Representation Learning](yaml/auxiliary.md) — encoder-side objectives
+- [Configuration Reference](config_reference.md) — field-level schema
+- [Checkpointing](checkpointing.md) — what is saved, where, and how resume works

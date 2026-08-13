@@ -213,7 +213,7 @@
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Training System</span></p>
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="training/index.html">Training System</a></li>
-<li class="toctree-l1"><a class="reference internal" href="training/algorithms.html">Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms.html">Algorithms</a></li>
 <li class="toctree-l1"><a class="reference internal" href="training/runners.html">Runners &amp; Training Loop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="training/buffers.html">Replay Buffers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="checkpointing.html">Checkpointing</a></li>
@@ -252,10 +252,9 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="algorithms.html">Algorithms</a></li>
 <li class="toctree-l1"><a class="reference internal" href="config_reference.html">Configuration Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="limitations.html">Limitations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="examples/encoder_examples.html">Ví dụ: Cấu hình Encoders cho SAC / TD3 / Actor-Critic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples/encoder_examples.html">Example: Encoder Configurations for SAC / TD3 / Actor-Critic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing</a></li>
 </ul>
 
@@ -518,31 +517,38 @@ transitions before the first gradient step, and signals back when the model is u
 <hr class="docutils" />
 <section id="quick-start">
 <h2>Quick start<a class="headerlink" href="#quick-start" title="Link to this heading">#</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.core.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">SACConfig</span><span class="p">,</span> <span class="n">AsyncRunnerConfig</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+
 <span class="kn">from</span><span class="w"> </span><span class="nn">srl.algorithms.sac</span><span class="w"> </span><span class="kn">import</span> <span class="n">SAC</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">srl.core.replay_buffer</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReplayBuffer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">srl.core.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncRunnerConfig</span><span class="p">,</span> <span class="n">SACConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">srl.registry.builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelBuilder</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">srl.runners</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncOffPolicyRunner</span>
 
-<span class="n">algo</span> <span class="o">=</span> <span class="n">SAC</span><span class="p">(</span><span class="n">SACConfig</span><span class="p">(</span><span class="n">action_dim</span><span class="o">=</span><span class="mi">6</span><span class="p">))</span>
-<span class="n">buf</span>  <span class="o">=</span> <span class="n">ReplayBuffer</span><span class="p">(</span><span class="n">capacity</span><span class="o">=</span><span class="mi">1_000_000</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">ModelBuilder</span><span class="o">.</span><span class="n">from_yaml</span><span class="p">(</span><span class="s2">&quot;configs/envs/halfcheetah_sac.yaml&quot;</span><span class="p">)</span>
+<span class="n">agent</span> <span class="o">=</span> <span class="n">SAC</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">model</span><span class="p">),</span> <span class="n">SACConfig</span><span class="p">(</span><span class="n">action_dim</span><span class="o">=</span><span class="mi">6</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">)</span>
 
 <span class="n">runner_cfg</span> <span class="o">=</span> <span class="n">AsyncRunnerConfig</span><span class="p">(</span>
     <span class="n">use_async</span>      <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-    <span class="n">use_gpu_buffer</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>   <span class="c1"># swap ReplayBuffer → GPUReplayBuffer automatically</span>
-    <span class="n">prefill_steps</span>  <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+    <span class="n">use_gpu_buffer</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>   <span class="c1"># swap agent.buffer → GPUReplayBuffer automatically</span>
 <span class="p">)</span>
 
 <span class="n">runner</span> <span class="o">=</span> <span class="n">AsyncOffPolicyRunner</span><span class="p">(</span>
-    <span class="n">algo</span>       <span class="o">=</span> <span class="n">algo</span><span class="p">,</span>
-    <span class="n">env</span>        <span class="o">=</span> <span class="n">env</span><span class="p">,</span>          <span class="c1"># any gym-compatible env</span>
-    <span class="n">buffer</span>     <span class="o">=</span> <span class="n">buf</span><span class="p">,</span>
-    <span class="n">runner_cfg</span> <span class="o">=</span> <span class="n">runner_cfg</span><span class="p">,</span>
-    <span class="n">total_steps</span><span class="o">=</span> <span class="mi">500_000</span><span class="p">,</span>
-    <span class="n">batch_size</span> <span class="o">=</span> <span class="mi">256</span><span class="p">,</span>
+    <span class="n">agent</span>          <span class="o">=</span> <span class="n">agent</span><span class="p">,</span>      <span class="c1"># the agent owns its own replay buffer</span>
+    <span class="n">env</span>            <span class="o">=</span> <span class="n">env</span><span class="p">,</span>        <span class="c1"># any gym-compatible env</span>
+    <span class="n">total_steps</span>    <span class="o">=</span> <span class="mi">500_000</span><span class="p">,</span>
+    <span class="n">runner_cfg</span>     <span class="o">=</span> <span class="n">runner_cfg</span><span class="p">,</span>
+    <span class="n">device</span>         <span class="o">=</span> <span class="s2">&quot;cuda:0&quot;</span><span class="p">,</span>
+    <span class="n">random_steps</span>   <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>       <span class="c1"># random-action warmup before updates start</span>
+    <span class="n">update_after</span>   <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+    <span class="n">update_every</span>   <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">gradient_steps</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 </pre></div>
 </div>
+<p>The runner takes the agent, not a separate buffer: it reads and (for
+<code class="docutils literal notranslate"><span class="pre">use_gpu_buffer=True</span></code>) replaces <code class="docutils literal notranslate"><span class="pre">agent.buffer</span></code>, and the batch size comes from the
+agent’s own config.</p>
 </section>
 <hr class="docutils" />
 <section id="sync-fallback">
@@ -579,39 +585,55 @@ threading overhead outweighs its benefits (e.g., very fast CPU simulators).</p>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">prefill_steps</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">1000</span></code></p></td>
-<td><p>Random-action steps before first gradient update</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>Declared but currently unread — use the runner’s <code class="docutils literal notranslate"><span class="pre">random_steps</span></code> argument</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">queue_maxsize</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">4</span></code></p></td>
-<td><p>Max transitions queued between threads</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
+<td><p>Declared but currently unread</p></td>
 </tr>
 </tbody>
 </table>
+</div>
+<p>The runner’s own constructor arguments control the loop: <code class="docutils literal notranslate"><span class="pre">random_steps</span></code> (random-action
+warmup), <code class="docutils literal notranslate"><span class="pre">update_after</span></code> (minimum buffer fill), <code class="docutils literal notranslate"><span class="pre">update_every</span></code> (env steps per trigger),
+and <code class="docutils literal notranslate"><span class="pre">gradient_steps</span></code> (updates per trigger).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">AsyncRunnerConfig</span></code> is a Python-API object. <code class="docutils literal notranslate"><span class="pre">srl-train</span></code> maps the YAML <code class="docutils literal notranslate"><span class="pre">train:</span></code> block
+onto the algorithm config dataclasses only and never builds an <code class="docutils literal notranslate"><span class="pre">AsyncRunnerConfig</span></code>, so
+<code class="docutils literal notranslate"><span class="pre">use_async</span></code>/<code class="docutils literal notranslate"><span class="pre">use_gpu_buffer</span></code> in YAML have no effect.</p>
 </div>
 </section>
 <hr class="docutils" />
 <section id="isaac-lab-integration">
 <h2>Isaac Lab integration<a class="headerlink" href="#isaac-lab-integration" title="Link to this heading">#</a></h2>
-<p>Isaac Lab environments expose a CUDA tensor API directly. Pair
-<code class="docutils literal notranslate"><span class="pre">use_gpu_buffer=True</span></code> with an Isaac Lab env to avoid any host↔device copy in the
-collect → store → sample path:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Isaac Lab env (CUDA tensors)
+<p>A GPU-batched simulator can hand CUDA tensors straight to the buffer. Pair
+<code class="docutils literal notranslate"><span class="pre">use_gpu_buffer=True</span></code> with such an env to keep the collect → store → sample path free
+of host↔device copies:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>GPU sim (CUDA tensors)
   ↓  no copy
 GPUReplayBuffer (pre-allocated CUDA tensors)
   ↓  no copy
 SAC critic/actor forward (same CUDA device)
 </pre></div>
 </div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code class="docutils literal notranslate"><span class="pre">IsaacLabWrapper</span></code> currently converts observations, rewards, and done flags to CPU numpy
+before returning them, so going through that wrapper reintroduces a host round-trip.
+Feed the runner CUDA tensors directly if the copy-free path matters.</p>
+</div>
 <p>See <a class="reference internal" href="gpu_replay_buffer.html"><span class="std std-doc">gpu_replay_buffer.md</span></a> for the buffer API.</p>
 </section>
 <hr class="docutils" />
 <section id="checkpointing">
 <h2>Checkpointing<a class="headerlink" href="#checkpointing" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">AsyncOffPolicyRunner</span></code> calls <code class="docutils literal notranslate"><span class="pre">algo.save_checkpoint()</span></code> at the same intervals as the
-synchronous runner. The <code class="docutils literal notranslate"><span class="pre">GPUReplayBuffer</span></code> serialises to CPU tensors automatically when
-<code class="docutils literal notranslate"><span class="pre">state_dict()</span></code> is called, so checkpoint files remain portable.</p>
+<p>The runner itself does not save checkpoints — drive them from the <code class="docutils literal notranslate"><span class="pre">log_fn</span></code> callback, or
+call <code class="docutils literal notranslate"><span class="pre">agent.checkpoint_payload()</span></code> / <code class="docutils literal notranslate"><span class="pre">CheckpointManager.save(...)</span></code> from your own loop.
+The <code class="docutils literal notranslate"><span class="pre">GPUReplayBuffer</span></code> serialises to CPU tensors automatically when <code class="docutils literal notranslate"><span class="pre">state_dict()</span></code> is
+called, so checkpoint files remain portable.</p>
 </section>
 <hr class="docutils" />
 <section id="see-also">

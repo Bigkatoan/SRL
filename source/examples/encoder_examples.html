@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Ví dụ: Cấu hình Encoders cho SAC / TD3 / Actor-Critic &#8212; SRL Documentation</title>
+    <title>Example: Encoder Configurations for SAC / TD3 / Actor-Critic &#8212; SRL Documentation</title>
   
   
   
@@ -213,7 +213,7 @@
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Training System</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../training/index.html">Training System</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../training/algorithms.html">Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../algorithms.html">Algorithms</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../training/runners.html">Runners &amp; Training Loop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../training/buffers.html">Replay Buffers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../checkpointing.html">Checkpointing</a></li>
@@ -252,10 +252,9 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../algorithms.html">Algorithms</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../config_reference.html">Configuration Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../limitations.html">Limitations</a></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Ví dụ: Cấu hình Encoders cho SAC / TD3 / Actor-Critic</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Example: Encoder Configurations for SAC / TD3 / Actor-Critic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
 </ul>
 
@@ -463,7 +462,7 @@
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>Ví dụ: Cấu hình Encoders cho SAC / TD3 / Actor-Critic</h1>
+    <h1>Example: Encoder Configurations for SAC / TD3 / Actor-Critic</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -473,11 +472,11 @@
             </div>
             <nav aria-label="Page">
                 <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sac-vision-cnn-encoder-rieng">1) SAC — Vision (CNN) + encoder riêng</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#td3-mlp-state-based-nhanh">2) TD3 — MLP (state-based) nhanh</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#actor-critic-da-phuong-thuc-image-state">3) Actor-Critic đa phương thức (image + state)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tips-test-checklist">Tips &amp; test checklist</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#noi-luu-vi-du">Nơi lưu ví dụ</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sac-vision-cnn-with-a-dedicated-encoder-optimizer">1) SAC — vision (CNN) with a dedicated encoder optimizer</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#td3-mlp-state-based-fast">2) TD3 — MLP (state-based), fast</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#multi-modal-actor-critic-image-state">3) Multi-modal actor-critic (image + state)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tips-and-checklist">Tips and checklist</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>
             </nav>
         </div>
@@ -489,14 +488,23 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="vi-du-cau-hinh-encoders-cho-sac-td3-actor-critic">
-<h1>Ví dụ: Cấu hình Encoders cho SAC / TD3 / Actor-Critic<a class="headerlink" href="#vi-du-cau-hinh-encoders-cho-sac-td3-actor-critic" title="Link to this heading">#</a></h1>
-<p>Trang này chứa các ví dụ YAML và các bước kiểm thử nhanh để bạn có thể thử encoder trong các cấu hình thực tế.</p>
-<section id="sac-vision-cnn-encoder-rieng">
-<h2>1) SAC — Vision (CNN) + encoder riêng<a class="headerlink" href="#sac-vision-cnn-encoder-rieng" title="Link to this heading">#</a></h2>
-<p>Mục tiêu: sử dụng <code class="docutils literal notranslate"><span class="pre">cnn</span></code> encoder, tách <code class="docutils literal notranslate"><span class="pre">encoder_optimizer</span></code>, và cập nhật encoder mỗi <code class="docutils literal notranslate"><span class="pre">encoder_update_freq</span></code> critic updates.</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># configs/examples/sac_image_encoder.yaml (snippet)</span>
+  <section id="example-encoder-configurations-for-sac-td3-actor-critic">
+<h1>Example: Encoder Configurations for SAC / TD3 / Actor-Critic<a class="headerlink" href="#example-encoder-configurations-for-sac-td3-actor-critic" title="Link to this heading">#</a></h1>
+<p>This page collects YAML snippets and quick smoke tests so you can try encoders in
+realistic setups.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>These configs are not shipped with the repository — copy a snippet into a file of your
+own (<code class="docutils literal notranslate"><span class="pre">configs/examples/</span></code> is a reasonable home for them) before running the commands
+below. The shipped configs live in <a class="reference external" href="https://github.com/Bigkatoan/SRL/tree/main/configs/envs">configs/envs/</a>.</p>
+</div>
+<section id="sac-vision-cnn-with-a-dedicated-encoder-optimizer">
+<h2>1) SAC — vision (CNN) with a dedicated encoder optimizer<a class="headerlink" href="#sac-vision-cnn-with-a-dedicated-encoder-optimizer" title="Link to this heading">#</a></h2>
+<p>Goal: use a <code class="docutils literal notranslate"><span class="pre">cnn</span></code> encoder with a separate <code class="docutils literal notranslate"><span class="pre">encoder_optimizer</span></code> that steps every
+<code class="docutils literal notranslate"><span class="pre">encoder_update_freq</span></code> critic updates.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># configs/examples/sac_image_encoder.yaml</span>
 <span class="nt">env_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CarRacing-v3</span>
+<span class="nt">env_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">flat</span>
 <span class="nt">algo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sac</span>
 
 <span class="nt">encoders</span><span class="p">:</span>
@@ -507,9 +515,13 @@
 <span class="w">    </span><span class="nt">aux_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">autoencoder</span>
 <span class="w">    </span><span class="nt">aux_latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
 <span class="w">    </span><span class="nt">layers</span><span class="p">:</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">32</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">8</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">]</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">2</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">]</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_channels</span><span class="p">:</span><span class="w"> </span><span class="nv">32</span><span class="p p-Indicator">,</span><span class="nt"> kernel</span><span class="p">:</span><span class="w"> </span><span class="nv">8</span><span class="p p-Indicator">,</span><span class="nt"> stride</span><span class="p">:</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="nt"> padding</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">}</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_channels</span><span class="p">:</span><span class="w"> </span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="nt"> kernel</span><span class="p">:</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="nt"> stride</span><span class="p">:</span><span class="w"> </span><span class="nv">2</span><span class="p p-Indicator">,</span><span class="nt"> padding</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">}</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_channels</span><span class="p">:</span><span class="w"> </span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="nt"> kernel</span><span class="p">:</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="nt"> stride</span><span class="p">:</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="nt"> padding</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">}</span>
+
+<span class="nt">flows</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;image_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;image_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
 
 <span class="nt">actor</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor</span>
@@ -525,8 +537,6 @@
 <span class="w">  </span><span class="nt">total_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">200000</span>
 <span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
 <span class="w">  </span><span class="nt">encoder_update_freq</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
-<span class="w">  </span><span class="nt">encoder_optimize_with_critic</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<span class="w">  </span><span class="nt">lr_encoder</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3e-4</span>
 <span class="w">  </span><span class="nt">lr_actor</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3e-4</span>
 <span class="w">  </span><span class="nt">lr_critic</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3e-4</span>
 <span class="w">  </span><span class="nt">buffer_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100000</span>
@@ -535,21 +545,27 @@
 <span class="w">  </span><span class="nt">update_every</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
 </pre></div>
 </div>
-<p>Kiểm thử nhanh (smoke):</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>srl.cli.train<span class="w"> </span>--config<span class="w"> </span>configs/examples/sac_image_encoder.yaml<span class="w"> </span>--device<span class="w"> </span>cpu<span class="w"> </span>--seed<span class="w"> </span><span class="m">0</span><span class="w"> </span>--no-plots
+<p>Smoke test:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>srl-train<span class="w"> </span>--config<span class="w"> </span>configs/examples/sac_image_encoder.yaml<span class="w"> </span>--device<span class="w"> </span>cpu<span class="w"> </span>--seed<span class="w"> </span><span class="m">0</span><span class="w"> </span>--no-plots
 </pre></div>
 </div>
-<p>Nếu bạn chạy trên GPU trong venv đã cấu hình:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>tests/venv/bin/python<span class="w"> </span>-m<span class="w"> </span>srl.cli.train<span class="w"> </span>--config<span class="w"> </span>configs/examples/sac_image_encoder.yaml<span class="w"> </span>--device<span class="w"> </span>cuda<span class="w"> </span>--seed<span class="w"> </span><span class="m">0</span>
-</pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">encoder_update_freq</span></code> is a real <code class="docutils literal notranslate"><span class="pre">SACConfig</span></code> field, so it works from YAML. The encoder
+optimizer’s learning rate (<code class="docutils literal notranslate"><span class="pre">encoder_lr</span></code>) and the auxiliary objective (<code class="docutils literal notranslate"><span class="pre">aux_loss_type</span></code>)
+live on <code class="docutils literal notranslate"><span class="pre">VisualSACConfig</span></code>, which the CLI never builds — without <code class="docutils literal notranslate"><span class="pre">encoder_lr</span></code> the
+encoder optimizer inherits <code class="docutils literal notranslate"><span class="pre">lr_critic</span></code>. See
+<a class="reference internal" href="../yaml/auxiliary.html"><span class="std std-doc">Auxiliary Representation Learning</span></a>.</p>
 </div>
 </section>
 <hr class="docutils" />
-<section id="td3-mlp-state-based-nhanh">
-<h2>2) TD3 — MLP (state-based) nhanh<a class="headerlink" href="#td3-mlp-state-based-nhanh" title="Link to this heading">#</a></h2>
-<p>Ví dụ cho môi trường vector-only (HalfCheetah). TD3 thường dùng deterministic actor.</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># configs/examples/td3_state_encoder.yaml (snippet)</span>
+<section id="td3-mlp-state-based-fast">
+<h2>2) TD3 — MLP (state-based), fast<a class="headerlink" href="#td3-mlp-state-based-fast" title="Link to this heading">#</a></h2>
+<p>An example for a vector-only environment (HalfCheetah). TD3 uses a deterministic actor
+and requires a twin-Q critic.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># configs/examples/td3_state_encoder.yaml</span>
 <span class="nt">env_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HalfCheetah-v5</span>
+<span class="nt">env_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">flat</span>
 <span class="nt">algo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">td3</span>
 
 <span class="nt">encoders</span><span class="p">:</span>
@@ -561,6 +577,10 @@
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">}</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">128</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">}</span>
 
+<span class="nt">flows</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
+
 <span class="nt">actor</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor</span>
 <span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">deterministic</span>
@@ -568,37 +588,45 @@
 
 <span class="nt">critic</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">critic</span>
-<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">q</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">twin_q</span>
 <span class="w">  </span><span class="nt">action_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6</span>
 
 <span class="nt">train</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">total_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300000</span>
 <span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
-<span class="w">  </span><span class="nt">lr_encoder</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1e-3</span>
 <span class="w">  </span><span class="nt">lr_actor</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1e-3</span>
 <span class="w">  </span><span class="nt">lr_critic</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1e-3</span>
 </pre></div>
 </div>
-<p>Smoketest:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>srl.cli.train<span class="w"> </span>--config<span class="w"> </span>configs/examples/td3_state_encoder.yaml<span class="w"> </span>--device<span class="w"> </span>cpu<span class="w"> </span>--no-plots
+<p>Smoke test:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>srl-train<span class="w"> </span>--config<span class="w"> </span>configs/examples/td3_state_encoder.yaml<span class="w"> </span>--device<span class="w"> </span>cpu<span class="w"> </span>--no-plots
 </pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code class="docutils literal notranslate"><span class="pre">srl-train</span></code> rejects mismatched head types before building anything. TD3 requires
+<code class="docutils literal notranslate"><span class="pre">deterministic</span></code> + <code class="docutils literal notranslate"><span class="pre">twin_q</span></code>; a single <code class="docutils literal notranslate"><span class="pre">q</span></code> critic is only valid for DDPG.</p>
 </div>
 </section>
 <hr class="docutils" />
-<section id="actor-critic-da-phuong-thuc-image-state">
-<h2>3) Actor-Critic đa phương thức (image + state)<a class="headerlink" href="#actor-critic-da-phuong-thuc-image-state" title="Link to this heading">#</a></h2>
-<p>Khi actor/critic cần thông tin khác nhau, tách encoder cho từng branch.</p>
+<section id="multi-modal-actor-critic-image-state">
+<h2>3) Multi-modal actor-critic (image + state)<a class="headerlink" href="#multi-modal-actor-critic-image-state" title="Link to this heading">#</a></h2>
+<p>When the actor and critic need different information, give each branch its own
+encoders.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># configs/examples/multi_modal_ac.yaml</span>
-<span class="nt">env_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SomeEnv-v0</span>
+<span class="nt">env_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SomeEnv-v0</span><span class="w">     </span><span class="c1"># replace with a real env that returns both keys</span>
+<span class="nt">env_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">flat</span>
 <span class="nt">algo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sac</span>
 
 <span class="nt">encoders</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">image_enc</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cnn</span>
+<span class="w">    </span><span class="nt">input_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">front_camera</span>
 <span class="w">    </span><span class="nt">input_shape</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">84</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">84</span><span class="p p-Indicator">]</span>
 <span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">state_enc</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mlp</span>
+<span class="w">    </span><span class="nt">input_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">joint_states</span>
 <span class="w">    </span><span class="nt">input_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
 <span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
 
@@ -621,27 +649,44 @@
 <span class="nt">train</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">total_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">500000</span>
 <span class="w">  </span><span class="nt">encoder_update_freq</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
-<span class="w">  </span><span class="nt">lr_encoder</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3e-4</span>
 <span class="w">  </span><span class="nt">lr_actor</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3e-4</span>
 <span class="w">  </span><span class="nt">lr_critic</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3e-4</span>
 </pre></div>
 </div>
+<p>Both heads see <code class="docutils literal notranslate"><span class="pre">128</span> <span class="pre">+</span> <span class="pre">64</span> <span class="pre">=</span> <span class="pre">192</span></code> input features here — the builder sums the upstream
+<code class="docutils literal notranslate"><span class="pre">latent_dim</span></code>s, so there is no <code class="docutils literal notranslate"><span class="pre">input_dim</span></code> to set on the heads.</p>
 </section>
 <hr class="docutils" />
-<section id="tips-test-checklist">
-<h2>Tips &amp; test checklist<a class="headerlink" href="#tips-test-checklist" title="Link to this heading">#</a></h2>
-<ul class="simple">
-<li><p>Luôn khai báo <code class="docutils literal notranslate"><span class="pre">input_name</span></code> khi observation dict có nhiều key (tránh mapping heuristics).</p></li>
-<li><p>Kiểm tra <code class="docutils literal notranslate"><span class="pre">ModelBuilder.from_yaml(...).summary()</span></code> để xác nhận kích thước latent input cho heads.</p></li>
-<li><p>Nếu dùng contrastive/BYOL: bật <code class="docutils literal notranslate"><span class="pre">use_momentum:</span> <span class="pre">true</span></code> và tăng batch size/augmentations.</p></li>
-<li><p>Với vision trên Isaac Lab: ưu tiên <code class="docutils literal notranslate"><span class="pre">encoder_update_freq=2</span></code>, mixed precision và batch lớn khi có GPU.</p></li>
+<section id="tips-and-checklist">
+<h2>Tips and checklist<a class="headerlink" href="#tips-and-checklist" title="Link to this heading">#</a></h2>
+<ul>
+<li><p>Always set <code class="docutils literal notranslate"><span class="pre">input_name</span></code> when the observation dict has more than one key, so routing
+is explicit instead of relying on the count-matching fallback.</p></li>
+<li><p>Check the graph before a long run:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.registry.builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelBuilder</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">ModelBuilder</span><span class="o">.</span><span class="n">from_yaml</span><span class="p">(</span><span class="s2">&quot;configs/examples/multi_modal_ac.yaml&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">encoder_names_for_head</span><span class="p">(</span><span class="s2">&quot;actor&quot;</span><span class="p">))</span>   <span class="c1"># encoders feeding the actor</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">encoder_names_for_head</span><span class="p">(</span><span class="s2">&quot;critic&quot;</span><span class="p">))</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">srl-visualize</span> <span class="pre">--config</span> <span class="pre">&lt;file&gt;</span></code> renders the same graph as a PNG.</p>
+</li>
+<li><p>For CURL/BYOL, set <code class="docutils literal notranslate"><span class="pre">use_momentum:</span> <span class="pre">true</span></code> on the encoder and raise the batch size — the
+loss returns <code class="docutils literal notranslate"><span class="pre">None</span></code> without a momentum encoder.</p></li>
+<li><p>On Isaac Lab vision tasks, <code class="docutils literal notranslate"><span class="pre">encoder_update_freq:</span> <span class="pre">2</span></code> and a large batch are a good
+starting point.</p></li>
+<li><p>CNN shorthand layers are <code class="docutils literal notranslate"><span class="pre">[out_channels,</span> <span class="pre">kernel,</span> <span class="pre">padding,</span> <span class="pre">activation,</span> <span class="pre">pooling]</span></code>. The
+third slot is padding, not stride — use the dict form when you need a stride.</p></li>
 </ul>
 </section>
-<section id="noi-luu-vi-du">
-<h2>Nơi lưu ví dụ<a class="headerlink" href="#noi-luu-vi-du" title="Link to this heading">#</a></h2>
-<p>Lưu các file config ví dụ trong <code class="docutils literal notranslate"><span class="pre">configs/examples/</span></code> để dễ dùng lại.</p>
-<hr class="docutils" />
-<p>Xem thêm hướng dẫn tổng quan: <a class="reference internal" href="../encoders.html"><span class="std std-doc">Encoders guide</span></a></p>
+<section id="see-also">
+<h2>See also<a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="../encoders.html"><span class="std std-doc">Encoders guide</span></a></p></li>
+<li><p><a class="reference internal" href="../yaml/encoders.html"><span class="std std-doc">YAML: Encoders</span></a></p></li>
+<li><p><a class="reference internal" href="../yaml/heads_flows.html"><span class="std std-doc">Heads &amp; Flows</span></a></p></li>
+</ul>
 </section>
 </section>
 
@@ -692,11 +737,11 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sac-vision-cnn-encoder-rieng">1) SAC — Vision (CNN) + encoder riêng</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#td3-mlp-state-based-nhanh">2) TD3 — MLP (state-based) nhanh</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#actor-critic-da-phuong-thuc-image-state">3) Actor-Critic đa phương thức (image + state)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tips-test-checklist">Tips &amp; test checklist</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#noi-luu-vi-du">Nơi lưu ví dụ</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sac-vision-cnn-with-a-dedicated-encoder-optimizer">1) SAC — vision (CNN) with a dedicated encoder optimizer</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#td3-mlp-state-based-fast">2) TD3 — MLP (state-based), fast</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#multi-modal-actor-critic-image-state">3) Multi-modal actor-critic (image + state)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tips-and-checklist">Tips and checklist</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>
   </nav></div>
 

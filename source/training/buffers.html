@@ -213,7 +213,7 @@
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Training System</span></p>
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="index.html">Training System</a></li>
-<li class="toctree-l1"><a class="reference internal" href="algorithms.html">Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../algorithms.html">Algorithms</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runners.html">Runners &amp; Training Loop</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Replay Buffers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../checkpointing.html">Checkpointing</a></li>
@@ -252,10 +252,9 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../algorithms.html">Algorithms</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../config_reference.html">Configuration Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../limitations.html">Limitations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/encoder_examples.html">Ví dụ: Cấu hình Encoders cho SAC / TD3 / Actor-Critic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/encoder_examples.html">Example: Encoder Configurations for SAC / TD3 / Actor-Critic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
 </ul>
 
@@ -473,17 +472,17 @@
             </div>
             <nav aria-label="Page">
                 <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cpu-replaybuffer-default">CPU ReplayBuffer (default)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#gpu-replay-buffer-v0-2-0">GPU Replay Buffer (v0.2.0)</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#van-de-voi-cpu-buffer">Vấn đề với CPU buffer</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#giai-phap">Giải pháp</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#su-dung">Sử dụng</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cpu-replaybuffer-default">CPU <code class="docutils literal notranslate"><span class="pre">ReplayBuffer</span></code> (default)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#gpureplaybuffer-v0-2-0"><code class="docutils literal notranslate"><span class="pre">GPUReplayBuffer</span></code> (v0.2.0)</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-problem-with-the-cpu-buffer">The problem with the CPU buffer</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-fix">The fix</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#usage">Usage</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#constructor-arguments">Constructor arguments</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#checkpointing">Checkpointing</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ket-hop-voi-async-runner">Kết hợp với Async Runner</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#xem-them">Xem thêm</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pairing-with-the-async-runner">Pairing with the async runner</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>
             </nav>
         </div>
@@ -497,40 +496,65 @@
                   
   <section id="replay-buffers">
 <h1>Replay Buffers<a class="headerlink" href="#replay-buffers" title="Link to this heading">#</a></h1>
-<p>SRL có 2 loại replay buffer: CPU-based (default) và GPU-based (cho GPU simulators).</p>
+<p>SRL ships two replay buffers: a CPU/numpy one (the default) and a CUDA-resident one
+for GPU simulators.</p>
 <section id="cpu-replaybuffer-default">
-<h2>CPU ReplayBuffer (default)<a class="headerlink" href="#cpu-replaybuffer-default" title="Link to this heading">#</a></h2>
-<p>Standard circular buffer lưu transitions dưới dạng numpy arrays.</p>
+<h2>CPU <code class="docutils literal notranslate"><span class="pre">ReplayBuffer</span></code> (default)<a class="headerlink" href="#cpu-replaybuffer-default" title="Link to this heading">#</a></h2>
+<p>A standard circular buffer that stores transitions as numpy arrays.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.core.replay_buffer</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReplayBuffer</span>
 
 <span class="n">buf</span> <span class="o">=</span> <span class="n">ReplayBuffer</span><span class="p">(</span><span class="n">capacity</span><span class="o">=</span><span class="mi">1_000_000</span><span class="p">)</span>
-<span class="n">buf</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">obs</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">done</span><span class="p">,</span> <span class="n">next_obs</span><span class="p">)</span>
+<span class="n">buf</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">obs</span><span class="o">=</span><span class="n">obs</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">action</span><span class="p">,</span> <span class="n">reward</span><span class="o">=</span><span class="n">reward</span><span class="p">,</span> <span class="n">next_obs</span><span class="o">=</span><span class="n">next_obs</span><span class="p">,</span> <span class="n">done</span><span class="o">=</span><span class="n">done</span><span class="p">)</span>
 <span class="n">batch</span> <span class="o">=</span> <span class="n">buf</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">256</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>Dùng cho hầu hết mọi trường hợp.</p>
+<p><code class="docutils literal notranslate"><span class="pre">obs_shape</span></code> and <code class="docutils literal notranslate"><span class="pre">action_dim</span></code> are optional — the buffer allocates lazily from the first
+transition you add. This is the right choice for almost every workload.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Pass the transition fields by keyword. <code class="docutils literal notranslate"><span class="pre">ReplayBuffer.add</span></code> and <code class="docutils literal notranslate"><span class="pre">GPUReplayBuffer.add</span></code>
+have different positional orders (<code class="docutils literal notranslate"><span class="pre">(obs,</span> <span class="pre">action,</span> <span class="pre">reward,</span> <span class="pre">next_obs,</span> <span class="pre">done)</span></code> versus
+<code class="docutils literal notranslate"><span class="pre">(obs,</span> <span class="pre">action,</span> <span class="pre">reward,</span> <span class="pre">done,</span> <span class="pre">next_obs)</span></code>), so positional calls do not transfer between
+the two.</p>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">done</span></code> must be <strong>true termination only</strong>, never OR’d with <code class="docutils literal notranslate"><span class="pre">truncated</span></code>. SAC, DDPG, and
+TD3 bootstrap the target as <code class="docutils literal notranslate"><span class="pre">(1</span> <span class="pre">-</span> <span class="pre">done)</span> <span class="pre">*</span> <span class="pre">next_q</span></code>, so folding time-limit cutoffs into
+<code class="docutils literal notranslate"><span class="pre">done</span></code> biases Q-values low on every env with an episode limit. Pass <code class="docutils literal notranslate"><span class="pre">truncated</span></code>
+separately.</p>
 </section>
-<section id="gpu-replay-buffer-v0-2-0">
-<h2>GPU Replay Buffer (v0.2.0)<a class="headerlink" href="#gpu-replay-buffer-v0-2-0" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">GPUReplayBuffer</span></code> là pre-allocated CUDA circular buffer, thiết kế cho zero-copy với Isaac Lab.</p>
-<section id="van-de-voi-cpu-buffer">
-<h3>Vấn đề với CPU buffer<a class="headerlink" href="#van-de-voi-cpu-buffer" title="Link to this heading">#</a></h3>
+<section id="gpureplaybuffer-v0-2-0">
+<h2><code class="docutils literal notranslate"><span class="pre">GPUReplayBuffer</span></code> (v0.2.0)<a class="headerlink" href="#gpureplaybuffer-v0-2-0" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">GPUReplayBuffer</span></code> is a pre-allocated CUDA circular buffer aimed at GPU-batched
+simulators.</p>
+<section id="the-problem-with-the-cpu-buffer">
+<h3>The problem with the CPU buffer<a class="headerlink" href="#the-problem-with-the-cpu-buffer" title="Link to this heading">#</a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>CPU ReplayBuffer:
-  Isaac Lab (CUDA) → numpy copy (host) → store → batch.to(device) → GPU
-  ↑ 2 host↔device round-trips mỗi step
+  GPU sim (CUDA) → numpy copy (host) → store → batch.to(device) → GPU
+  ↑ host↔device round-trips on both the store and the sample path
 </pre></div>
 </div>
 </section>
-<section id="giai-phap">
-<h3>Giải pháp<a class="headerlink" href="#giai-phap" title="Link to this heading">#</a></h3>
+<section id="the-fix">
+<h3>The fix<a class="headerlink" href="#the-fix" title="Link to this heading">#</a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>GPUReplayBuffer:
-  Isaac Lab (CUDA) → GPUReplayBuffer (CUDA) → batch already on GPU
-  ↑ 0 host↔device copies
+  GPU sim (CUDA) → GPUReplayBuffer (CUDA) → batch already on the GPU
+  ↑ no host↔device copies
 </pre></div>
 </div>
+<p><code class="docutils literal notranslate"><span class="pre">add()</span></code> accepts CUDA tensors and writes them through
+<code class="docutils literal notranslate"><span class="pre">Tensor.copy_(src,</span> <span class="pre">non_blocking=True)</span></code> on a dedicated copy stream; <code class="docutils literal notranslate"><span class="pre">sample()</span></code> returns a
+<code class="docutils literal notranslate"><span class="pre">ReplayBatch</span></code> whose tensors already live on <code class="docutils literal notranslate"><span class="pre">device</span></code>, so no <code class="docutils literal notranslate"><span class="pre">.to(device)</span></code> is needed in
+the training loop. It also takes numpy arrays via <code class="docutils literal notranslate"><span class="pre">torch.as_tensor</span></code>, and <code class="docutils literal notranslate"><span class="pre">add()</span></code> is
+thread-safe, which is what makes it usable from the async runner’s collector thread.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Getting the end-to-end zero-copy path requires feeding the buffer CUDA tensors
+yourself. The CLI’s <code class="docutils literal notranslate"><span class="pre">IsaacLabWrapper</span></code> converts observations to CPU numpy before they
+reach the buffer, so the copy-free path today is a Python-API one.</p>
+</div>
 </section>
-<section id="su-dung">
-<h3>Sử dụng<a class="headerlink" href="#su-dung" title="Link to this heading">#</a></h3>
+<section id="usage">
+<h3>Usage<a class="headerlink" href="#usage" title="Link to this heading">#</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.core.gpu_replay_buffer</span><span class="w"> </span><span class="kn">import</span> <span class="n">GPUReplayBuffer</span>
 
 <span class="n">buf</span> <span class="o">=</span> <span class="n">GPUReplayBuffer</span><span class="p">(</span>
@@ -541,8 +565,8 @@
 <span class="n">buf</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
     <span class="n">obs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;pixels&quot;</span><span class="p">:</span> <span class="n">obs_tensor</span><span class="p">,</span> <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="n">state_tensor</span><span class="p">},</span>
     <span class="n">action</span><span class="o">=</span><span class="n">action_tensor</span><span class="p">,</span>
-    <span class="n">reward</span><span class="o">=</span><span class="n">reward_float</span><span class="p">,</span>
-    <span class="n">done</span><span class="o">=</span><span class="n">done_bool</span><span class="p">,</span>
+    <span class="n">reward</span><span class="o">=</span><span class="n">reward_tensor</span><span class="p">,</span>
+    <span class="n">done</span><span class="o">=</span><span class="n">done_tensor</span><span class="p">,</span>
     <span class="n">next_obs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;pixels&quot;</span><span class="p">:</span> <span class="n">next_pixels</span><span class="p">,</span> <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="n">next_state</span><span class="p">},</span>
 <span class="p">)</span>
 
@@ -559,39 +583,39 @@
 <tr class="row-odd"><th class="head"><p>Argument</p></th>
 <th class="head"><p>Type</p></th>
 <th class="head"><p>Default</p></th>
-<th class="head"><p>Mô tả</p></th>
+<th class="head"><p>Description</p></th>
 </tr>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">capacity</span></code></p></td>
-<td><p>int</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
 <td><p>required</p></td>
-<td><p>Max transitions</p></td>
+<td><p>Maximum number of transitions</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">device</span></code></p></td>
-<td><p>str</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">str</span> <span class="pre">|</span> <span class="pre">torch.device</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">&quot;cuda&quot;</span></code></p></td>
-<td><p>Storage device</p></td>
+<td><p>Device all storage is allocated on</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">storage_dtype</span></code></p></td>
-<td><p>torch.dtype</p></td>
-<td><p>float32</p></td>
-<td><p>Precision</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">n_step</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>N-step return horizon (1 = standard 1-step TD)</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">n_step</span></code></p></td>
-<td><p>int</p></td>
-<td><p>1</p></td>
-<td><p>N-step return lookahead</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">gamma</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">float</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.99</span></code></p></td>
+<td><p>Discount used for n-step returns</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">gamma</span></code></p></td>
-<td><p>float</p></td>
-<td><p>0.99</p></td>
-<td><p>Discount cho n-step</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_fp16</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">bool</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
+<td><p>Store float32 obs/actions as float16 to halve VRAM</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">num_envs</span></code></p></td>
-<td><p>int</p></td>
-<td><p>1</p></td>
-<td><p>Số parallel envs</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Number of parallel envs writing to the buffer</p></td>
 </tr>
 </tbody>
 </table>
@@ -599,29 +623,47 @@
 </section>
 <section id="checkpointing">
 <h3>Checkpointing<a class="headerlink" href="#checkpointing" title="Link to this heading">#</a></h3>
-<p>GPUReplayBuffer serialize sang CPU tensors khi lưu:</p>
+<p><code class="docutils literal notranslate"><span class="pre">GPUReplayBuffer</span></code> serialises to CPU tensors, so a saved buffer restores onto any
+device:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">state</span> <span class="o">=</span> <span class="n">buf</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>    <span class="c1"># CPU tensors, portable</span>
 <span class="n">buf</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>  <span class="c1"># restore on any device</span>
 </pre></div>
 </div>
 </section>
 </section>
-<section id="ket-hop-voi-async-runner">
-<h2>Kết hợp với Async Runner<a class="headerlink" href="#ket-hop-voi-async-runner" title="Link to this heading">#</a></h2>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">train</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">use_async</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<span class="w">  </span><span class="nt">use_gpu_buffer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<section id="pairing-with-the-async-runner">
+<h2>Pairing with the async runner<a class="headerlink" href="#pairing-with-the-async-runner" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">AsyncOffPolicyRunner</span></code> swaps the agent’s CPU buffer for a <code class="docutils literal notranslate"><span class="pre">GPUReplayBuffer</span></code> when
+<code class="docutils literal notranslate"><span class="pre">use_gpu_buffer=True</span></code>, carrying <code class="docutils literal notranslate"><span class="pre">capacity</span></code>, <code class="docutils literal notranslate"><span class="pre">n_step</span></code>, <code class="docutils literal notranslate"><span class="pre">gamma</span></code>, <code class="docutils literal notranslate"><span class="pre">use_fp16</span></code>, and the env
+count over from the old buffer:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.core.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncRunnerConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">srl.runners</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncOffPolicyRunner</span>
+
+<span class="n">runner</span> <span class="o">=</span> <span class="n">AsyncOffPolicyRunner</span><span class="p">(</span>
+    <span class="n">agent</span><span class="o">=</span><span class="n">sac_agent</span><span class="p">,</span>
+    <span class="n">env</span><span class="o">=</span><span class="n">env</span><span class="p">,</span>
+    <span class="n">total_steps</span><span class="o">=</span><span class="mi">1_000_000</span><span class="p">,</span>
+    <span class="n">runner_cfg</span><span class="o">=</span><span class="n">AsyncRunnerConfig</span><span class="p">(</span><span class="n">use_async</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">use_gpu_buffer</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+    <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>Với cấu hình này:</p>
+<p>With that configuration:</p>
 <ol class="arabic simple">
-<li><p>Collector (main thread) viết CUDA tensors trực tiếp vào GPUReplayBuffer</p></li>
-<li><p>Trainer (daemon thread) sample batch đã ở trên GPU</p></li>
-<li><p>Không có CPU↔GPU copies trong hot path</p></li>
+<li><p>The collector (main thread) writes CUDA tensors straight into the <code class="docutils literal notranslate"><span class="pre">GPUReplayBuffer</span></code>.</p></li>
+<li><p>The trainer (daemon thread) samples batches that are already on the GPU.</p></li>
+<li><p>There are no CPU↔GPU copies in the hot path.</p></li>
 </ol>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">use_async</span></code> and <code class="docutils literal notranslate"><span class="pre">use_gpu_buffer</span></code> are Python-API settings. Putting them in a YAML
+<code class="docutils literal notranslate"><span class="pre">train:</span></code> block currently has no effect, because <code class="docutils literal notranslate"><span class="pre">srl-train</span></code> never builds an
+<code class="docutils literal notranslate"><span class="pre">AsyncRunnerConfig</span></code> from it.</p>
+</div>
 </section>
-<section id="xem-them">
-<h2>Xem thêm<a class="headerlink" href="#xem-them" title="Link to this heading">#</a></h2>
+<section id="see-also">
+<h2>See also<a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="../gpu_replay_buffer.html"><span class="std std-doc">GPU Replay Buffer API</span></a></p></li>
 <li><p><a class="reference internal" href="runners.html"><span class="std std-doc">Runners &amp; Training Loop</span></a></p></li>
@@ -677,17 +719,17 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cpu-replaybuffer-default">CPU ReplayBuffer (default)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#gpu-replay-buffer-v0-2-0">GPU Replay Buffer (v0.2.0)</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#van-de-voi-cpu-buffer">Vấn đề với CPU buffer</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#giai-phap">Giải pháp</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#su-dung">Sử dụng</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cpu-replaybuffer-default">CPU <code class="docutils literal notranslate"><span class="pre">ReplayBuffer</span></code> (default)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#gpureplaybuffer-v0-2-0"><code class="docutils literal notranslate"><span class="pre">GPUReplayBuffer</span></code> (v0.2.0)</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-problem-with-the-cpu-buffer">The problem with the CPU buffer</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-fix">The fix</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#usage">Usage</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#constructor-arguments">Constructor arguments</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#checkpointing">Checkpointing</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ket-hop-voi-async-runner">Kết hợp với Async Runner</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#xem-them">Xem thêm</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pairing-with-the-async-runner">Pairing with the async runner</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>
   </nav></div>
 

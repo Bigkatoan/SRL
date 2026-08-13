@@ -213,7 +213,7 @@
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Training System</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../training/index.html">Training System</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../training/algorithms.html">Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../algorithms.html">Algorithms</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../training/runners.html">Runners &amp; Training Loop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../training/buffers.html">Replay Buffers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../checkpointing.html">Checkpointing</a></li>
@@ -252,10 +252,9 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../algorithms.html">Algorithms</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../config_reference.html">Configuration Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../limitations.html">Limitations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/encoder_examples.html">Ví dụ: Cấu hình Encoders cho SAC / TD3 / Actor-Critic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/encoder_examples.html">Example: Encoder Configurations for SAC / TD3 / Actor-Critic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
 </ul>
 
@@ -474,10 +473,10 @@
             <nav aria-label="Page">
                 <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#wrapper">Wrapper</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cac-moi-truong-duoc-ho-tro">Các môi trường được hỗ trợ</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#env-type">env_type</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#supported-environments">Supported environments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#env-type"><code class="docutils literal notranslate"><span class="pre">env_type</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#parallel-environments">Parallel environments</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#xem-them">Xem thêm</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>
             </nav>
         </div>
@@ -491,10 +490,12 @@
                   
   <section id="gymnasium-integration">
 <h1>Gymnasium Integration<a class="headerlink" href="#gymnasium-integration" title="Link to this heading">#</a></h1>
-<p>SRL dùng Gymnasium làm API chuẩn cho tất cả các environment không phải Isaac Lab.</p>
+<p>SRL uses Gymnasium as the standard API for every environment that is not an Isaac Lab
+or mjlab GPU simulator.</p>
 <section id="wrapper">
 <h2>Wrapper<a class="headerlink" href="#wrapper" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">GymnasiumWrapper</span></code> chuyển đổi Gymnasium env về dạng SRL-compatible:</p>
+<p><code class="docutils literal notranslate"><span class="pre">GymnasiumWrapper</span></code> normalises a Gymnasium env into the SRL observation/action
+interface:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">gymnasium</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gym</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">srl.envs.gymnasium_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">GymnasiumWrapper</span>
 
@@ -503,88 +504,119 @@
 <span class="c1"># obs = {&quot;state&quot;: array(17,)}</span>
 
 <span class="n">action</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">action_space</span><span class="o">.</span><span class="n">sample</span><span class="p">()</span>
-<span class="n">obs</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">done</span><span class="p">,</span> <span class="n">truncated</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
+<span class="n">obs</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">terminated</span><span class="p">,</span> <span class="n">truncated</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
 <span class="n">env</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 </pre></div>
 </div>
+<p>The wrapper wraps the raw observation in a single-key dict. The key is <code class="docutils literal notranslate"><span class="pre">state</span></code> by
+default and can be changed with the <code class="docutils literal notranslate"><span class="pre">obs_key</span></code> constructor argument (for example
+<code class="docutils literal notranslate"><span class="pre">GymnasiumWrapper(env,</span> <span class="pre">obs_key=&quot;pixels&quot;)</span></code> for pixel observations). It also exposes
+<code class="docutils literal notranslate"><span class="pre">obs_space</span></code>/<code class="docutils literal notranslate"><span class="pre">act_space</span></code> helpers and sets <code class="docutils literal notranslate"><span class="pre">num_envs</span> <span class="pre">=</span> <span class="pre">1</span></code> so single envs and vector envs
+have the same surface.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">step()</span></code> returns <code class="docutils literal notranslate"><span class="pre">terminated</span></code> and <code class="docutils literal notranslate"><span class="pre">truncated</span></code> separately and never collapses them into
+a single <code class="docutils literal notranslate"><span class="pre">done</span></code>. Off-policy algorithms bootstrap <code class="docutils literal notranslate"><span class="pre">(1</span> <span class="pre">-</span> <span class="pre">done)</span> <span class="pre">*</span> <span class="pre">next_q</span></code>, so folding a
+time-limit cutoff into <code class="docutils literal notranslate"><span class="pre">done</span></code> would bias Q-values low on any env with an episode limit.</p>
+</div>
 </section>
-<section id="cac-moi-truong-duoc-ho-tro">
-<h2>Các môi trường được hỗ trợ<a class="headerlink" href="#cac-moi-truong-duoc-ho-tro" title="Link to this heading">#</a></h2>
+<section id="supported-environments">
+<h2>Supported environments<a class="headerlink" href="#supported-environments" title="Link to this heading">#</a></h2>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
 <tr class="row-odd"><th class="head"><p>Family</p></th>
-<th class="head"><p>Env IDs</p></th>
-<th class="head"><p>env_type</p></th>
+<th class="head"><p>Example env IDs</p></th>
+<th class="head"><p><code class="docutils literal notranslate"><span class="pre">env_type</span></code></p></th>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p>Classic Control</p></td>
-<td><p>Pendulum-v1, CartPole-v1</p></td>
-<td><p>flat</p></td>
+<tr class="row-even"><td><p>Classic control</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Pendulum-v1</span></code>, <code class="docutils literal notranslate"><span class="pre">MountainCarContinuous-v0</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">flat</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>MuJoCo</p></td>
-<td><p>HalfCheetah-v5, Ant-v5, Humanoid-v5</p></td>
-<td><p>flat</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">HalfCheetah-v5</span></code>, <code class="docutils literal notranslate"><span class="pre">Ant-v5</span></code>, <code class="docutils literal notranslate"><span class="pre">Humanoid-v5</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">flat</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>Box2D</p></td>
-<td><p>LunarLanderContinuous-v2, BipedalWalker-v3</p></td>
-<td><p>flat</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LunarLanderContinuous-v3</span></code>, <code class="docutils literal notranslate"><span class="pre">BipedalWalker-v3</span></code>, <code class="docutils literal notranslate"><span class="pre">CarRacing-v3</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">flat</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p>Gymnasium Robotics</p></td>
-<td><p>FetchReach-v4, FetchPush-v4</p></td>
-<td><p>goal</p></td>
+<tr class="row-odd"><td><p>Gymnasium-Robotics</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">FetchReach-v4</span></code>, <code class="docutils literal notranslate"><span class="pre">FetchPush-v4</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">goal</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>racecar_gym</p></td>
-<td><p>racecargym-v0</p></td>
-<td><p>flat</p></td>
-</tr>
-<tr class="row-odd"><td><p>Visual</p></td>
-<td><p>CarRacing-v3</p></td>
-<td><p>visual</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SingleAgentAustria-v0</span></code>, <code class="docutils literal notranslate"><span class="pre">SingleAgentBerlin-v0</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">racecar</span></code></p></td>
 </tr>
 </tbody>
 </table>
 </div>
+<p>SRL targets <strong>continuous action spaces</strong> only, so discrete-action classics such as
+<code class="docutils literal notranslate"><span class="pre">CartPole-v1</span></code> are out of scope. See <a class="reference internal" href="../environments/index.html"><span class="std std-doc">Supported Environments</span></a>
+for the full table with observation/action dimensions and convergence budgets.</p>
 </section>
 <section id="env-type">
-<h2>env_type<a class="headerlink" href="#env-type" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">env_type</span></code> xác định cách observation được xử lý:</p>
+<h2><code class="docutils literal notranslate"><span class="pre">env_type</span></code><a class="headerlink" href="#env-type" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">env_type</span></code> selects which wrapper the CLI builds and therefore how observations are
+shaped:</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
-<tr class="row-odd"><th class="head"><p>env_type</p></th>
+<tr class="row-odd"><th class="head"><p><code class="docutils literal notranslate"><span class="pre">env_type</span></code></p></th>
+<th class="head"><p>Wrapper</p></th>
 <th class="head"><p>Observation format</p></th>
-<th class="head"><p>Dùng khi</p></th>
+<th class="head"><p>Use for</p></th>
 </tr>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">flat</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GymnasiumWrapper</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">{&quot;state&quot;:</span> <span class="pre">array}</span></code></p></td>
-<td><p>Vector observations</p></td>
+<td><p>Vector and pixel Box observations</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">goal</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">{&quot;observation&quot;:</span> <span class="pre">arr,</span> <span class="pre">&quot;achieved_goal&quot;:</span> <span class="pre">arr,</span> <span class="pre">&quot;desired_goal&quot;:</span> <span class="pre">arr}</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GoalEnvWrapper</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">{&quot;state&quot;:</span> <span class="pre">[observation</span> <span class="pre">|</span> <span class="pre">achieved_goal</span> <span class="pre">|</span> <span class="pre">desired_goal]}</span></code></p></td>
 <td><p>Goal-conditioned envs</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">visual</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">{&quot;pixels&quot;:</span> <span class="pre">array(C,H,W)}</span></code></p></td>
-<td><p>Pixel-based envs</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">racecar</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">RacecarWrapper</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">{&quot;state&quot;:</span> <span class="pre">array}</span></code> (Dict obs flattened)</p></td>
+<td><p>racecar_gym tracks</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">isaaclab</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">IsaacLabWrapper</span></code></p></td>
+<td><p>one key per Isaac Lab obs group</p></td>
+<td><p>Isaac Lab tasks</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mjlab</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">IsaacLabWrapper</span></code></p></td>
+<td><p>one key per mjlab obs group</p></td>
+<td><p>mjlab tasks</p></td>
 </tr>
 </tbody>
 </table>
 </div>
+<p>Anything else falls back to <code class="docutils literal notranslate"><span class="pre">flat</span></code>. Pixel-based Gymnasium envs such as <code class="docutils literal notranslate"><span class="pre">CarRacing-v3</span></code>
+also use <code class="docutils literal notranslate"><span class="pre">flat</span></code> — the shipped <a class="reference external" href="https://github.com/Bigkatoan/SRL/blob/main/configs/envs/car_racing_ppo_visual.yaml">car_racing_ppo_visual.yaml</a>
+config pairs <code class="docutils literal notranslate"><span class="pre">env_type:</span> <span class="pre">flat</span></code> with a <code class="docutils literal notranslate"><span class="pre">cnn</span></code> encoder.</p>
 </section>
 <section id="parallel-environments">
 <h2>Parallel environments<a class="headerlink" href="#parallel-environments" title="Link to this heading">#</a></h2>
+<p>Set <code class="docutils literal notranslate"><span class="pre">n_envs</span></code> in the <code class="docutils literal notranslate"><span class="pre">train:</span></code> block (or pass <code class="docutils literal notranslate"><span class="pre">--n-envs</span></code>) to collect from several envs at
+once. The CLI picks the vector backend from <code class="docutils literal notranslate"><span class="pre">--vec-mode</span></code> (<code class="docutils literal notranslate"><span class="pre">auto</span></code> defaults to
+<code class="docutils literal notranslate"><span class="pre">AsyncVectorEnv</span></code> when <code class="docutils literal notranslate"><span class="pre">n_envs</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>):</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">train</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">n_envs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
 </pre></div>
 </div>
 </section>
-<section id="xem-them">
-<h2>Xem thêm<a class="headerlink" href="#xem-them" title="Link to this heading">#</a></h2>
+<section id="see-also">
+<h2>See also<a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
 <ul class="simple">
-<li><p><a class="reference internal" href="isaaclab.html"><span class="std std-doc">Isaac Lab Integration</span></a> — cho GPU simulators</p></li>
-<li><p><a class="reference internal" href="../environments/index.html"><span class="std std-doc">Environments Overview</span></a></p></li>
+<li><p><a class="reference internal" href="isaaclab.html"><span class="std std-doc">Isaac Lab Integration</span></a> — for GPU simulators</p></li>
+<li><p><a class="reference internal" href="../environments/index.html"><span class="std std-doc">Supported Environments</span></a></p></li>
 </ul>
 </section>
 </section>
@@ -637,10 +669,10 @@
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#wrapper">Wrapper</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cac-moi-truong-duoc-ho-tro">Các môi trường được hỗ trợ</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#env-type">env_type</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#supported-environments">Supported environments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#env-type"><code class="docutils literal notranslate"><span class="pre">env_type</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#parallel-environments">Parallel environments</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#xem-them">Xem thêm</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>
   </nav></div>
 

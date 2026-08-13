@@ -213,7 +213,7 @@
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Training System</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../training/index.html">Training System</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../training/algorithms.html">Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../algorithms.html">Algorithms</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../training/runners.html">Runners &amp; Training Loop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../training/buffers.html">Replay Buffers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../checkpointing.html">Checkpointing</a></li>
@@ -252,10 +252,9 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../algorithms.html">Algorithms</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../config_reference.html">Configuration Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../limitations.html">Limitations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/encoder_examples.html">Ví dụ: Cấu hình Encoders cho SAC / TD3 / Actor-Critic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/encoder_examples.html">Example: Encoder Configurations for SAC / TD3 / Actor-Critic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
 </ul>
 
@@ -473,22 +472,23 @@
             </div>
             <nav aria-label="Page">
                 <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#actor-heads">Actor Heads</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#critic-heads">Critic Heads</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#flows-routing-graph">Flows — Routing Graph</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tinh-chat-quan-trong">Tính chất quan trọng</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#vi-du-symmetric">Ví dụ: Symmetric</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#vi-du-asymmetric-multi-modal">Ví dụ: Asymmetric multi-modal</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#vi-du-full-multi-modal-symmetric">Ví dụ: Full multi-modal symmetric</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#actor-heads">Actor heads</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#critic-heads">Critic heads</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#flows-the-routing-graph">Flows — the routing graph</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#important-properties">Important properties</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-symmetric">Example: symmetric</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-asymmetric-multi-modal">Example: asymmetric multi-modal</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-full-multi-modal-symmetric">Example: full multi-modal, symmetric</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#layer-specification">Layer specification</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dict-style-mlp-khuyen-nghi">Dict style (MLP — khuyến nghị)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dict-style-recommended">Dict style (recommended)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#list-style-cnn">List style (CNN)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#activation-options">Activation options</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#norm-options">Norm options</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>
             </nav>
         </div>
@@ -503,13 +503,14 @@
   <section id="heads-flows">
 <h1>Heads &amp; Flows<a class="headerlink" href="#heads-flows" title="Link to this heading">#</a></h1>
 <section id="actor-heads">
-<h2>Actor Heads<a class="headerlink" href="#actor-heads" title="Link to this heading">#</a></h2>
-<p>Actor head nhận latent vector từ encoder và output action distribution.</p>
+<h2>Actor heads<a class="headerlink" href="#actor-heads" title="Link to this heading">#</a></h2>
+<p>An actor head takes the latent vector produced by the encoders and outputs an action
+distribution.</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
 <tr class="row-odd"><th class="head"><p>Type</p></th>
-<th class="head"><p>Mô tả</p></th>
-<th class="head"><p>Dùng cho</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Use with</p></th>
 </tr>
 </thead>
 <tbody>
@@ -518,11 +519,11 @@
 <td><p>SAC, vision tasks</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">gaussian</span></code></p></td>
-<td><p>Gaussian không squash</p></td>
-<td><p>PPO, unbounded action spaces</p></td>
+<td><p>Gaussian, no squashing</p></td>
+<td><p>PPO, A2C, A3C</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">deterministic</span></code></p></td>
-<td><p>Output mean trực tiếp</p></td>
+<td><p>Emits the mean directly</p></td>
 <td><p>DDPG, TD3</p></td>
 </tr>
 </tbody>
@@ -541,25 +542,25 @@
 </div>
 </section>
 <section id="critic-heads">
-<h2>Critic Heads<a class="headerlink" href="#critic-heads" title="Link to this heading">#</a></h2>
+<h2>Critic heads<a class="headerlink" href="#critic-heads" title="Link to this heading">#</a></h2>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
 <tr class="row-odd"><th class="head"><p>Type</p></th>
-<th class="head"><p>Mô tả</p></th>
-<th class="head"><p>Dùng cho</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Use with</p></th>
 </tr>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">twin_q</span></code></p></td>
-<td><p>Hai Q-networks (min để giảm overestimation)</p></td>
+<td><p>Two Q-networks, min taken to reduce overestimation</p></td>
 <td><p>SAC, TD3</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">q</span></code></p></td>
-<td><p>Một Q-network</p></td>
+<td><p>A single Q-network (alias: <code class="docutils literal notranslate"><span class="pre">q_function</span></code>)</p></td>
 <td><p>DDPG</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">value</span></code></p></td>
-<td><p>State value V(s)</p></td>
+<td><p>State value <code class="docutils literal notranslate"><span class="pre">V(s)</span></code></p></td>
 <td><p>PPO, A2C, A3C</p></td>
 </tr>
 </tbody>
@@ -576,37 +577,50 @@
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Builder tự tính kích thước input của head từ flow graph — không cần hard-code <code class="docutils literal notranslate"><span class="pre">input_dim</span></code>.</p>
+<p>The builder derives each head’s input size from the flow graph — there is no
+<code class="docutils literal notranslate"><span class="pre">input_dim</span></code> to hard-code. <code class="docutils literal notranslate"><span class="pre">action_dim</span></code> is required for actor heads and for <code class="docutils literal notranslate"><span class="pre">q</span></code>/<code class="docutils literal notranslate"><span class="pre">twin_q</span></code>
+critics; <code class="docutils literal notranslate"><span class="pre">srl-train</span></code> also checks head types against the selected algorithm before
+building anything.</p>
 </div>
 </section>
-<section id="flows-routing-graph">
-<h2>Flows — Routing Graph<a class="headerlink" href="#flows-routing-graph" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">flows</span></code> định nghĩa data path từ encoder đến heads dưới dạng directed edges.</p>
+<section id="flows-the-routing-graph">
+<h2>Flows — the routing graph<a class="headerlink" href="#flows-the-routing-graph" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">flows</span></code> declares the data path from encoders to heads as a list of directed edges.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">flows</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;encoder_name</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;encoder_name</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
 </pre></div>
 </div>
-<section id="tinh-chat-quan-trong">
-<h3>Tính chất quan trọng<a class="headerlink" href="#tinh-chat-quan-trong" title="Link to this heading">#</a></h3>
+<section id="important-properties">
+<h3>Important properties<a class="headerlink" href="#important-properties" title="Link to this heading">#</a></h3>
 <ul class="simple">
-<li><p><strong>Concatenation tự động</strong>: nhiều encoder input vào cùng một head được concatenate</p></li>
-<li><p><strong>Topological ordering</strong>: thứ tự thực thi được resolve tự động</p></li>
-<li><p><strong>Asymmetric branches</strong>: actor và critic có thể dùng encoder set khác nhau</p></li>
-<li><p><strong>Encoder chaining</strong>: encoder-to-encoder connections được hỗ trợ</p></li>
+<li><p><strong>Automatic concatenation</strong> — when several encoders feed the same head, their latents
+are concatenated and the head’s input dimension is the sum of their <code class="docutils literal notranslate"><span class="pre">latent_dim</span></code>s.</p></li>
+<li><p><strong>Topological ordering</strong> — execution order is resolved automatically; cycles raise a
+<code class="docutils literal notranslate"><span class="pre">ValueError</span></code>.</p></li>
+<li><p><strong>Asymmetric branches</strong> — the actor and critic can consume different encoder sets.</p></li>
+<li><p><strong>Declared names only</strong> — both sides of every edge must name a declared encoder,
+<code class="docutils literal notranslate"><span class="pre">actor</span></code>, or <code class="docutils literal notranslate"><span class="pre">critic</span></code>; anything else is an error at build time.</p></li>
 </ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Encoder-to-encoder edges parse, and they are followed when working out which encoders
+feed a head. They are not a runtime pipeline, though: at execution time every encoder
+reads its own observation key, and latents are only concatenated on the way into a
+head.</p>
+</div>
 </section>
-<section id="vi-du-symmetric">
-<h3>Ví dụ: Symmetric<a class="headerlink" href="#vi-du-symmetric" title="Link to this heading">#</a></h3>
+<section id="example-symmetric">
+<h3>Example: symmetric<a class="headerlink" href="#example-symmetric" title="Link to this heading">#</a></h3>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">flows</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
 </pre></div>
 </div>
 </section>
-<section id="vi-du-asymmetric-multi-modal">
-<h3>Ví dụ: Asymmetric multi-modal<a class="headerlink" href="#vi-du-asymmetric-multi-modal" title="Link to this heading">#</a></h3>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Actor thấy image + state; critic chỉ thấy state</span>
+<section id="example-asymmetric-multi-modal">
+<h3>Example: asymmetric multi-modal<a class="headerlink" href="#example-asymmetric-multi-modal" title="Link to this heading">#</a></h3>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Actor sees image + state; critic sees state only</span>
 <span class="nt">flows</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;image_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
@@ -614,8 +628,8 @@
 </pre></div>
 </div>
 </section>
-<section id="vi-du-full-multi-modal-symmetric">
-<h3>Ví dụ: Full multi-modal symmetric<a class="headerlink" href="#vi-du-full-multi-modal-symmetric" title="Link to this heading">#</a></h3>
+<section id="example-full-multi-modal-symmetric">
+<h3>Example: full multi-modal, symmetric<a class="headerlink" href="#example-full-multi-modal-symmetric" title="Link to this heading">#</a></h3>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">flows</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;image_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
@@ -627,32 +641,59 @@
 </section>
 <section id="layer-specification">
 <h2>Layer specification<a class="headerlink" href="#layer-specification" title="Link to this heading">#</a></h2>
-<section id="dict-style-mlp-khuyen-nghi">
-<h3>Dict style (MLP — khuyến nghị)<a class="headerlink" href="#dict-style-mlp-khuyen-nghi" title="Link to this heading">#</a></h3>
+<section id="dict-style-recommended">
+<h3>Dict style (recommended)<a class="headerlink" href="#dict-style-recommended" title="Link to this heading">#</a></h3>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">layers</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">layer_norm</span><span class="p p-Indicator">}</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">none</span><span class="p p-Indicator">}</span>
 </pre></div>
 </div>
+<p>MLP layers also accept a bare integer as shorthand for <code class="docutils literal notranslate"><span class="pre">out_features</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">layers</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">]</span>
+</pre></div>
+</div>
 </section>
 <section id="list-style-cnn">
 <h3>List style (CNN)<a class="headerlink" href="#list-style-cnn" title="Link to this heading">#</a></h3>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># [out_channels, kernel_size, stride, activation]</span>
+<p>CNN shorthand lists are positional, in this order:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># [out_channels, kernel, padding, activation, pooling]</span>
 <span class="nt">layers</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">32</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">8</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">]</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">2</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">]</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">]</span>
 </pre></div>
 </div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The third element is <strong>padding</strong>, not stride. <code class="docutils literal notranslate"><span class="pre">stride</span></code> has no shorthand slot and
+defaults to <code class="docutils literal notranslate"><span class="pre">1</span></code>, so any layer that needs a stride must use the dict form:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">layers</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_channels</span><span class="p">:</span><span class="w"> </span><span class="nv">32</span><span class="p p-Indicator">,</span><span class="nt"> kernel</span><span class="p">:</span><span class="w"> </span><span class="nv">8</span><span class="p p-Indicator">,</span><span class="nt"> stride</span><span class="p">:</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="nt"> padding</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_channels</span><span class="p">:</span><span class="w"> </span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="nt"> kernel</span><span class="p">:</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="nt"> stride</span><span class="p">:</span><span class="w"> </span><span class="nv">2</span><span class="p p-Indicator">,</span><span class="nt"> padding</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">}</span>
+</pre></div>
+</div>
+<p>Note the key is <code class="docutils literal notranslate"><span class="pre">kernel</span></code>, not <code class="docutils literal notranslate"><span class="pre">kernel_size</span></code>, and group-norm groups are set with
+<code class="docutils literal notranslate"><span class="pre">norm_groups</span></code>.</p>
+</div>
+<p>Omitted trailing entries fall back to their defaults (<code class="docutils literal notranslate"><span class="pre">kernel:</span> <span class="pre">3</span></code>, <code class="docutils literal notranslate"><span class="pre">stride:</span> <span class="pre">1</span></code>,
+<code class="docutils literal notranslate"><span class="pre">padding:</span> <span class="pre">&quot;same&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">pooling:</span> <span class="pre">&quot;none&quot;</span></code>).</p>
 </section>
 <section id="activation-options">
 <h3>Activation options<a class="headerlink" href="#activation-options" title="Link to this heading">#</a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">relu</span></code>, <code class="docutils literal notranslate"><span class="pre">elu</span></code>, <code class="docutils literal notranslate"><span class="pre">tanh</span></code>, <code class="docutils literal notranslate"><span class="pre">gelu</span></code>, <code class="docutils literal notranslate"><span class="pre">silu</span></code>, <code class="docutils literal notranslate"><span class="pre">none</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">relu</span></code>, <code class="docutils literal notranslate"><span class="pre">leaky_relu</span></code>, <code class="docutils literal notranslate"><span class="pre">tanh</span></code>, <code class="docutils literal notranslate"><span class="pre">sigmoid</span></code>, <code class="docutils literal notranslate"><span class="pre">gelu</span></code>, <code class="docutils literal notranslate"><span class="pre">silu</span></code>, <code class="docutils literal notranslate"><span class="pre">elu</span></code>, <code class="docutils literal notranslate"><span class="pre">mish</span></code>, <code class="docutils literal notranslate"><span class="pre">hardswish</span></code>,
+<code class="docutils literal notranslate"><span class="pre">none</span></code> (alias <code class="docutils literal notranslate"><span class="pre">identity</span></code>)</p>
 </section>
 <section id="norm-options">
 <h3>Norm options<a class="headerlink" href="#norm-options" title="Link to this heading">#</a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">layer_norm</span></code>, <code class="docutils literal notranslate"><span class="pre">batch_norm</span></code>, <code class="docutils literal notranslate"><span class="pre">none</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">batch_norm</span></code>, <code class="docutils literal notranslate"><span class="pre">layer_norm</span></code>, <code class="docutils literal notranslate"><span class="pre">group_norm</span></code>, <code class="docutils literal notranslate"><span class="pre">instance_norm</span></code>, <code class="docutils literal notranslate"><span class="pre">rms_norm</span></code>, <code class="docutils literal notranslate"><span class="pre">none</span></code></p>
 </section>
+</section>
+<section id="see-also">
+<h2>See also<a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="encoders.html"><span class="std std-doc">Encoders</span></a></p></li>
+<li><p><a class="reference internal" href="../config_reference.html"><span class="std std-doc">Configuration Reference</span></a> — the full <code class="docutils literal notranslate"><span class="pre">LayerConfig</span></code> field list</p></li>
+</ul>
 </section>
 </section>
 
@@ -703,22 +744,23 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#actor-heads">Actor Heads</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#critic-heads">Critic Heads</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#flows-routing-graph">Flows — Routing Graph</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tinh-chat-quan-trong">Tính chất quan trọng</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#vi-du-symmetric">Ví dụ: Symmetric</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#vi-du-asymmetric-multi-modal">Ví dụ: Asymmetric multi-modal</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#vi-du-full-multi-modal-symmetric">Ví dụ: Full multi-modal symmetric</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#actor-heads">Actor heads</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#critic-heads">Critic heads</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#flows-the-routing-graph">Flows — the routing graph</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#important-properties">Important properties</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-symmetric">Example: symmetric</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-asymmetric-multi-modal">Example: asymmetric multi-modal</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-full-multi-modal-symmetric">Example: full multi-modal, symmetric</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#layer-specification">Layer specification</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dict-style-mlp-khuyen-nghi">Dict style (MLP — khuyến nghị)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dict-style-recommended">Dict style (recommended)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#list-style-cnn">List style (CNN)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#activation-options">Activation options</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#norm-options">Norm options</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>
   </nav></div>
 

@@ -213,7 +213,7 @@
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Training System</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../training/index.html">Training System</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../training/algorithms.html">Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../algorithms.html">Algorithms</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../training/runners.html">Runners &amp; Training Loop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../training/buffers.html">Replay Buffers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../checkpointing.html">Checkpointing</a></li>
@@ -252,10 +252,9 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../algorithms.html">Algorithms</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../config_reference.html">Configuration Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../limitations.html">Limitations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/encoder_examples.html">Ví dụ: Cấu hình Encoders cho SAC / TD3 / Actor-Critic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/encoder_examples.html">Example: Encoder Configurations for SAC / TD3 / Actor-Critic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
 </ul>
 
@@ -473,8 +472,8 @@
             </div>
             <nav aria-label="Page">
                 <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cac-integrations">Các integrations</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cac-trang">Các trang</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#available-integrations">Available integrations</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pages">Pages</a></li>
 </ul>
             </nav>
         </div>
@@ -488,49 +487,49 @@
                   
   <section id="integrations">
 <h1>Integrations<a class="headerlink" href="#integrations" title="Link to this heading">#</a></h1>
-<p>SRL tích hợp với các hệ sinh thái RL lớn.</p>
-<section id="cac-integrations">
-<h2>Các integrations<a class="headerlink" href="#cac-integrations" title="Link to this heading">#</a></h2>
+<p>SRL integrates with the major RL ecosystems.</p>
+<section id="available-integrations">
+<h2>Available integrations<a class="headerlink" href="#available-integrations" title="Link to this heading">#</a></h2>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
-<tr class="row-odd"><th class="head"><p>Môi trường</p></th>
+<tr class="row-odd"><th class="head"><p>Environment</p></th>
 <th class="head"><p>Integration</p></th>
 <th class="head"><p>Buffer</p></th>
 <th class="head"><p>Runner</p></th>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p>Gymnasium (Classic, MuJoCo)</p></td>
-<td><p>Gymnasium wrapper</p></td>
+<tr class="row-even"><td><p>Gymnasium (classic control, MuJoCo, Box2D)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GymnasiumWrapper</span></code></p></td>
 <td><p>CPU</p></td>
 <td><p>Sync</p></td>
 </tr>
 <tr class="row-odd"><td><p>Isaac Lab (GPU sim)</p></td>
-<td><p>IsaacLabWrapper</p></td>
-<td><p>GPU</p></td>
-<td><p>Async</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">IsaacLabWrapper</span></code></p></td>
+<td><p>CPU (GPU via Python API)</p></td>
+<td><p>Sync (async via Python API)</p></td>
 </tr>
 <tr class="row-even"><td><p>mjlab (GPU sim, MuJoCo-Warp)</p></td>
-<td><p>IsaacLabWrapper</p></td>
-<td><p>GPU</p></td>
-<td><p>Async</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">IsaacLabWrapper</span></code></p></td>
+<td><p>CPU (GPU via Python API)</p></td>
+<td><p>Sync (async via Python API)</p></td>
 </tr>
 <tr class="row-odd"><td><p>Real robot (ROS 2)</p></td>
 <td><p>ROS 2 bridge</p></td>
-<td><p>CPU</p></td>
-<td><p>Sync (realtime)</p></td>
+<td><p>—</p></td>
+<td><p>Realtime inference</p></td>
 </tr>
 </tbody>
 </table>
 </div>
 </section>
-<section id="cac-trang">
-<h2>Các trang<a class="headerlink" href="#cac-trang" title="Link to this heading">#</a></h2>
+<section id="pages">
+<h2>Pages<a class="headerlink" href="#pages" title="Link to this heading">#</a></h2>
 <ul class="simple">
-<li><p><a class="reference internal" href="isaaclab.html"><span class="std std-doc">Isaac Lab</span></a> — GPU-accelerated robot learning, hướng dẫn setup đầy đủ</p></li>
-<li><p><a class="reference internal" href="mjlab.html"><span class="std std-doc">mjlab</span></a> — cùng shape “GPU-batched, một process” như Isaac Lab, không cần cài Isaac Sim</p></li>
-<li><p><a class="reference internal" href="gymnasium.html"><span class="std std-doc">Gymnasium</span></a> — standard RL environment API</p></li>
-<li><p><a class="reference internal" href="../ros2.html"><span class="std std-doc">ROS 2</span></a> — deployment và sim-to-real transfer</p></li>
+<li><p><a class="reference internal" href="isaaclab.html"><span class="std std-doc">Isaac Lab</span></a> — GPU-accelerated robot learning, with the full setup walkthrough</p></li>
+<li><p><a class="reference internal" href="mjlab.html"><span class="std std-doc">mjlab</span></a> — the same “GPU-batched, one process” shape as Isaac Lab, without needing an Isaac Sim install</p></li>
+<li><p><a class="reference internal" href="gymnasium.html"><span class="std std-doc">Gymnasium</span></a> — the standard RL environment API</p></li>
+<li><p><a class="reference internal" href="../ros2.html"><span class="std std-doc">ROS 2</span></a> — deployment and sim-to-real transfer</p></li>
 </ul>
 </section>
 </section>
@@ -582,8 +581,8 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cac-integrations">Các integrations</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cac-trang">Các trang</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#available-integrations">Available integrations</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pages">Pages</a></li>
 </ul>
   </nav></div>
 
