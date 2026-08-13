@@ -543,22 +543,30 @@
 <h2>Training CLI behavior<a class="headerlink" href="#training-cli-behavior" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">srl-train</span></code> exposes checkpoint-related control through:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">--ckptdir</span></code>: directory where checkpoints are written</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--ckptdir</span></code>: directory where checkpoints are written (default <code class="docutils literal notranslate"><span class="pre">checkpoints/</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--logdir</span></code>: directory where TensorBoard/metrics artifacts are written (default <code class="docutils literal notranslate"><span class="pre">runs/</span></code>)</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--resume</span></code>: resume from an existing checkpoint file</p></li>
 </ul>
-<p>Typical training layout looks like this:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>runs/
+<p>Checkpoints and run artifacts live in two separate top-level directories,
+not nested inside one another — <code class="docutils literal notranslate"><span class="pre">--ckptdir</span></code>/<code class="docutils literal notranslate"><span class="pre">&lt;run_name&gt;/</span></code> is a <em>sibling</em> of
+<code class="docutils literal notranslate"><span class="pre">--logdir</span></code>/<code class="docutils literal notranslate"><span class="pre">&lt;run_name&gt;/</span></code>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>checkpoints/
   ppo_pendulum_ppo/
-    checkpoints/
-      ckpt_0000005000.pt
-      final_0000100000.pt
+    final_0000100000.pt
+
+runs/
+  ppo_pendulum_ppo/
     metrics.jsonl
     history.csv
     summary.json
+    training_curves.svg
     training_curves.png
 </pre></div>
 </div>
-<p>The exact run directory name is derived by the training CLI from the algorithm and config stem.</p>
+<p>(Both <code class="docutils literal notranslate"><span class="pre">.svg</span></code> and <code class="docutils literal notranslate"><span class="pre">.png</span></code> are written unless <code class="docutils literal notranslate"><span class="pre">--no-plots</span></code> is passed.)</p>
+<p>The exact run directory name (<code class="docutils literal notranslate"><span class="pre">ppo_pendulum_ppo</span></code> above) is derived by the
+training CLI from the algorithm and config stem, and is the same under both
+<code class="docutils literal notranslate"><span class="pre">--ckptdir</span></code> and <code class="docutils literal notranslate"><span class="pre">--logdir</span></code>.</p>
 </section>
 <section id="resume-semantics">
 <h2>Resume semantics<a class="headerlink" href="#resume-semantics" title="Link to this heading">#</a></h2>
@@ -568,7 +576,7 @@
 <span class="w">          </span>--env<span class="w"> </span>Pendulum-v1<span class="w"> </span><span class="se">\</span>
 <span class="w">          </span>--algo<span class="w"> </span>ppo<span class="w"> </span><span class="se">\</span>
 <span class="w">          </span>--steps<span class="w"> </span><span class="m">200000</span><span class="w"> </span><span class="se">\</span>
-<span class="w">          </span>--resume<span class="w"> </span>runs/ppo_pendulum_ppo/checkpoints/final_0000100000.pt
+<span class="w">          </span>--resume<span class="w"> </span>checkpoints/ppo_pendulum_ppo/final_0000100000.pt
 </pre></div>
 </div>
 <p>What resume restores depends on the saved payload:</p>
