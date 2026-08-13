@@ -491,7 +491,21 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
         <span class="n">metrics_accum</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 
-        <span class="k">for</span> <span class="n">mini</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="o">.</span><span class="n">get_batches</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">batch_size</span><span class="p">):</span>
+        <span class="c1"># A2C (unlike PPO) takes exactly one synchronous gradient step over</span>
+        <span class="c1"># the *entire* just-collected rollout -- there is no clipped</span>
+        <span class="c1"># surrogate objective here to keep repeated minibatch updates safe</span>
+        <span class="c1"># against a policy that has already moved since the advantages were</span>
+        <span class="c1"># computed. `self.cfg.batch_size` doesn&#39;t scale with `num_envs`</span>
+        <span class="c1"># (rollout size is `n_steps * num_envs`), so using it directly could</span>
+        <span class="c1"># split one rollout into many sequential updates against</span>
+        <span class="c1"># increasingly stale advantages/log-probs -- confirmed by direct</span>
+        <span class="c1"># repro to blow up policy loss within a few thousand steps at</span>
+        <span class="c1"># num_envs=16 with the documented default `batch_size=5`. Always use</span>
+        <span class="c1"># the full rollout as a single batch, matching the canonical</span>
+        <span class="c1"># algorithm; `batch_size` is kept on `A2CConfig` for backward</span>
+        <span class="c1"># compatibility but is no longer read here.</span>
+        <span class="n">full_batch_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">n_steps</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="p">,</span> <span class="s2">&quot;num_envs&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">mini</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="o">.</span><span class="n">get_batches</span><span class="p">(</span><span class="n">full_batch_size</span><span class="p">):</span>
             <span class="n">obs</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">mini</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
             <span class="n">actions</span> <span class="o">=</span> <span class="n">mini</span><span class="o">.</span><span class="n">actions</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
             <span class="c1"># actor_action=actions: re-evaluate the action actually taken under</span>
