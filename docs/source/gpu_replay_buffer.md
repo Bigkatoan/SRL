@@ -55,13 +55,13 @@ batch = buf.sample(256)
 
 ## API
 
-### `GPUReplayBuffer(capacity, device, storage_dtype, n_step, gamma, num_envs)`
+### `GPUReplayBuffer(capacity, device, n_step, gamma, use_fp16, num_envs)`
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
 | `capacity` | `int` | required | Maximum number of transitions |
 | `device` | `str \| torch.device` | `"cuda"` | Storage device |
-| `storage_dtype` | `torch.dtype` | `float32` | Floating-point precision for obs/action |
+| `use_fp16` | `bool` | `False` | Store float32 obs/actions as float16 to halve VRAM |
 | `n_step` | `int` | `1` | N-step return lookahead |
 | `gamma` | `float` | `0.99` | Discount used for n-step accumulation |
 | `num_envs` | `int` | `1` | Number of parallel environments for n-step bookkeeping |

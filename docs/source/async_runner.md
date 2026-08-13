@@ -28,30 +28,38 @@ buf.add(transition)              ←  signals via threading.Condition
 ## Quick start
 
 ```python
-from srl.core.config import SACConfig, AsyncRunnerConfig
+import copy
+
 from srl.algorithms.sac import SAC
-from srl.core.replay_buffer import ReplayBuffer
+from srl.core.config import AsyncRunnerConfig, SACConfig
+from srl.registry.builder import ModelBuilder
 from srl.runners import AsyncOffPolicyRunner
 
-algo = SAC(SACConfig(action_dim=6))
-buf  = ReplayBuffer(capacity=1_000_000)
+model = ModelBuilder.from_yaml("configs/envs/halfcheetah_sac.yaml")
+agent = SAC(model, copy.deepcopy(model), SACConfig(action_dim=6), device="cuda:0")
 
 runner_cfg = AsyncRunnerConfig(
     use_async      = True,
-    use_gpu_buffer = True,   # swap ReplayBuffer → GPUReplayBuffer automatically
-    prefill_steps  = 1000,
+    use_gpu_buffer = True,   # swap agent.buffer → GPUReplayBuffer automatically
 )
 
 runner = AsyncOffPolicyRunner(
-    algo       = algo,
-    env        = env,          # any gym-compatible env
-    buffer     = buf,
-    runner_cfg = runner_cfg,
-    total_steps= 500_000,
-    batch_size = 256,
+    agent          = agent,      # the agent owns its own replay buffer
+    env            = env,        # any gym-compatible env
+    total_steps    = 500_000,
+    runner_cfg     = runner_cfg,
+    device         = "cuda:0",
+    random_steps   = 1000,       # random-action warmup before updates start
+    update_after   = 1000,
+    update_every   = 1,
+    gradient_steps = 1,
 )
 runner.run()
 ```
+
+The runner takes the agent, not a separate buffer: it reads and (for
+`use_gpu_buffer=True`) replaces `agent.buffer`, and the batch size comes from the
+agent's own config.
 
 ---
 
@@ -74,23 +82,39 @@ runner_cfg = AsyncRunnerConfig(use_async=False, use_gpu_buffer=True)
 |---|---|---|---|
 | `use_async` | `bool` | `False` | Enable collector/trainer thread split |
 | `use_gpu_buffer` | `bool` | `False` | Replace CPU buffer with `GPUReplayBuffer` |
-| `prefill_steps` | `int` | `1000` | Random-action steps before first gradient update |
-| `queue_maxsize` | `int` | `4` | Max transitions queued between threads |
+| `prefill_steps` | `int` | `0` | Declared but currently unread — use the runner's `random_steps` argument |
+| `queue_maxsize` | `int` | `2` | Declared but currently unread |
+
+The runner's own constructor arguments control the loop: `random_steps` (random-action
+warmup), `update_after` (minimum buffer fill), `update_every` (env steps per trigger),
+and `gradient_steps` (updates per trigger).
+
+```{note}
+`AsyncRunnerConfig` is a Python-API object. `srl-train` maps the YAML `train:` block
+onto the algorithm config dataclasses only and never builds an `AsyncRunnerConfig`, so
+`use_async`/`use_gpu_buffer` in YAML have no effect.
+```
 
 ---
 
 ## Isaac Lab integration
 
-Isaac Lab environments expose a CUDA tensor API directly. Pair
-`use_gpu_buffer=True` with an Isaac Lab env to avoid any host↔device copy in the
-collect → store → sample path:
+A GPU-batched simulator can hand CUDA tensors straight to the buffer. Pair
+`use_gpu_buffer=True` with such an env to keep the collect → store → sample path free
+of host↔device copies:
 
 ```
-Isaac Lab env (CUDA tensors)
+GPU sim (CUDA tensors)
   ↓  no copy
 GPUReplayBuffer (pre-allocated CUDA tensors)
   ↓  no copy
 SAC critic/actor forward (same CUDA device)
+```
+
+```{warning}
+`IsaacLabWrapper` currently converts observations, rewards, and done flags to CPU numpy
+before returning them, so going through that wrapper reintroduces a host round-trip.
+Feed the runner CUDA tensors directly if the copy-free path matters.
 ```
 
 See [gpu_replay_buffer.md](gpu_replay_buffer.md) for the buffer API.
@@ -99,9 +123,10 @@ See [gpu_replay_buffer.md](gpu_replay_buffer.md) for the buffer API.
 
 ## Checkpointing
 
-`AsyncOffPolicyRunner` calls `algo.save_checkpoint()` at the same intervals as the
-synchronous runner. The `GPUReplayBuffer` serialises to CPU tensors automatically when
-`state_dict()` is called, so checkpoint files remain portable.
+The runner itself does not save checkpoints — drive them from the `log_fn` callback, or
+call `agent.checkpoint_payload()` / `CheckpointManager.save(...)` from your own loop.
+The `GPUReplayBuffer` serialises to CPU tensors automatically when `state_dict()` is
+called, so checkpoint files remain portable.
 
 ---
 

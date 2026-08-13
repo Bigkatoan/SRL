@@ -1,36 +1,53 @@
 # Encoders
 
-Encoder chuyển đổi observation (ảnh, vector, text) thành latent vector dùng bởi actor và critic.
+An encoder turns an observation (image, vector, text) into the latent vector consumed
+by the actor and critic heads.
 
-## Chọn encoder nào?
+## Which encoder should I use?
 
-| Loại | Trường hợp dùng | Ví dụ môi trường |
+| Type | Use for | Example environments |
 |---|---|---|
 | `mlp` | Vector state (joint angles, velocities) | HalfCheetah, Pendulum, Isaac Lab |
-| `cnn` | Ảnh pixel (RGB, depth) | CarRacing, Isaac Lab visual |
-| `lstm` | Chuỗi thời gian, stacked frames | POMDPs, partially observable envs |
-| `text` | Embedding ngôn ngữ/câu lệnh | Language-conditioned tasks |
+| `cnn` | Pixel images (RGB, depth) | CarRacing, Isaac Lab visual tasks |
+| `lstm` | Time series, stacked frames | POMDPs, partially observable envs |
+| `text` | Language/instruction embeddings | Language-conditioned tasks |
 
-## Các trường cấu hình
+## Configuration fields
 
-| Trường | Bắt buộc | Mô tả |
-|---|---|---|
-| `name` | ✓ | ID duy nhất, dùng trong `flows` |
-| `type` | ✓ | `mlp`, `cnn`, `lstm`, `text`, hoặc registry key |
-| `input_name` | khuyến nghị | Key trong observation dict |
-| `input_dim` | mlp/lstm | Số chiều input vector |
-| `input_shape` | cnn | `[C, H, W]` |
-| `latent_dim` | ✓ | Kích thước output latent |
-| `layers` | ✓ | Cấu trúc layers |
-| `aux_type` | | `autoencoder`, `contrastive`, `byol`, `vae`, `drq`, `spr`, `barlow` |
-| `aux_latent_dim` | | Kích thước projection head |
-| `use_momentum` | | `true` cho BYOL/contrastive momentum |
-| `momentum_tau` | | EMA coefficient (0.99 thường dùng) |
-| `recurrent` | | Wrap encoder bằng LSTM |
-| `lstm_hidden` | | Kích thước hidden khi dùng LSTM |
-| `frame_stack` | | Số frames được stack |
+These map one-to-one onto `EncoderConfig` in
+[srl/registry/config_schema.py](https://github.com/Bigkatoan/SRL/blob/main/srl/registry/config_schema.py).
 
-## Ví dụ MLP (state-based)
+| Field | Required | Default | Description |
+|---|---|---|---|
+| `name` | ✓ | — | Unique node id, referenced in `flows` |
+| `type` | ✓ | — | `mlp`, `cnn`, `lstm`, `text`, or a registry key |
+| `input_name` | recommended | `null` | Observation dict key this encoder reads |
+| `input_dim` | mlp/lstm | `null` | Input vector dimension |
+| `input_shape` | cnn | `null` | `[C, H, W]` |
+| `latent_dim` | | `128` | Output latent width |
+| `layers` | | `[]` | Layer definitions |
+| `aux_type` | | `null` | `autoencoder`, `contrastive`, or `byol` |
+| `aux_latent_dim` | | `64` | Projection-head width for `contrastive`/`byol` |
+| `use_momentum` | | `false` | Wrap the encoder in a momentum/EMA copy |
+| `momentum_tau` | | `0.99` | EMA coefficient for the momentum encoder |
+| `recurrent` | | `false` | Wrap a non-LSTM encoder in an LSTM |
+| `lstm_hidden` | | `256` | Hidden size used when wrapping with LSTM |
+| `frame_stack` | | `1` | Declared stacked-frame factor |
+
+Unknown keys are not an error — they are collected into `extra` and forwarded to
+custom encoder classes registered through `register_encoder`.
+
+```{warning}
+`aux_type` accepts only `autoencoder`, `contrastive`, and `byol`. The builder attaches
+a `ConvDecoderHead` for `autoencoder` (CNN encoders only, since it needs `input_shape`)
+and a `ProjectionHead` for `contrastive`/`byol`. Any other value is silently ignored
+and no auxiliary module is created.
+```
+
+`frame_stack` is parsed and validated but is not yet applied by `ModelBuilder`; stack
+frames in the environment for now.
+
+## MLP example (state-based)
 
 ```yaml
 encoders:
@@ -43,7 +60,7 @@ encoders:
       - {out_features: 256, activation: relu}
 ```
 
-## Ví dụ CNN (vision)
+## CNN example (vision)
 
 ```yaml
 encoders:
@@ -52,12 +69,12 @@ encoders:
     input_shape: [3, 84, 84]
     latent_dim: 256
     layers:
-      - [32, 8, 4, relu]
-      - [64, 4, 2, relu]
-      - [64, 3, 1, relu]
+      - {out_channels: 32, kernel: 8, stride: 4, padding: 0, activation: relu}
+      - {out_channels: 64, kernel: 4, stride: 2, padding: 0, activation: relu}
+      - {out_channels: 64, kernel: 3, stride: 1, padding: 0, activation: relu}
 ```
 
-## Ví dụ CNN với auxiliary reconstruction
+## CNN with auxiliary reconstruction
 
 ```yaml
 encoders:
@@ -68,12 +85,16 @@ encoders:
     aux_type: autoencoder
     aux_latent_dim: 128
     layers:
-      - [32, 8, 4, relu]
-      - [64, 4, 2, relu]
-      - [64, 3, 1, relu]
+      - {out_channels: 32, kernel: 8, stride: 4, padding: 0, activation: relu}
+      - {out_channels: 64, kernel: 4, stride: 2, padding: 0, activation: relu}
+      - {out_channels: 64, kernel: 3, stride: 1, padding: 0, activation: relu}
 ```
 
-## Ví dụ đa phương thức (image + state)
+`aux_type: autoencoder` attaches a `ConvDecoderHead` to the model graph. Whether the
+reconstruction term actually enters the training loss depends on the algorithm — see
+[Auxiliary Representation Learning](auxiliary.md).
+
+## Multi-modal example (image + state)
 
 ```yaml
 encoders:
@@ -91,28 +112,40 @@ encoders:
 ```
 
 ```{tip}
-Luôn khai báo `input_name` khi có nhiều encoder để tránh ambiguous routing.
+Always set `input_name` when you have more than one encoder, so routing is explicit
+instead of relying on the fallback heuristics.
 ```
 
 ## Encoder optimizer (v0.2.0)
 
-Encoder có optimizer riêng biệt để tránh double-update:
+SAC, DDPG, and TD3 give the encoder its own optimizer so it is not updated twice per
+gradient step:
+
+| Optimizer | Parameters | When it steps |
+|---|---|---|
+| `critic_optimizer` | Critic head only | Every gradient step |
+| `actor_optimizer` | Actor head only | Every gradient step |
+| `encoder_optimizer` | All encoder parameters | Every `encoder_update_freq` critic steps |
+
+`encoder_update_freq` is a field on `SACConfig`, `DDPGConfig`, and `TD3Config`, so it
+can be set from the `train:` block:
 
 ```yaml
 train:
-  encoder_update_freq: 2           # cập nhật encoder mỗi 2 critic steps
-  encoder_optimize_with_critic: true
-  encoder_lr: 3e-4
+  encoder_update_freq: 2   # step the encoder every 2 critic updates
 ```
 
-| Optimizer | Tham số | Khi nào step |
-|---|---|---|
-| `critic_optimizer` | Q-head params | Mỗi gradient step |
-| `actor_optimizer` | Actor head params | Mỗi gradient step |
-| `encoder_optimizer` | Tất cả encoder params | Mỗi `encoder_update_freq` critic steps |
+The encoder optimizer's learning rate comes from `encoder_lr`, which only exists on
+`VisualSACConfig`/`VisualPPOConfig` (not on `DDPGConfig`/`TD3Config`, which have no
+Visual variant). `srl-train` builds one of the Visual configs automatically when an
+encoder declares a recognised `aux_type`, or when the `train:` block itself sets a
+Visual-only field such as `encoder_lr` — see [Auxiliary Representation
+Learning](auxiliary.md). When `encoder_lr` is absent, the encoder optimizer falls back
+to `lr_critic`.
 
-## Xem thêm
+## See also
 
 - [Auxiliary Representation Learning](auxiliary.md)
 - [Heads & Flows](heads_flows.md)
 - [Training Block Reference](training_block.md)
+- [Encoders guide](../encoders.md)
