@@ -228,3 +228,28 @@ def test_srl_train_main_runs_full_loop_on_fake_mjlab_env(
     assert exit_code == 0
     checkpoint_dir = tmp_path / "checkpoints"
     assert any(checkpoint_dir.rglob("*.pt")), "expected at least one checkpoint to be written"
+
+
+def test_resolve_env_action_dim_uses_single_env_space_not_batched() -> None:
+    """Regression test: action_dim must be the per-env dimensionality, not
+    num_envs * action_dim. Confirmed via a real mjlab run that the old code
+    (using env.act_space, the BATCHED space) collapsed SAC's target_entropy
+    to -128 (instead of -2) at num_envs=64, driving alpha to ~0 within a few
+    thousand steps -- DDPG/TD3 read the same action_dim for their
+    exploration-noise generators and were equally affected."""
+    env = IsaacLabWrapper(_FakeMjlabBaseEnv(num_envs=64))
+    assert env.act_space.shape == (64, ACTION_DIM)  # the batched space
+    assert env.single_act_space.shape == (ACTION_DIM,)  # the per-env space
+
+    assert train_module._resolve_env_action_dim(env) == ACTION_DIM
+
+
+def test_resolve_env_action_dim_falls_back_when_no_single_act_space() -> None:
+    """Plain Gymnasium/goal/racecar wrappers have no single_act_space (only
+    isaaclab/mjlab envs pre-batch) -- must fall back to act_space directly,
+    which is already the correct per-env space for those."""
+
+    class _PlainEnv:
+        act_space = _FakeActionSpace((3,))
+
+    assert train_module._resolve_env_action_dim(_PlainEnv()) == 3
