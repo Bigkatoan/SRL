@@ -230,7 +230,9 @@ Common `HeadConfig` fields:
 | Type | Output | Use with |
 |---|---|---|
 | `value` | `V(s)` scalar | PPO, A2C, A3C |
-| `twin_q` | `[Q1(s,a), Q2(s,a)]` | SAC, DDPG |
+| `twin_q` | `[Q1(s,a), Q2(s,a)]` | SAC, TD3, DDPG |
+| `q_function` | `Q(s,a)` scalar (single critic) | DDPG |
+| `q` | Alias for `q_function` | DDPG |
 
 ---
 
@@ -339,6 +341,8 @@ Controls `AsyncOffPolicyRunner`. Construct it directly and pass it as the runner
 |---|---|---|---|
 | `use_async` | `bool` | `False` | Split collection and training into separate threads |
 | `use_gpu_buffer` | `bool` | `False` | Replace the CPU replay buffer with `GPUReplayBuffer` |
+| `prefill_steps` | `int` | `0` | Random-action prefill before gradient updates start |
+| `queue_maxsize` | `int` | `2` | Max transitions queued between collector and trainer |
 | `prefill_steps` | `int` | `0` | Declared but currently unread by the runner |
 | `queue_maxsize` | `int` | `2` | Declared but currently unread by the runner |
 
