@@ -34,22 +34,22 @@ pip install -e ".[dev]"
 
 ```bash
 # MuJoCo physics environments
-pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[mujoco]"
+pip install "srl-rl[mujoco] @ git+https://github.com/Bigkatoan/SRL.git"
 
 # Gymnasium Box2D
-pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[box2d]"
+pip install "srl-rl @ git+https://github.com/Bigkatoan/SRL.git[box2d]"
 
 # gymnasium-robotics (Fetch, AntMaze, …)
-pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[robotics]"
+pip install "srl-rl[robotics] @ git+https://github.com/Bigkatoan/SRL.git"
 
 # racecar_gym (Python 3.10 recommended)
-pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[racecar]"
+pip install "srl-rl[racecar] @ git+https://github.com/Bigkatoan/SRL.git"
 
 # Everything at once
-pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[all]"
+pip install "srl-rl[all] @ git+https://github.com/Bigkatoan/SRL.git"
 
 # Development tools (sphinx, pytest, mypy, …)
-pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[dev]"
+pip install "srl-rl[dev] @ git+https://github.com/Bigkatoan/SRL.git"
 ```
 
 ---
