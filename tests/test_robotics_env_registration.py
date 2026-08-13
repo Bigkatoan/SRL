@@ -11,6 +11,8 @@ dropping to 8 after this fix.
 
 from __future__ import annotations
 
+import pytest
+
 import srl.cli.train as train_module
 
 
@@ -40,8 +42,14 @@ def test_register_robotics_envs_once_suppresses_the_overriding_warning(capsys) -
 
     import srl.cli.train as tm
 
+    # Needs the real (optional) `robotics` extra installed -- CI's base test
+    # job only installs `.[dev]`, so this skips there rather than failing
+    # with an unrelated ModuleNotFoundError. The first test in this file
+    # covers the once-per-process guard itself without this dependency, by
+    # substituting a fake module.
+    gymnasium_robotics = pytest.importorskip("gymnasium_robotics")
+
     tm._robotics_envs_registered = False
-    import gymnasium_robotics
 
     tm._register_robotics_envs_once()
 
