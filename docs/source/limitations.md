@@ -26,6 +26,23 @@ Environment creation is still handled procedurally by the CLI and wrapper classe
 
 Built-in losses can be selected, but there is not yet a general registry that lets users declare any custom loss purely from YAML.
 
+### Hindsight Experience Replay (HER) beyond single-env SAC
+
+HER *is* available from YAML/CLI: set `use_her: true` in the `train:` block of
+a goal-conditioned config (`env_type: "goal"`) and `srl-train` builds a
+`HERReplayBuffer` and routes episodes into it. See
+[Replay Buffers](training/buffers.md#her--hindsight-experience-replay-goal-conditioned-tasks).
+
+What is *not* supported yet:
+
+- Only **SAC** is wired. `DDPGConfig` / `TD3Config` have no `use_her` field, so
+  those algorithms still train with a plain uniform `ReplayBuffer` on goal
+  tasks.
+- **Single environment only.** HER stores whole episodes and the CLI collects
+  them from one un-vectorized env; `--n-envs > 1` is rejected at startup.
+- Not compatible with the async / GPU-buffer fast path (`use_async`,
+  `use_gpu_buffer`), which manages its own buffer.
+
 ### Multi-agent RL
 
 The current package is not documented or structured as a multi-agent RL framework.
