@@ -476,6 +476,7 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#task-registration">Task registration</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage">Usage</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#watching-training-live-visualize">Watching training live: <code class="docutils literal notranslate"><span class="pre">--visualize</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#real-world-example-javis">Real-world example: JAVIS</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#why-a-single-encoder-or-explicit-input-name-both-work-now">Why a single encoder or explicit <code class="docutils literal notranslate"><span class="pre">input_name</span></code> both work now</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#troubleshooting">Troubleshooting</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
@@ -591,6 +592,67 @@ render context, so <code class="docutils literal notranslate"><span class="pre">
 <a class="reference internal" href="../cli.html#live-viewer-visualize"><span class="std std-ref">the CLI reference</span></a> for the full behavior,
 including the other env types’ <code class="docutils literal notranslate"><span class="pre">--visualize</span></code> backends.</p>
 </section>
+<section id="real-world-example-javis">
+<h2>Real-world example: JAVIS<a class="headerlink" href="#real-world-example-javis" title="Link to this heading">#</a></h2>
+<p><a class="reference external" href="https://github.com/Bigkatoan/JAVIS">JAVIS</a> is a 2-wheel differential-drive rover
+(Onshape CAD → URDF → mjlab simulation, targeting a Jetson-based robot with an
+Intel RealSense D435 camera, an IMU, and ODrive wheel motor controllers) that trains
+through this exact backend. It’s a good reference for wiring your own robot’s mjlab
+task into SRL end to end.</p>
+<p>Task registration follows the pattern above directly – JAVIS’s <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>:</p>
+<div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[project.entry-points.</span><span class="s2">&quot;mjlab.tasks&quot;</span><span class="k">]</span>
+<span class="n">javis</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;javis.tasks&quot;</span>
+</pre></div>
+</div>
+<p>registers <code class="docutils literal notranslate"><span class="pre">Javis-Payload-Rough</span></code> (balance under a randomized payload/CoM offset, on
+rough terrain) with mjlab’s task registry, discovered automatically the moment
+<code class="docutils literal notranslate"><span class="pre">mjlab</span></code>/<code class="docutils literal notranslate"><span class="pre">srl-rl</span></code> are installed in the same environment – no SRL-side configuration
+at all.</p>
+<p><a class="reference external" href="https://github.com/Bigkatoan/JAVIS/blob/simulation/configs/srl/javis_mjlab_ppo.yaml"><code class="docutils literal notranslate"><span class="pre">configs/srl/javis_mjlab_ppo.yaml</span></code></a>
+shows the “two encoders reading the same obs group via <code class="docutils literal notranslate"><span class="pre">input_name</span></code>” pattern from
+above with real numbers (384-dim <code class="docutils literal notranslate"><span class="pre">actor</span></code> observation group, 2-dim wheel-velocity
+action):</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">env_id</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Javis-Payload-Rough&quot;</span>
+<span class="nt">env_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;mjlab&quot;</span>
+<span class="nt">algo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ppo</span>
+
+<span class="nt">encoders</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor_state_enc</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mlp</span>
+<span class="w">    </span><span class="nt">input_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor</span>
+<span class="w">    </span><span class="nt">input_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">384</span>
+<span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+<span class="w">    </span><span class="nt">layers</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">elu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">none</span><span class="p p-Indicator">}</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">elu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">none</span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">critic_state_enc</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mlp</span>
+<span class="w">    </span><span class="nt">input_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor</span>
+<span class="w">    </span><span class="nt">input_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">384</span>
+<span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+<span class="w">    </span><span class="nt">layers</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">elu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">none</span><span class="p p-Indicator">}</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">elu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">none</span><span class="p p-Indicator">}</span>
+
+<span class="nt">flows</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;actor_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;critic_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
+
+<span class="nt">actor</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">actor</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">gaussian</span><span class="p p-Indicator">,</span><span class="nt"> action_dim</span><span class="p">:</span><span class="w"> </span><span class="nv">2</span><span class="p p-Indicator">,</span><span class="nt"> log_std_init</span><span class="p">:</span><span class="w"> </span><span class="nv">-1.0</span><span class="p p-Indicator">}</span>
+<span class="nt">critic</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">critic</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">value</span><span class="p p-Indicator">}</span>
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>.venv/bin/python<span class="w"> </span>scripts/train_srl.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--config<span class="w"> </span>configs/srl/javis_mjlab_ppo.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--env<span class="w"> </span>Javis-Payload-Rough<span class="w"> </span>--device<span class="w"> </span>cuda<span class="w"> </span>--n-envs<span class="w"> </span><span class="m">4096</span><span class="w"> </span>--visualize
+</pre></div>
+</div>
+<p>(<code class="docutils literal notranslate"><span class="pre">scripts/train_srl.py</span></code> is a thin wrapper that hands off to <code class="docutils literal notranslate"><span class="pre">srl.cli.train.main()</span></code>
+unchanged – every <code class="docutils literal notranslate"><span class="pre">srl-train</span></code> flag, including <code class="docutils literal notranslate"><span class="pre">--visualize</span></code>, works exactly as
+documented here.) A <a class="reference external" href="https://github.com/Bigkatoan/JAVIS/blob/simulation/configs/srl/javis_mjlab_sac.yaml"><code class="docutils literal notranslate"><span class="pre">javis_mjlab_sac.yaml</span></code></a>
+off-policy variant exists alongside it, using the <code class="docutils literal notranslate"><span class="pre">squashed_gaussian</span></code>/<code class="docutils literal notranslate"><span class="pre">twin_q</span></code>
+pairing from <a class="reference internal" href="isaaclab.html#sac-async-gpu-buffer"><span class="std std-ref">the SAC section above</span></a>.</p>
+</section>
 <section id="why-a-single-encoder-or-explicit-input-name-both-work-now">
 <h2>Why a single encoder or explicit <code class="docutils literal notranslate"><span class="pre">input_name</span></code> both work now<a class="headerlink" href="#why-a-single-encoder-or-explicit-input-name-both-work-now" title="Link to this heading">#</a></h2>
 <p>Earlier versions had a real bug here: <code class="docutils literal notranslate"><span class="pre">srl/cli/train.py</span></code>’s rollout loop remaps the obs dict to encoder names <em>before</em> calling <code class="docutils literal notranslate"><span class="pre">agent.predict()</span></code>, and <code class="docutils literal notranslate"><span class="pre">AgentModel.forward()</span></code> remapped it <em>again</em> internally – the second pass looked for the <em>original</em> raw obs key, which no longer existed once the first pass had already renamed it, raising <code class="docutils literal notranslate"><span class="pre">KeyError</span></code> for any config using explicit <code class="docutils literal notranslate"><span class="pre">input_name</span></code>. <code class="docutils literal notranslate"><span class="pre">AgentModel._remap_obs_dict</span></code> now short-circuits when the incoming dict’s keys already exactly match the encoder names, so remapping only ever happens once regardless of how many places call into it. Two other isaaclab/mjlab-specific gaps were fixed alongside it:</p>
@@ -686,6 +748,7 @@ including the other env types’ <code class="docutils literal notranslate"><spa
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#task-registration">Task registration</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage">Usage</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#watching-training-live-visualize">Watching training live: <code class="docutils literal notranslate"><span class="pre">--visualize</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#real-world-example-javis">Real-world example: JAVIS</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#why-a-single-encoder-or-explicit-input-name-both-work-now">Why a single encoder or explicit <code class="docutils literal notranslate"><span class="pre">input_name</span></code> both work now</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#troubleshooting">Troubleshooting</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>

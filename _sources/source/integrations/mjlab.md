@@ -109,6 +109,74 @@ render context, so `--visualize` is not supported there. See
 {ref}`the CLI reference <live-viewer-visualize>` for the full behavior,
 including the other env types' `--visualize` backends.
 
+## Real-world example: JAVIS
+
+[JAVIS](https://github.com/Bigkatoan/JAVIS) is a 2-wheel differential-drive rover
+(Onshape CAD → URDF → mjlab simulation, targeting a Jetson-based robot with an
+Intel RealSense D435 camera, an IMU, and ODrive wheel motor controllers) that trains
+through this exact backend. It's a good reference for wiring your own robot's mjlab
+task into SRL end to end.
+
+Task registration follows the pattern above directly -- JAVIS's `pyproject.toml`:
+
+```toml
+[project.entry-points."mjlab.tasks"]
+javis = "javis.tasks"
+```
+
+registers `Javis-Payload-Rough` (balance under a randomized payload/CoM offset, on
+rough terrain) with mjlab's task registry, discovered automatically the moment
+`mjlab`/`srl-rl` are installed in the same environment -- no SRL-side configuration
+at all.
+
+[`configs/srl/javis_mjlab_ppo.yaml`](https://github.com/Bigkatoan/JAVIS/blob/simulation/configs/srl/javis_mjlab_ppo.yaml)
+shows the "two encoders reading the same obs group via `input_name`" pattern from
+above with real numbers (384-dim `actor` observation group, 2-dim wheel-velocity
+action):
+
+```yaml
+env_id: "Javis-Payload-Rough"
+env_type: "mjlab"
+algo: ppo
+
+encoders:
+  - name: actor_state_enc
+    type: mlp
+    input_name: actor
+    input_dim: 384
+    latent_dim: 256
+    layers:
+      - {out_features: 256, activation: elu, norm: none}
+      - {out_features: 256, activation: elu, norm: none}
+  - name: critic_state_enc
+    type: mlp
+    input_name: actor
+    input_dim: 384
+    latent_dim: 256
+    layers:
+      - {out_features: 256, activation: elu, norm: none}
+      - {out_features: 256, activation: elu, norm: none}
+
+flows:
+  - "actor_state_enc -> actor"
+  - "critic_state_enc -> critic"
+
+actor: {name: actor, type: gaussian, action_dim: 2, log_std_init: -1.0}
+critic: {name: critic, type: value}
+```
+
+```bash
+.venv/bin/python scripts/train_srl.py \
+  --config configs/srl/javis_mjlab_ppo.yaml \
+  --env Javis-Payload-Rough --device cuda --n-envs 4096 --visualize
+```
+
+(`scripts/train_srl.py` is a thin wrapper that hands off to `srl.cli.train.main()`
+unchanged -- every `srl-train` flag, including `--visualize`, works exactly as
+documented here.) A [`javis_mjlab_sac.yaml`](https://github.com/Bigkatoan/JAVIS/blob/simulation/configs/srl/javis_mjlab_sac.yaml)
+off-policy variant exists alongside it, using the `squashed_gaussian`/`twin_q`
+pairing from {ref}`the SAC section above <sac-async-gpu-buffer>`.
+
 ## Why a single encoder or explicit `input_name` both work now
 
 Earlier versions had a real bug here: `srl/cli/train.py`'s rollout loop remaps the obs dict to encoder names *before* calling `agent.predict()`, and `AgentModel.forward()` remapped it *again* internally -- the second pass looked for the *original* raw obs key, which no longer existed once the first pass had already renamed it, raising `KeyError` for any config using explicit `input_name`. `AgentModel._remap_obs_dict` now short-circuits when the incoming dict's keys already exactly match the encoder names, so remapping only ever happens once regardless of how many places call into it. Two other isaaclab/mjlab-specific gaps were fixed alongside it:
