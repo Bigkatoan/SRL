@@ -1022,10 +1022,41 @@ def _run_on_policy(
         _maybe_run_evaluation(agent, args, logger, device=device, step=step, next_eval_step=step)
 
 
+def _warn_if_no_updates_will_run(agent, args, start_step: int) -> None:
+    """Warn when the step budget won't reach `learning_starts`/`start_steps`.
+
+    Off-policy algorithms only take their first gradient step once at least
+    that many env steps have been collected. A smoke-test run with a small
+    `--steps` (or a config's `total_steps`) below that threshold completes
+    "successfully" with zero gradient updates and byte-identical eval scores
+    across every checkpoint -- easy to misdiagnose as a training bug (or,
+    for a goal-conditioned config, as "HER isn't working") rather than what
+    it actually is: no learning happened at all in this run.
+    """
+    update_after = getattr(agent.cfg, "update_after", None)
+    source = "update_after"
+    if update_after is None:
+        update_after = getattr(agent.cfg, "learning_starts", None)
+        source = "learning_starts"
+    if update_after is None:
+        return
+    remaining_steps = int(args.steps) - int(start_step)
+    if remaining_steps < int(update_after):
+        print(
+            f"[srl-train] Warning: --steps leaves only {remaining_steps} env steps to "
+            f"collect, but this algorithm's {source} is {int(update_after)} -- no "
+            "gradient update will run in this call. Increase --steps (or the "
+            f"config's train.total_steps) past {source}, or lower it, to actually train.",
+            file=sys.stderr,
+        )
+
+
 def _run_off_policy(
     agent, env, args, callbacks, logger, *, start_step: int = 0, device: str = "cpu"
 ) -> None:
     import numpy as np
+
+    _warn_if_no_updates_will_run(agent, args, start_step)
 
     # ------------------------------------------------------------------
     # Async / GPU-buffer fast path (v0.2.0)
