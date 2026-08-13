@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Hướng dẫn Encoders (Thiết lập &amp; Best Practices) &#8212; SRL Documentation</title>
+    <title>Encoders (Setup &amp; Best Practices) &#8212; SRL Documentation</title>
   
   
   
@@ -217,7 +217,7 @@
 <li class="toctree-l1"><a class="reference internal" href="training/runners.html">Runners &amp; Training Loop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="training/buffers.html">Replay Buffers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="checkpointing.html">Checkpointing</a></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Hướng dẫn Encoders (Thiết lập &amp; Best Practices)</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Encoders (Setup &amp; Best Practices)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="async_runner.html">Async Off-Policy Runner</a></li>
 <li class="toctree-l1"><a class="reference internal" href="gpu_replay_buffer.html">GPU Replay Buffer</a></li>
 </ul>
@@ -462,7 +462,7 @@
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>Hướng dẫn Encoders (Thiết lập & Best Practices)</h1>
+    <h1>Encoders (Setup & Best Practices)</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -472,17 +472,16 @@
             </div>
             <nav aria-label="Page">
                 <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tong-quan">1. Tổng quan</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#khi-nao-dung-loai-encoder-nao">2. Khi nào dùng loại encoder nào</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cac-truong-cau-hinh-quan-trong-schema">3. Các trường cấu hình quan trọng (schema)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#vi-du-cau-hinh-yaml">4. Ví dụ cấu hình YAML</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#optimizer-update-policy-cho-encoder">5. Optimizer &amp; update policy cho encoder</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">1. Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#which-encoder-type-to-use">2. Which encoder type to use</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#key-config-fields-schema">3. Key config fields (schema)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#example-yaml-configs">4. Example YAML configs</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#encoder-optimizer-update-policy">5. Encoder optimizer &amp; update policy</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#auxiliary-representation-learning">6. Auxiliary representation learning</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ket-noi-voi-actor-critic-flows">7. Kết nối với actor/critic (<code class="docutils literal notranslate"><span class="pre">flows</span></code>)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#kiem-thu-debug-nhanh">8. Kiểm thử &amp; debug nhanh</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#best-practices-tham-khao-nvidia-cong-nghiep">9. Best practices (tham khảo NVIDIA &amp; công nghiệp)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#lien-ket-nhanh">10. Liên kết nhanh</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#vi-du-va-huong-dan-them">Ví dụ và hướng dẫn thêm</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#wiring-into-actor-critic-flows">7. Wiring into actor/critic (<code class="docutils literal notranslate"><span class="pre">flows</span></code>)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-testing-debugging">8. Quick testing &amp; debugging</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#best-practices">9. Best practices</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#more-examples">10. More examples</a></li>
 </ul>
             </nav>
         </div>
@@ -494,41 +493,53 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="huong-dan-encoders-thiet-lap-best-practices">
-<h1>Hướng dẫn Encoders (Thiết lập &amp; Best Practices)<a class="headerlink" href="#huong-dan-encoders-thiet-lap-best-practices" title="Link to this heading">#</a></h1>
-<p>Tóm tắt ngắn: trang này mô tả vai trò của <code class="docutils literal notranslate"><span class="pre">encoder</span></code> trong pipeline SRL, các kiểu encoder tích hợp, các trường cấu hình quan trọng, ví dụ YAML, lời khuyên tối ưu hóa và bước kiểm thử đơn giản.</p>
-<section id="tong-quan">
-<h2>1. Tổng quan<a class="headerlink" href="#tong-quan" title="Link to this heading">#</a></h2>
-<p>Encoder là module chuyển đổi observation (ảnh, vector, text, …) thành latent vectors dùng cho actor/critic.
-Encoder ở lớp giới hạn giữa môi trường và các head chính — chọn và cấu hình encoder đúng là bước quyết định cho hiệu năng.</p>
+  <section id="encoders-setup-best-practices">
+<h1>Encoders (Setup &amp; Best Practices)<a class="headerlink" href="#encoders-setup-best-practices" title="Link to this heading">#</a></h1>
+<p>This page describes the role of <code class="docutils literal notranslate"><span class="pre">encoder</span></code> blocks in the SRL model pipeline, the
+built-in encoder types, the config fields that matter, YAML examples, tuning
+advice, and a quick smoke test.</p>
+<section id="overview">
+<h2>1. Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
+<p>An encoder is the module that turns raw observations (images, vectors, text, …)
+into latent vectors consumed by the actor/critic heads. It sits at the boundary
+between the environment and the rest of the model graph — choosing and
+configuring it correctly is usually the single biggest factor in performance.</p>
 </section>
-<section id="khi-nao-dung-loai-encoder-nao">
-<h2>2. Khi nào dùng loại encoder nào<a class="headerlink" href="#khi-nao-dung-loai-encoder-nao" title="Link to this heading">#</a></h2>
+<section id="which-encoder-type-to-use">
+<h2>2. Which encoder type to use<a class="headerlink" href="#which-encoder-type-to-use" title="Link to this heading">#</a></h2>
 <ul class="simple">
-<li><p>mlp: dữ liệu vector/low-dim (state). Nhẹ, nhanh.</p></li>
-<li><p>cnn: ảnh (vision). Tránh quá sâu nếu dùng realtime/Isaac Lab.</p></li>
-<li><p>lstm: chuỗi/độ trễ/stacked frames với phụ thuộc thời gian.</p></li>
-<li><p>text: input kí tự hoặc embedding cho ngôn ngữ.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mlp</span></code> — vector / low-dimensional state input. Lightweight, fast.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cnn</span></code> — image (vision) input. Avoid very deep stacks for realtime or Isaac Lab use.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lstm</span></code> — sequences, latency, or stacked frames with a time dependency.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">text</span></code> — token or embedding input for language.</p></li>
 </ul>
 </section>
-<section id="cac-truong-cau-hinh-quan-trong-schema">
-<h2>3. Các trường cấu hình quan trọng (schema)<a class="headerlink" href="#cac-truong-cau-hinh-quan-trong-schema" title="Link to this heading">#</a></h2>
+<section id="key-config-fields-schema">
+<h2>3. Key config fields (schema)<a class="headerlink" href="#key-config-fields-schema" title="Link to this heading">#</a></h2>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">name</span></code> — id của encoder trong <code class="docutils literal notranslate"><span class="pre">flows</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">type</span></code> — <code class="docutils literal notranslate"><span class="pre">mlp</span></code>, <code class="docutils literal notranslate"><span class="pre">cnn</span></code>, <code class="docutils literal notranslate"><span class="pre">lstm</span></code>, <code class="docutils literal notranslate"><span class="pre">text</span></code>, hoặc key registry</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">input_name</span></code> — tên key trong observation dict (khuyến nghị luôn khai báo)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">input_dim</span></code> / <code class="docutils literal notranslate"><span class="pre">input_shape</span></code> — kích thước input</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">latent_dim</span></code> — kích thước output latent</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">layers</span></code> — cấu trúc lớp (builder-driven)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">aux_type</span></code>, <code class="docutils literal notranslate"><span class="pre">aux_latent_dim</span></code> — nếu dùng auxiliary heads (ae, vae, byol, contrastive…)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">use_momentum</span></code>, <code class="docutils literal notranslate"><span class="pre">momentum_tau</span></code> — bật momentum encoder cho contrastive/BYOL</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">name</span></code> — the encoder’s id, referenced from <code class="docutils literal notranslate"><span class="pre">flows</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">type</span></code> — <code class="docutils literal notranslate"><span class="pre">mlp</span></code>, <code class="docutils literal notranslate"><span class="pre">cnn</span></code>, <code class="docutils literal notranslate"><span class="pre">lstm</span></code>, <code class="docutils literal notranslate"><span class="pre">text</span></code>, or a registered custom key</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">input_name</span></code> — the observation dict key this encoder reads (always declare this explicitly)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">input_dim</span></code> / <code class="docutils literal notranslate"><span class="pre">input_shape</span></code> — input size</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">latent_dim</span></code> — output latent size</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">layers</span></code> — layer structure (builder-driven)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">aux_type</span></code>, <code class="docutils literal notranslate"><span class="pre">aux_latent_dim</span></code> — set these to attach an auxiliary head (<code class="docutils literal notranslate"><span class="pre">autoencoder</span></code>, <code class="docutils literal notranslate"><span class="pre">contrastive</span></code>, <code class="docutils literal notranslate"><span class="pre">byol</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">use_momentum</span></code>, <code class="docutils literal notranslate"><span class="pre">momentum_tau</span></code> — enable a momentum (EMA) target encoder for contrastive/BYOL</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">recurrent</span></code>, <code class="docutils literal notranslate"><span class="pre">lstm_hidden</span></code>, <code class="docutils literal notranslate"><span class="pre">frame_stack</span></code></p></li>
 </ul>
-<p>Tham khảo schema chi tiết: <a class="reference external" href="https://github.com/Bigkatoan/SRL/blob/main/srl/registry/config_schema.py">srl/registry/config_schema.py</a></p>
+<p>Full schema reference: <a class="reference external" href="https://github.com/Bigkatoan/SRL/blob/main/srl/registry/config_schema.py">srl/registry/config_schema.py</a></p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">aux_type</span></code> (encoder-level, one of <code class="docutils literal notranslate"><span class="pre">autoencoder</span></code>/<code class="docutils literal notranslate"><span class="pre">contrastive</span></code>/<code class="docutils literal notranslate"><span class="pre">byol</span></code>) and
+<code class="docutils literal notranslate"><span class="pre">aux_loss_type</span></code> (train-config level, one of <code class="docutils literal notranslate"><span class="pre">none</span></code>/<code class="docutils literal notranslate"><span class="pre">ae</span></code>/<code class="docutils literal notranslate"><span class="pre">vae</span></code>/<code class="docutils literal notranslate"><span class="pre">curl</span></code>/<code class="docutils literal notranslate"><span class="pre">byol</span></code>/<code class="docutils literal notranslate"><span class="pre">drq</span></code>/<code class="docutils literal notranslate"><span class="pre">spr</span></code>/<code class="docutils literal notranslate"><span class="pre">barlow</span></code>)
+are two different fields with overlapping names — see
+<a class="reference internal" href="limitations.html"><span class="std std-doc">Limitations</span></a> for how they relate and the current state of
+wiring this up through <code class="docutils literal notranslate"><span class="pre">srl-train</span></code>.</p>
+</div>
 </section>
-<section id="vi-du-cau-hinh-yaml">
-<h2>4. Ví dụ cấu hình YAML<a class="headerlink" href="#vi-du-cau-hinh-yaml" title="Link to this heading">#</a></h2>
-<p>Ví dụ MLP (state):</p>
+<section id="example-yaml-configs">
+<h2>4. Example YAML configs<a class="headerlink" href="#example-yaml-configs" title="Link to this heading">#</a></h2>
+<p>MLP (state) example:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">encoders</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">state_enc</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mlp</span>
@@ -539,7 +550,7 @@ Encoder ở lớp giới hạn giữa môi trường và các head chính — ch
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">128</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">}</span>
 </pre></div>
 </div>
-<p>Ví dụ CNN (vision) với auxiliary reconstruction:</p>
+<p>CNN (vision) example with an auxiliary reconstruction head:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">encoders</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">image_enc</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cnn</span>
@@ -554,39 +565,45 @@ Encoder ở lớp giới hạn giữa môi trường và các head chính — ch
 </pre></div>
 </div>
 </section>
-<section id="optimizer-update-policy-cho-encoder">
-<h2>5. Optimizer &amp; update policy cho encoder<a class="headerlink" href="#optimizer-update-policy-cho-encoder" title="Link to this heading">#</a></h2>
-<p>Đề xuất cấu hình train liên quan tới encoder:</p>
+<section id="encoder-optimizer-update-policy">
+<h2>5. Encoder optimizer &amp; update policy<a class="headerlink" href="#encoder-optimizer-update-policy" title="Link to this heading">#</a></h2>
+<p>Relevant training-config fields when an encoder is involved:</p>
 <ul class="simple">
-<li><p>Tách <code class="docutils literal notranslate"><span class="pre">encoder_optimizer</span></code> riêng (tránh cập nhật kép khi actor/critic backward đều chứa encoder params).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">encoder_update_freq</span></code> — cập nhật encoder mỗi N bước critic; thường <code class="docutils literal notranslate"><span class="pre">2</span></code> cho vision.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">encoder_optimize_with_critic</span></code> — nếu true, critic loss sẽ cập nhật encoder (thay vì actor).</p></li>
+<li><p>A separate <code class="docutils literal notranslate"><span class="pre">encoder_optimizer</span></code> avoids double-updating encoder params when both
+the actor and critic backward passes touch them.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">encoder_update_freq</span></code> — update the encoder every N critic steps; <code class="docutils literal notranslate"><span class="pre">2</span></code> is a
+common choice for vision.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">encoder_optimize_with_critic</span></code> — if true, the critic loss also updates the
+encoder (instead of only the auxiliary loss).</p></li>
 </ul>
-<p>Ví dụ (train block):</p>
+<p>Example (<code class="docutils literal notranslate"><span class="pre">VisualSACConfig</span></code>-style train block):</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">train</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">total_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1_000_000</span>
 <span class="w">  </span><span class="nt">encoder_update_freq</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
 <span class="w">  </span><span class="nt">encoder_optimize_with_critic</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<span class="w">  </span><span class="nt">lr_encoder</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3e-4</span>
+<span class="w">  </span><span class="nt">encoder_lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3e-4</span>
 <span class="w">  </span><span class="nt">lr_actor</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3e-4</span>
 <span class="w">  </span><span class="nt">lr_critic</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3e-4</span>
 </pre></div>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>As of this writing, <code class="docutils literal notranslate"><span class="pre">srl-train</span></code> does not yet read this block into
+<code class="docutils literal notranslate"><span class="pre">VisualPPOConfig</span></code>/<code class="docutils literal notranslate"><span class="pre">VisualSACConfig</span></code> — see <a class="reference internal" href="limitations.html"><span class="std std-doc">Limitations</span></a>.</p>
+</div>
 </section>
 <section id="auxiliary-representation-learning">
 <h2>6. Auxiliary representation learning<a class="headerlink" href="#auxiliary-representation-learning" title="Link to this heading">#</a></h2>
-<p>Các kiểu phụ trợ: <code class="docutils literal notranslate"><span class="pre">autoencoder</span></code>, <code class="docutils literal notranslate"><span class="pre">vae</span></code>, <code class="docutils literal notranslate"><span class="pre">contrastive</span></code>, <code class="docutils literal notranslate"><span class="pre">byol</span></code>, <code class="docutils literal notranslate"><span class="pre">drq</span></code>, <code class="docutils literal notranslate"><span class="pre">spr</span></code>, <code class="docutils literal notranslate"><span class="pre">barlow</span></code>.</p>
+<p>Supported auxiliary modes: <code class="docutils literal notranslate"><span class="pre">autoencoder</span></code>, <code class="docutils literal notranslate"><span class="pre">vae</span></code>, <code class="docutils literal notranslate"><span class="pre">contrastive</span></code>, <code class="docutils literal notranslate"><span class="pre">byol</span></code>, <code class="docutils literal notranslate"><span class="pre">drq</span></code>, <code class="docutils literal notranslate"><span class="pre">spr</span></code>, <code class="docutils literal notranslate"><span class="pre">barlow</span></code>.</p>
 <ul class="simple">
-<li><p>Dùng <code class="docutils literal notranslate"><span class="pre">use_momentum=true</span></code> khi cấu hình BYOL hoặc contrastive momentum.</p></li>
-<li><p>Projection head thường có <code class="docutils literal notranslate"><span class="pre">aux_latent_dim</span></code> nhỏ hơn latent chính.</p></li>
-<li><p>Lưu ý: augmentations và batch size có ảnh hưởng lớn tới chất lượng contrastive.</p></li>
+<li><p>Set <code class="docutils literal notranslate"><span class="pre">use_momentum:</span> <span class="pre">true</span></code> when configuring BYOL or contrastive-momentum encoders.</p></li>
+<li><p>The projection head’s <code class="docutils literal notranslate"><span class="pre">aux_latent_dim</span></code> is usually smaller than the main latent dim.</p></li>
+<li><p>Augmentations and batch size have a large effect on contrastive quality.</p></li>
 </ul>
 </section>
-<section id="ket-noi-voi-actor-critic-flows">
-<h2>7. Kết nối với actor/critic (<code class="docutils literal notranslate"><span class="pre">flows</span></code>)<a class="headerlink" href="#ket-noi-voi-actor-critic-flows" title="Link to this heading">#</a></h2>
-<ul class="simple">
-<li><p>Định nghĩa rõ <code class="docutils literal notranslate"><span class="pre">flows</span></code> để actor/critic nhận đúng encoder:</p></li>
-</ul>
+<section id="wiring-into-actor-critic-flows">
+<h2>7. Wiring into actor/critic (<code class="docutils literal notranslate"><span class="pre">flows</span></code>)<a class="headerlink" href="#wiring-into-actor-critic-flows" title="Link to this heading">#</a></h2>
+<p>Declare <code class="docutils literal notranslate"><span class="pre">flows</span></code> explicitly so the actor/critic receive the right encoder:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">flows</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;image_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
@@ -594,46 +611,36 @@ Encoder ở lớp giới hạn giữa môi trường và các head chính — ch
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
 </pre></div>
 </div>
-<ul class="simple">
-<li><p>Khuyến nghị: nếu actor và critic cần biểu diễn khác nhau, tách encoder cho từng branch.</p></li>
-</ul>
+<p>If the actor and critic need different representations, use separate encoders
+per branch.</p>
 </section>
-<section id="kiem-thu-debug-nhanh">
-<h2>8. Kiểm thử &amp; debug nhanh<a class="headerlink" href="#kiem-thu-debug-nhanh" title="Link to this heading">#</a></h2>
+<section id="quick-testing-debugging">
+<h2>8. Quick testing &amp; debugging<a class="headerlink" href="#quick-testing-debugging" title="Link to this heading">#</a></h2>
 <ul class="simple">
-<li><p>Nếu gặp lỗi shape, kiểm tra <code class="docutils literal notranslate"><span class="pre">input_shape</span></code> / <code class="docutils literal notranslate"><span class="pre">input_dim</span></code> và <code class="docutils literal notranslate"><span class="pre">input_name</span></code> mapping.</p></li>
-<li><p>Khởi tạo model bằng <code class="docutils literal notranslate"><span class="pre">ModelBuilder.from_yaml(...)</span></code> và in <code class="docutils literal notranslate"><span class="pre">builder.summary()</span></code> để xem kích thước latent.</p></li>
-<li><p>Chạy smoke test:</p></li>
+<li><p>On a shape error, check <code class="docutils literal notranslate"><span class="pre">input_shape</span></code> / <code class="docutils literal notranslate"><span class="pre">input_dim</span></code> and the <code class="docutils literal notranslate"><span class="pre">input_name</span></code> mapping first.</p></li>
+<li><p>Inspect the built model graph with <code class="docutils literal notranslate"><span class="pre">--save-model-pipeline</span></code> (writes a pipeline
+diagram instead of training) to confirm encoder output sizes match what
+downstream heads expect.</p></li>
+<li><p>Run a smoke test:</p></li>
 </ul>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># module fallback từ source</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># module fallback, running from source</span>
 python<span class="w"> </span>-m<span class="w"> </span>srl.cli.train<span class="w"> </span>--config<span class="w"> </span>configs/envs/halfcheetah_sac.yaml<span class="w"> </span>--device<span class="w"> </span>cpu<span class="w"> </span>--seed<span class="w"> </span><span class="m">0</span><span class="w"> </span>--no-plots
 </pre></div>
 </div>
 </section>
-<section id="best-practices-tham-khao-nvidia-cong-nghiep">
-<h2>9. Best practices (tham khảo NVIDIA &amp; công nghiệp)<a class="headerlink" href="#best-practices-tham-khao-nvidia-cong-nghiep" title="Link to this heading">#</a></h2>
+<section id="best-practices">
+<h2>9. Best practices<a class="headerlink" href="#best-practices" title="Link to this heading">#</a></h2>
 <ul class="simple">
-<li><p>Với vision/Isaac: tận dụng momentum encoder cho contrastive/BYOL; dùng mixed-precision nếu có GPU.</p></li>
-<li><p>Tránh mạng quá sâu cho realtime; ưu tiên batch lớn + augment cho contrastive.</p></li>
-<li><p>Tách optimizer để điều chỉnh lr riêng cho encoder khi cần fine-tune.</p></li>
-<li><p>Kiểm tra pipeline bằng small end-to-end smoke test trước khi scale.</p></li>
+<li><p>For vision / Isaac workloads: use a momentum encoder for contrastive/BYOL, and mixed precision when a GPU is available.</p></li>
+<li><p>Avoid very deep networks for realtime use; prefer larger batches and stronger augmentation for contrastive learning.</p></li>
+<li><p>Use a separate optimizer to tune the encoder’s learning rate independently when fine-tuning.</p></li>
+<li><p>Validate the pipeline with a small end-to-end smoke test before scaling up.</p></li>
 </ul>
-<p>Tham khảo tài liệu NVIDIA Isaac/Isaac Sim khi làm tích hợp môi trường GPU: https://docs.omniverse.nvidia.com/isaac/ (tài liệu tham khảo cấu trúc và best-practices về môi trường GPU).</p>
 </section>
-<section id="lien-ket-nhanh">
-<h2>10. Liên kết nhanh<a class="headerlink" href="#lien-ket-nhanh" title="Link to this heading">#</a></h2>
-<p>Nếu bạn đồng ý, tôi sẽ:</p>
-</section>
-<section id="vi-du-va-huong-dan-them">
-<h2>Ví dụ và hướng dẫn thêm<a class="headerlink" href="#vi-du-va-huong-dan-them" title="Link to this heading">#</a></h2>
-<p>Xem các ví dụ cấu hình và các bước kiểm thử nhanh tại: <a class="reference internal" href="examples/encoder_examples.html"><span class="std std-doc">Examples: encoder examples</span></a></p>
-<p>Nếu bạn muốn tôi triển khai thêm, tôi có thể:</p>
-<ul class="simple">
-<li><p>mở rộng các cấu hình ví dụ thành file YAML đầy đủ trong <code class="docutils literal notranslate"><span class="pre">configs/examples/</span></code></p></li>
-<li><p>thêm hướng dẫn kiểm thử CI/smoke tests</p></li>
-<li><p>tổ chức lại nav theo mẫu NVIDIA (Architecture → Encoders → Deployment)
-Bạn muốn tôi triển khai tiếp phần nào trước?</p></li>
-</ul>
+<section id="more-examples">
+<h2>10. More examples<a class="headerlink" href="#more-examples" title="Link to this heading">#</a></h2>
+<p>See <a class="reference internal" href="examples/encoder_examples.html"><span class="std std-doc">Examples: encoder examples</span></a> for further
+configuration examples and smoke-test steps.</p>
 </section>
 </section>
 
@@ -684,17 +691,16 @@ Bạn muốn tôi triển khai tiếp phần nào trước?</p></li>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tong-quan">1. Tổng quan</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#khi-nao-dung-loai-encoder-nao">2. Khi nào dùng loại encoder nào</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cac-truong-cau-hinh-quan-trong-schema">3. Các trường cấu hình quan trọng (schema)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#vi-du-cau-hinh-yaml">4. Ví dụ cấu hình YAML</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#optimizer-update-policy-cho-encoder">5. Optimizer &amp; update policy cho encoder</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">1. Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#which-encoder-type-to-use">2. Which encoder type to use</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#key-config-fields-schema">3. Key config fields (schema)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#example-yaml-configs">4. Example YAML configs</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#encoder-optimizer-update-policy">5. Encoder optimizer &amp; update policy</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#auxiliary-representation-learning">6. Auxiliary representation learning</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ket-noi-voi-actor-critic-flows">7. Kết nối với actor/critic (<code class="docutils literal notranslate"><span class="pre">flows</span></code>)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#kiem-thu-debug-nhanh">8. Kiểm thử &amp; debug nhanh</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#best-practices-tham-khao-nvidia-cong-nghiep">9. Best practices (tham khảo NVIDIA &amp; công nghiệp)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#lien-ket-nhanh">10. Liên kết nhanh</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#vi-du-va-huong-dan-them">Ví dụ và hướng dẫn thêm</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#wiring-into-actor-critic-flows">7. Wiring into actor/critic (<code class="docutils literal notranslate"><span class="pre">flows</span></code>)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-testing-debugging">8. Quick testing &amp; debugging</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#best-practices">9. Best practices</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#more-examples">10. More examples</a></li>
 </ul>
   </nav></div>
 

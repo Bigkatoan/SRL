@@ -217,7 +217,7 @@
 <li class="toctree-l1"><a class="reference internal" href="training/runners.html">Runners &amp; Training Loop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="training/buffers.html">Replay Buffers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="checkpointing.html">Checkpointing</a></li>
-<li class="toctree-l1"><a class="reference internal" href="encoders.html">Hướng dẫn Encoders (Thiết lập &amp; Best Practices)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="encoders.html">Encoders (Setup &amp; Best Practices)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="async_runner.html">Async Off-Policy Runner</a></li>
 <li class="toctree-l1"><a class="reference internal" href="gpu_replay_buffer.html">GPU Replay Buffer</a></li>
 </ul>
@@ -523,7 +523,22 @@
 <blockquote>
 <div><p><strong>Note</strong>: <code class="docutils literal notranslate"><span class="pre">srl-rl</span></code> is <strong>not yet on PyPI</strong>. Use GitHub install.</p>
 </div></blockquote>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># From GitHub (recommended)</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># recommended -- also gets you configs/, which every example on this site needs</span>
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/Bigkatoan/SRL.git
+<span class="nb">cd</span><span class="w"> </span>SRL
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+</pre></div>
+</div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">git+https://github.com/Bigkatoan/SRL.git</span></code> (no clone) installs
+the <code class="docutils literal notranslate"><span class="pre">srl</span></code> Python package and CLI entry points, but <strong>not</strong> the repo-root
+<code class="docutils literal notranslate"><span class="pre">configs/</span></code> directory – it isn’t part of the installed package. Every
+<code class="docutils literal notranslate"><span class="pre">--config</span> <span class="pre">configs/envs/...</span></code> example on this site assumes <code class="docutils literal notranslate"><span class="pre">configs/</span></code> is
+present, so unless you’re supplying your own YAML from scratch, clone the
+repo rather than installing straight from the git URL.</p>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># package-only install, if you don&#39;t need the example configs</span>
 pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/Bigkatoan/SRL.git
 </pre></div>
 </div>

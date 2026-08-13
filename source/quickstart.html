@@ -217,7 +217,7 @@
 <li class="toctree-l1"><a class="reference internal" href="training/runners.html">Runners &amp; Training Loop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="training/buffers.html">Replay Buffers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="checkpointing.html">Checkpointing</a></li>
-<li class="toctree-l1"><a class="reference internal" href="encoders.html">Hướng dẫn Encoders (Thiết lập &amp; Best Practices)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="encoders.html">Encoders (Setup &amp; Best Practices)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="async_runner.html">Async Off-Policy Runner</a></li>
 <li class="toctree-l1"><a class="reference internal" href="gpu_replay_buffer.html">GPU Replay Buffer</a></li>
 </ul>
@@ -494,9 +494,16 @@
 <hr class="docutils" />
 <section id="install">
 <h2>1. Install<a class="headerlink" href="#install" title="Link to this heading">#</a></h2>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;srl-rl[mujoco] @ git+https://github.com/Bigkatoan/SRL.git&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/Bigkatoan/SRL.git
+<span class="nb">cd</span><span class="w"> </span>SRL
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[mujoco]&quot;</span>
+pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;srl-rl[mujoco] @ git+https://github.com/Bigkatoan/SRL.git&quot;</span>
 </pre></div>
 </div>
+<p>This walkthrough uses <code class="docutils literal notranslate"><span class="pre">configs/envs/halfcheetah_sac.yaml</span></code>, one of the example
+configs shipped in the repo — a bare <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span></code> from the git URL (no
+clone) does not include <code class="docutils literal notranslate"><span class="pre">configs/</span></code>. See <a class="reference internal" href="installation.html"><span class="std std-doc">Installation</span></a> if
+you only need the Python package.</p>
 </section>
 <hr class="docutils" />
 <section id="pick-a-config">

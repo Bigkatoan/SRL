@@ -212,7 +212,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../source/training/runners.html">Runners &amp; Training Loop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../source/training/buffers.html">Replay Buffers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../source/checkpointing.html">Checkpointing</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../source/encoders.html">Hướng dẫn Encoders (Thiết lập &amp; Best Practices)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../source/encoders.html">Encoders (Setup &amp; Best Practices)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../source/async_runner.html">Async Off-Policy Runner</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../source/gpu_replay_buffer.html">GPU Replay Buffer</a></li>
 </ul>
@@ -412,6 +412,8 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">gymnasium</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gym</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">srl.envs._image_obs</span><span class="w"> </span><span class="kn">import</span> <span class="n">maybe_hwc_to_chw</span>
+
 
 <div class="viewcode-block" id="GymnasiumWrapper">
 <a class="viewcode-back" href="../../../source/api/envs.html#srl.envs.gymnasium_wrapper.GymnasiumWrapper">[docs]</a>
@@ -419,6 +421,11 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Thin wrapper around any Gymnasium environment.</span>
 
 <span class="sd">    * Converts ``obs`` to ``dict`` form (key = ``&quot;state&quot;`` or ``&quot;pixels&quot;``).</span>
+<span class="sd">    * Transposes HWC pixel observations to CHW for SRL&#39;s CNNEncoder (see</span>
+<span class="sd">      ``_image_obs.maybe_hwc_to_chw`` -- Gymnasium&#39;s native pixel envs, e.g.</span>
+<span class="sd">      CarRacing, hand back (H, W, C); a plain ``np.asarray`` here previously</span>
+<span class="sd">      passed that straight through, so any config with a CNN encoder crashed</span>
+<span class="sd">      on the very first real observation with a channel-count mismatch).</span>
 <span class="sd">    * Exposes ``obs_space``, ``act_space`` helpers.</span>
 <span class="sd">    * Stores ``num_envs = 1`` for API uniformity with vector envs.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -443,7 +450,7 @@
 <a class="viewcode-back" href="../../../source/api/envs.html#srl.envs.gymnasium_wrapper.GymnasiumWrapper.reset">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="nb">dict</span><span class="p">]:</span>
         <span class="n">obs</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-        <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">obs_key</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">obs</span><span class="p">)},</span> <span class="n">info</span></div>
+        <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">obs_key</span><span class="p">:</span> <span class="n">maybe_hwc_to_chw</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">obs</span><span class="p">))},</span> <span class="n">info</span></div>
 
 
 <div class="viewcode-block" id="GymnasiumWrapper.step">
@@ -457,7 +464,13 @@
         <span class="c1"># every task with an episode time limit (i.e. nearly everything).</span>
         <span class="c1"># Callers that want &quot;episode ended for any reason&quot; already OR these</span>
         <span class="c1"># two themselves (see srl/cli/train.py&#39;s reset/logging call sites).</span>
-        <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">obs_key</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">obs</span><span class="p">)},</span> <span class="nb">float</span><span class="p">(</span><span class="n">reward</span><span class="p">),</span> <span class="n">terminated</span><span class="p">,</span> <span class="n">truncated</span><span class="p">,</span> <span class="n">info</span></div>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">obs_key</span><span class="p">:</span> <span class="n">maybe_hwc_to_chw</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">obs</span><span class="p">))},</span>
+            <span class="nb">float</span><span class="p">(</span><span class="n">reward</span><span class="p">),</span>
+            <span class="n">terminated</span><span class="p">,</span>
+            <span class="n">truncated</span><span class="p">,</span>
+            <span class="n">info</span><span class="p">,</span>
+        <span class="p">)</span></div>
 </div>
 
 </pre></div>

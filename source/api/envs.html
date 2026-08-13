@@ -217,7 +217,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../training/runners.html">Runners &amp; Training Loop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../training/buffers.html">Replay Buffers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../checkpointing.html">Checkpointing</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../encoders.html">Hướng dẫn Encoders (Thiết lập &amp; Best Practices)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../encoders.html">Encoders (Setup &amp; Best Practices)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../async_runner.html">Async Off-Policy Runner</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../gpu_replay_buffer.html">GPU Replay Buffer</a></li>
 </ul>
@@ -542,6 +542,11 @@
 <p>Thin wrapper around any Gymnasium environment.</p>
 <ul class="simple">
 <li><p>Converts <code class="docutils literal notranslate"><span class="pre">obs</span></code> to <code class="docutils literal notranslate"><span class="pre">dict</span></code> form (key = <code class="docutils literal notranslate"><span class="pre">&quot;state&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;pixels&quot;</span></code>).</p></li>
+<li><p>Transposes HWC pixel observations to CHW for SRL’s CNNEncoder (see
+<code class="docutils literal notranslate"><span class="pre">_image_obs.maybe_hwc_to_chw</span></code> – Gymnasium’s native pixel envs, e.g.
+CarRacing, hand back (H, W, C); a plain <code class="docutils literal notranslate"><span class="pre">np.asarray</span></code> here previously
+passed that straight through, so any config with a CNN encoder crashed
+on the very first real observation with a channel-count mismatch).</p></li>
 <li><p>Exposes <code class="docutils literal notranslate"><span class="pre">obs_space</span></code>, <code class="docutils literal notranslate"><span class="pre">act_space</span></code> helpers.</p></li>
 <li><p>Stores <code class="docutils literal notranslate"><span class="pre">num_envs</span> <span class="pre">=</span> <span class="pre">1</span></code> for API uniformity with vector envs.</p></li>
 </ul>

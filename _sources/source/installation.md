@@ -16,7 +16,23 @@
 > **Note**: `srl-rl` is **not yet on PyPI**. Use GitHub install.
 
 ```bash
-# From GitHub (recommended)
+# recommended -- also gets you configs/, which every example on this site needs
+git clone https://github.com/Bigkatoan/SRL.git
+cd SRL
+pip install -e .
+```
+
+```{important}
+`pip install git+https://github.com/Bigkatoan/SRL.git` (no clone) installs
+the `srl` Python package and CLI entry points, but **not** the repo-root
+`configs/` directory -- it isn't part of the installed package. Every
+`--config configs/envs/...` example on this site assumes `configs/` is
+present, so unless you're supplying your own YAML from scratch, clone the
+repo rather than installing straight from the git URL.
+```
+
+```bash
+# package-only install, if you don't need the example configs
 pip install git+https://github.com/Bigkatoan/SRL.git
 ```
 
