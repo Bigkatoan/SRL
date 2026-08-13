@@ -43,6 +43,31 @@ def test_replay_buffer_add_sample_round_trip_shapes_and_dtypes() -> None:
     assert batch.truncated.dtype == torch.float32
 
 
+def test_replay_buffer_lazy_init_preserves_image_obs_channels() -> None:
+    """Lazy init must not eat the channel dim of image observations.
+
+    `add()`/`_write()` store exactly one transition per call, so the array
+    handed in IS the per-transition shape. Stripping a leading axis allocated
+    (96, 96) slots for a (3, 96, 96) frame, and every pixel-based off-policy
+    run (SAC/DDPG/TD3 on CarRacing, Atari-likes, tiled cameras) died on the
+    first add() with a broadcast error.
+    """
+    from srl.core.replay_buffer import ReplayBuffer
+
+    buf = ReplayBuffer(capacity=8, action_dim=ACTION_DIM)  # no obs_shape -> lazy init
+    frame = np.zeros((3, 96, 96), dtype=np.float32)
+    buf.add(
+        obs={"state": frame},
+        action=np.ones(ACTION_DIM, dtype=np.float32),
+        reward=np.array([1.0], dtype=np.float32),
+        next_obs={"state": frame},
+        done=np.array([False]),
+        truncated=np.array([False]),
+    )
+
+    assert buf.sample(2).observations["state"].shape == (2, 3, 96, 96)
+
+
 def test_replay_buffer_keeps_truncated_and_done_independent() -> None:
     """The Phase-1 bootstrap-correctness fix: a timeout must not look like a
     real termination, and vice versa -- they are tracked in separate arrays."""

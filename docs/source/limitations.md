@@ -37,14 +37,46 @@ targets. Constructing `HERReplayBuffer` directly in Python and driving your
 own training loop with it does work today; there is just no YAML/CLI path to
 it yet.
 
-### Auxiliary encoder losses (reconstruction / contrastive / BYOL) via YAML/CLI
+### Auxiliary encoder losses: partial YAML/CLI coverage
 
-`VisualPPOConfig` and `VisualSACConfig` implement encoder auxiliary losses
-(autoencoder, contrastive, BYOL, ...) and work correctly when constructed
-directly in Python. `srl-train` does not yet build these variants from YAML —
-setting `aux_type` on an encoder, or an `aux_loss_type` in the train block,
-currently has no effect on a run started through the CLI. See
-[Encoders](encoders.md) for the config fields this affects.
+`srl-train` now builds `VisualPPOConfig` / `VisualSACConfig` automatically, so
+auxiliary encoder losses do run from YAML. It switches to the Visual variant
+when any encoder declares a recognised `aux_type` (`autoencoder`,
+`contrastive`, `byol`), or when the `train:` block sets a Visual-only field
+(`encoder_lr`, `aux_loss_type`, `aux_weight`, `augmentation_mode`, ...), and
+derives `aux_loss_type` from the declared `aux_type` so the loss matches the
+head that was built. PPO reports the result as `ppo/aux_loss`, SAC as
+`sac/aux_loss`. Anything the CLI cannot honour is warned about rather than
+silently ignored.
+
+What still does **not** work:
+
+- **PPO implements reconstruction only.** `PPO.update()` feeds every aux head
+  through `reconstruction_loss()` and ignores `aux_loss_type`, so
+  `aux_type: contrastive` / `byol` are skipped at runtime on PPO. Use
+  `aux_type: autoencoder` with PPO, or SAC for the other objectives.
+- **SAC's augmentation-based losses are unusable.** `curl`, `byol`, `drq`,
+  `barlow` and `augmentation_mode: aggressive` all route through
+  `random_crop()`, which outputs 90% of the input resolution instead of
+  preserving it. The shared encoder is built for the full-size observation, so
+  the augmented view fails the encoder's flatten/projection shapes. Only `ae`,
+  `vae` and `spr` avoid augmentation. `curl` is still the `VisualSACConfig`
+  default, so set `aux_loss_type` explicitly (or rely on the `aux_type`-derived
+  value) rather than taking the default.
+- **SAC matches encoders to observations by name substring.** The off-policy
+  loop stores un-remapped environment observations in the replay buffer, and
+  SAC's aux helpers then look for an encoder whose name contains the raw
+  observation key (or vice-versa). `GymnasiumWrapper` emits `state`, so an
+  encoder named `visual_enc` never matches and the auxiliary loss silently
+  computes nothing. `configs/envs/car_racing_sac_visual.yaml` names its encoder
+  `state_enc` for exactly this reason.
+- **`use_fp16: true` is incompatible with CNN encoders.** The replay buffer
+  returns half-precision tensors while model weights stay float32.
+
+`configs/envs/car_racing_ppo_visual.yaml` and
+`configs/envs/car_racing_sac_visual.yaml` are the two shipped configs that
+exercise the working paths. See [Encoders](encoders.md) for the config fields
+involved.
 
 ### Multi-agent RL
 

@@ -114,7 +114,7 @@ train:
 1. **Batch size**: contrastive losses cần batch >= 128; 256 tốt nhất.
 2. **Momentum tau**: 0.99 cho contrastive; 0.995 cho BYOL.
 3. **`aux_latent_dim`**: thường nhỏ hơn `latent_dim` (ví dụ 64 vs 256).
-4. **Learning rate**: `lr_encoder` thường thấp hơn `lr_critic` khi dùng auxiliary (1e-4 vs 3e-4).
+4. **Learning rate**: `encoder_lr` thường thấp hơn `lr_critic` khi dùng auxiliary (1e-4 vs 3e-4).
 5. **Bắt đầu với `ae`** nếu không chắc — đơn giản và đáng tin cậy.
 
 ## Xem thêm

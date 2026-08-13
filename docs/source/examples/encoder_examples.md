@@ -38,7 +38,7 @@ train:
   batch_size: 256
   encoder_update_freq: 2
   encoder_optimize_with_critic: true
-  lr_encoder: 3e-4
+  encoder_lr: 3e-4
   lr_actor: 3e-4
   lr_critic: 3e-4
   buffer_size: 100000
@@ -92,7 +92,7 @@ critic:
 train:
   total_steps: 300000
   batch_size: 256
-  lr_encoder: 1e-3
+  encoder_lr: 1e-3
   lr_actor: 1e-3
   lr_critic: 1e-3
 ```
@@ -143,7 +143,7 @@ critic:
 train:
   total_steps: 500000
   encoder_update_freq: 2
-  lr_encoder: 3e-4
+  encoder_lr: 3e-4
   lr_actor: 3e-4
   lr_critic: 3e-4
 ```

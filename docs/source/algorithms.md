@@ -102,7 +102,7 @@ cfg = VisualSACConfig(
     encoder_update_freq        = 2,      # step encoder every 2 critic updates
     encoder_optimize_with_critic = True, # False → encoder only trains via aux loss
     aux_loss_type              = "curl", # none | ae | vae | curl | byol | drq | spr | barlow
-    lr_encoder                 = 1e-4,
+    encoder_lr                 = 1e-4,
 )
 ```
 

@@ -102,7 +102,7 @@ Encoder có optimizer riêng biệt để tránh double-update:
 train:
   encoder_update_freq: 2           # cập nhật encoder mỗi 2 critic steps
   encoder_optimize_with_critic: true
-  lr_encoder: 3e-4
+  encoder_lr: 3e-4
 ```
 
 | Optimizer | Tham số | Khi nào step |
