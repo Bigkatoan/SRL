@@ -10,6 +10,41 @@ from dataclasses import fields
 
 from srl.utils.spaces import sample_action_space as _sample_action_space
 
+# `gymnasium_robotics.register_robotics_envs()` unconditionally re-registers
+# every Fetch/AntMaze/... variant on each call, and gymnasium.register() warns
+# loudly ("Overriding environment X already in registry") on every id that's
+# already there. `_make_cli_env` runs once for the training env and again for
+# every eval cycle (`_evaluate_agent` builds its own env the same way) --
+# without the once-per-process guard below, a single run re-registers
+# everything, and re-prints every one of gymnasium_robotics's ~400 warnings,
+# on every eval.
+#
+# On the currently pinned version, importing gymnasium_robotics already
+# registers everything as an import-time side effect, making the explicit
+# call redundant even the FIRST time -- but this is calling a private-ish
+# behavioral detail, not a documented contract, and the >=1.2.0 range this
+# project supports may not all auto-register on import. So: keep calling it
+# (for older-version compatibility), but only once per process, and swallow
+# the specific "already in registry" noise it's expected to produce -- this
+# is not a real problem to surface to a user, on the first call or any other.
+_robotics_envs_registered = False
+
+
+def _register_robotics_envs_once() -> None:
+    global _robotics_envs_registered
+    if _robotics_envs_registered:
+        return
+    import warnings
+
+    import gymnasium_robotics
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message=r".*[Oo]verriding environment .* already in registry.*"
+        )
+        gymnasium_robotics.register_robotics_envs()
+    _robotics_envs_registered = True
+
 
 def _make_cli_env(
     env_name: str, device: str, n_envs: int, env_type: str = "flat", render: bool = False
@@ -68,9 +103,7 @@ def _make_cli_env(
         return IsaacLabWrapper(base_env)
 
     if normalized_env_type == "goal":
-        import gymnasium_robotics
-
-        gymnasium_robotics.register_robotics_envs()
+        _register_robotics_envs_once()
         return GoalEnvWrapper(gym.make(normalized_env_name, **make_kwargs))
 
     if normalized_env_type == "racecar":
