@@ -26,6 +26,26 @@ Environment creation is still handled procedurally by the CLI and wrapper classe
 
 Built-in losses can be selected, but there is not yet a general registry that lets users declare any custom loss purely from YAML.
 
+### Hindsight Experience Replay (HER) via YAML/CLI
+
+`HERReplayBuffer` is implemented and unit-tested, but no train config field or
+CLI flag currently causes `srl-train` to use it. Every shipped
+`configs/envs/fetch_*.yaml` goal-conditioned config trains with a plain
+uniform-sampling `ReplayBuffer`, so no hindsight goal relabelling happens even
+though the task family is exactly the sparse-reward manipulation setting HER
+targets. Constructing `HERReplayBuffer` directly in Python and driving your
+own training loop with it does work today; there is just no YAML/CLI path to
+it yet.
+
+### Auxiliary encoder losses (reconstruction / contrastive / BYOL) via YAML/CLI
+
+`VisualPPOConfig` and `VisualSACConfig` implement encoder auxiliary losses
+(autoencoder, contrastive, BYOL, ...) and work correctly when constructed
+directly in Python. `srl-train` does not yet build these variants from YAML —
+setting `aux_type` on an encoder, or an `aux_loss_type` in the train block,
+currently has no effect on a run started through the CLI. See
+[Encoders](encoders.md) for the config fields this affects.
+
 ### Multi-agent RL
 
 The current package is not documented or structured as a multi-agent RL framework.

@@ -7,8 +7,15 @@ This page walks you through the full workflow in ~30 lines of code.
 ## 1. Install
 
 ```bash
-pip install "srl-rl[mujoco] @ git+https://github.com/Bigkatoan/SRL.git"
+git clone https://github.com/Bigkatoan/SRL.git
+cd SRL
+pip install -e ".[mujoco]"
 ```
+
+This walkthrough uses `configs/envs/halfcheetah_sac.yaml`, one of the example
+configs shipped in the repo — a bare `pip install` from the git URL (no
+clone) does not include `configs/`. See [Installation](installation.md) if
+you only need the Python package.
 
 ---
 
