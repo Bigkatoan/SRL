@@ -10,6 +10,7 @@ This page walks you through the full workflow in ~30 lines of code.
 git clone https://github.com/Bigkatoan/SRL.git
 cd SRL
 pip install -e ".[mujoco]"
+pip install "srl-rl[mujoco] @ git+https://github.com/Bigkatoan/SRL.git"
 ```
 
 This walkthrough uses `configs/envs/halfcheetah_sac.yaml`, one of the example

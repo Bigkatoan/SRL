@@ -460,7 +460,32 @@ def _maybe_start_visualizer(agent, args, device: str):
 
     if args.env_type == "mjlab" or args.env.startswith("mjlab:"):
         task_name = args.env.split(":", 1)[1]
-        return start_mjlab_visualizer(agent, task_name, device, remap_obs_fn=_remap)
+        handle = start_mjlab_visualizer(agent, task_name, device, remap_obs_fn=_remap)
+        if handle is not None and int(getattr(args, "eval_freq", 0)) > 0:
+            # mjlab's env construction does a one-time CUDA graph capture
+            # (mujoco_warp's Simulation.create_graph()). The visualizer
+            # thread steps its own env continuously on the GPU for the rest
+            # of the run; periodic in-training eval builds a brand-new mjlab
+            # env every `--eval-freq` steps. If that new env's graph-capture
+            # window overlaps with the visualizer's ongoing stepping, the
+            # capture gets corrupted -- confirmed via a real repro: training
+            # ran cleanly through 9+ eval-triggered env rebuilds with
+            # --visualize off, and crashed (`Warp CUDA error 901: operation
+            # failed due to a previous error during capture`, hard SIGABRT)
+            # at the second eval cycle with it on. Disabling eval removes
+            # the only other mjlab-env-construction call site left once
+            # training is running, which removes the race entirely --
+            # you're already watching the live policy via the viewer, so
+            # scripted eval episodes are redundant anyway.
+            args.eval_freq = 0
+            print(
+                "[srl-train] --visualize: disabling periodic evaluation for this "
+                "mjlab run (--eval-freq forced to 0). Evaluating while the "
+                "background viewer keeps stepping its own env can corrupt "
+                "mjlab's CUDA graph capture and crash training -- watch the "
+                "live viewer instead of scripted eval episodes.",
+            )
+        return handle
 
     return start_gym_visualizer(
         agent,
