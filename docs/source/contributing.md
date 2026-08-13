@@ -41,8 +41,8 @@ python tests/test_environments.py
 1. Check if it needs a custom wrapper (Goal → `GoalEnvWrapper`, Isaac → `IsaacLabWrapper`)
 2. Create `configs/envs/<env>_<algo>.yaml`
 3. Add a training script (or extend an existing one) in `examples/envs/`
-4. Add a smoke test entry in `tests/test_environments.py`
-5. Add a docs page in `docs/environments/`
+4. Add a smoke test entry in `tests/test_cli_smoke.py`
+5. Add a docs page in `docs/source/environments/` and list it in `docs/index.rst`
 
 ---
 
@@ -52,7 +52,7 @@ python tests/test_environments.py
 2. Add a `<Name>Config` dataclass in `srl/core/config.py`
 3. Register losses in `srl/losses/rl_losses.py`
 4. Add a training script in `examples/`
-5. Document in `docs/algorithms.md`
+5. Document in `docs/source/algorithms.md`
 
 ---
 
