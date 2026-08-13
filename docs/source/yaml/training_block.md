@@ -23,7 +23,7 @@ Block `train:` trong file YAML chứa tất cả hyperparameters được CLI đ
 | `lr` | float | 3e-4 | Learning rate chung |
 | `lr_actor` | float | 3e-4 | Learning rate actor |
 | `lr_critic` | float | 3e-4 | Learning rate critic |
-| `lr_encoder` | float | 3e-4 | Learning rate encoder optimizer |
+| `encoder_lr` | float | 1e-4 | Learning rate encoder optimizer (`VisualPPOConfig` / `VisualSACConfig`) |
 | `lr_alpha` | float | 3e-4 | Learning rate entropy coef (SAC) |
 | `tau` | float | 0.005 | Soft target update coefficient |
 | `buffer_size` | int | 1_000_000 | Replay buffer capacity |
@@ -66,7 +66,7 @@ train:
   n_envs:                       1
   lr_actor:                     3e-4
   lr_critic:                    3e-4
-  lr_encoder:                   1e-4
+  encoder_lr:                   1e-4
   lr_alpha:                     3e-4
   tau:                          0.005
   buffer_size:                  100_000

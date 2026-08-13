@@ -75,7 +75,7 @@ cfg = SACConfig(
 train:
   encoder_update_freq: 2
   encoder_optimize_with_critic: true
-  lr_encoder: 1e-4
+  encoder_lr: 1e-4
   aux_loss_type: curl
 ```
 

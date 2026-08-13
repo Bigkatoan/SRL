@@ -314,7 +314,7 @@ These fields appear on `SACConfig`, `DDPGConfig`, `TD3Config`, and `VisualSACCon
 |---|---|---|---|
 | `encoder_optimize_with_critic` | `bool` | `True` | Allow critic gradients to flow into the encoder |
 | `aux_loss_type` | `str` | `"curl"` | Auxiliary encoder loss: `none \| ae \| vae \| curl \| byol \| drq \| spr \| barlow` |
-| `lr_encoder` | `float` | `1e-4` | Learning rate for the dedicated encoder optimizer |
+| `encoder_lr` | `float` | `1e-4` | Learning rate for the dedicated encoder optimizer |
 
 ---
 
