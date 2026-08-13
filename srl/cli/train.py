@@ -507,6 +507,86 @@ def _resolve_algo_config_cls(
     return visual_cls, extra_defaults
 
 
+def _her_goal_obs_parts(goal_obs: dict):
+    """Split a raw GoalEnv observation dict into HER's (obs, ag, dg) vectors.
+
+    ``GoalEnvWrapper``'s flat observation is
+    ``[observation | achieved_goal | desired_goal]``, and ``HERReplayBuffer``
+    re-appends the (possibly relabelled) desired goal at sample time. So the
+    part stored as "obs" is ``[observation | achieved_goal]`` -- that way the
+    sampled batch has exactly the layout, and dimension, the encoders were
+    built for.
+    """
+    import numpy as np
+
+    obs = np.asarray(goal_obs["observation"], dtype=np.float32).ravel()
+    ag = np.asarray(goal_obs["achieved_goal"], dtype=np.float32).ravel()
+    dg = np.asarray(goal_obs["desired_goal"], dtype=np.float32).ravel()
+    return np.concatenate([obs, ag]), ag, dg
+
+
+def _configure_her_from_env(algo_cfg, env, env_type: str) -> None:
+    """Fill the env-derived HER fields on an algo config, in place.
+
+    No-op unless ``use_her`` is set. Raises if the run is not goal-conditioned:
+    HER needs ``achieved_goal``/``desired_goal`` and the env's own sparse
+    reward function, which only a GoalEnv exposes.
+    """
+    import numpy as np
+
+    if not getattr(algo_cfg, "use_her", False):
+        return
+
+    if env_type != "goal":
+        raise SystemExit(
+            '[srl-train] use_her=True requires env_type: "goal" (a '
+            "gymnasium-robotics GoalEnv such as FetchReach-v4); got "
+            f'env_type: "{env_type}".'
+        )
+    if not getattr(env, "include_goal", True):
+        raise SystemExit(
+            "[srl-train] use_her=True is incompatible with include_goal: false -- "
+            "HER re-appends the desired goal to every sampled observation, which "
+            "only matches the model input when the flat obs includes the goal."
+        )
+    if getattr(env, "num_envs", 1) != 1:
+        raise SystemExit(
+            "[srl-train] use_her=True currently supports a single environment "
+            f"only (got num_envs={getattr(env, 'num_envs', 1)}); HER stores whole "
+            "episodes and the CLI collects them from one un-vectorized env."
+        )
+
+    unwrapped = getattr(env, "unwrapped", env)
+    space = getattr(unwrapped, "observation_space", None)
+    try:
+        obs_dim = int(np.prod(space["observation"].shape))
+        ag_dim = int(np.prod(space["achieved_goal"].shape))
+        dg_dim = int(np.prod(space["desired_goal"].shape))
+    except (TypeError, KeyError) as exc:
+        raise SystemExit(
+            "[srl-train] use_her=True but the environment's observation space is "
+            "not a GoalEnv Dict with 'observation'/'achieved_goal'/'desired_goal' "
+            f"keys: {exc}"
+        ) from exc
+
+    reward_fn = getattr(unwrapped, "compute_reward", None)
+    if not callable(reward_fn):
+        raise SystemExit(
+            "[srl-train] use_her=True but the environment exposes no "
+            "compute_reward(achieved_goal, desired_goal, info); HER cannot "
+            "recompute rewards for relabelled goals without it."
+        )
+
+    algo_cfg.her_obs_dim = obs_dim + ag_dim
+    algo_cfg.her_goal_dim = dg_dim
+    algo_cfg.her_reward_fn = reward_fn
+    print(
+        f"[srl-train] HER enabled: strategy={algo_cfg.her_strategy} "
+        f"ratio={algo_cfg.her_ratio} obs_dim={algo_cfg.her_obs_dim} "
+        f"goal_dim={dg_dim} max_episode_len={algo_cfg.her_max_episode_len}"
+    )
+
+
 def _validate_algo_model_compatibility(
     raw_cfg: dict, algo_name: str, config_path: str
 ) -> str | None:
@@ -1008,16 +1088,20 @@ def main(argv: list[str] | None = None) -> int:
         sac_cfg_cls, sac_aux_defaults = _resolve_algo_config_cls(
             algo_name, SACConfig, raw_cfg, train_cfg
         )
+        sac_cfg = _build_algo_config(
+            sac_cfg_cls,
+            train_cfg,
+            action_dim=action_dim,
+            replay_num_envs=getattr(env, "num_envs", 1),
+            **sac_aux_defaults,
+        )
+        # HER needs the goal split and the env's sparse reward fn, neither of
+        # which can come from YAML -- resolve them before the buffer is built.
+        _configure_her_from_env(sac_cfg, env, args.env_type)
         agent = SAC(
             model,
             target,
-            config=_build_algo_config(
-                sac_cfg_cls,
-                train_cfg,
-                action_dim=action_dim,
-                replay_num_envs=getattr(env, "num_envs", 1),
-                **sac_aux_defaults,
-            ),
+            config=sac_cfg,
             device=device,
         )
         visualizer_handle = _maybe_start_visualizer(agent, args, device)
@@ -1372,8 +1456,14 @@ def _run_off_policy(
     random_steps = max(int(random_steps), 0)
     update_after = max(int(update_after), 0)
     update_every = max(int(update_every), 1)
-    obs, _ = env.reset(seed=args.seed)
+    obs, reset_info = env.reset(seed=args.seed)
     encoder_names = list(agent.model.encoders.keys())
+    # HER collection: episodes go in via add_transition() with the goal vectors
+    # that GoalEnvWrapper stashes in info["goal_obs"], not via buffer.add().
+    from srl.core.her_replay_buffer import HERReplayBuffer
+
+    her_buffer = agent.buffer if isinstance(agent.buffer, HERReplayBuffer) else None
+    goal_obs = reset_info.get("goal_obs") if her_buffer is not None else None
     vectorized_env = (
         args.env_type in ("isaaclab", "mjlab")
         or args.env.startswith("isaaclab:")
@@ -1452,6 +1542,29 @@ def _run_off_policy(
                     next_obs=next_obs_i,
                     env_idx=env_index,
                 )
+        elif her_buffer is not None:
+            next_goal_obs = info.get("goal_obs")
+            if next_goal_obs is None:
+                raise RuntimeError(
+                    "HER is enabled but the environment did not provide "
+                    "info['goal_obs']; expected a GoalEnvWrapper-wrapped env."
+                )
+            cur_obs_vec, cur_ag, cur_dg = _her_goal_obs_parts(goal_obs)
+            next_obs_vec, next_ag, _ = _her_goal_obs_parts(next_goal_obs)
+            her_buffer.add_transition(
+                obs=cur_obs_vec,
+                achieved_goal=cur_ag,
+                desired_goal=cur_dg,
+                action=np.asarray(action_np, dtype=np.float32).ravel(),
+                next_obs=next_obs_vec,
+                next_achieved_goal=next_ag,
+                # Real termination only; `truncated` closes the episode
+                # without fabricating a terminal state (Fetch tasks end by
+                # time limit, so `done` alone would never flush an episode).
+                done=bool(done),
+                truncated=bool(trunc),
+            )
+            goal_obs = next_goal_obs
         else:
             agent.buffer.add(
                 obs=obs,
@@ -1463,7 +1576,9 @@ def _run_off_policy(
             )
         obs = next_obs
         if not vectorized_env and (done or trunc):
-            obs, _ = env.reset()
+            obs, reset_info = env.reset()
+            if her_buffer is not None:
+                goal_obs = reset_info.get("goal_obs")
 
         gradient_steps = max(int(getattr(agent.cfg, "gradient_steps", 1)), 1)
         if env_step >= update_after and since_last_update >= update_every:
@@ -1483,6 +1598,11 @@ def _run_off_policy(
                         counts[key] = counts.get(key, 0) + 1
                 merged = {key: sums[key] / counts[key] for key in sums}
                 merged["train/utd_ratio"] = gradient_steps / max(update_span, 1)
+                if her_buffer is not None:
+                    # Makes it observable that HER is actually accumulating
+                    # episodes rather than merely being constructed.
+                    merged["her/episodes"] = float(len(her_buffer))
+                    merged["her/transitions"] = float(her_buffer.num_transitions)
                 logger.set_step(env_step)
                 logger.record_metrics(merged, step=env_step, total_steps=args.steps)
                 for cb in callbacks:
