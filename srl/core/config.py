@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Algorithm configs
@@ -32,6 +33,10 @@ class A2CConfig:
     lr: float = 7e-4
     n_steps: int = 5
     num_envs: int = 1
+    # Not read by A2C.update() -- A2C always takes one gradient step over the
+    # full rollout (n_steps * num_envs transitions), matching the canonical
+    # algorithm. Kept only for backward compatibility with existing code
+    # that constructs A2CConfig(batch_size=...) explicitly.
     batch_size: int = 5
     gamma: float = 0.99
     gae_lambda: float = 1.0
@@ -85,6 +90,24 @@ class SACConfig:
     # Encoder update frequency: encoder_optimizer steps every N critic updates.
     # 1 = every critic step (default, same as pre-v0.2 behaviour for state tasks).
     encoder_update_freq: int = 1
+
+    # ------------------------------------------------------------------
+    # Hindsight Experience Replay (goal-conditioned tasks only)
+    # ------------------------------------------------------------------
+    # Opt-in from YAML: `use_her: true` in the train block of a goal config
+    # swaps the plain ReplayBuffer for HERReplayBuffer. Only meaningful with
+    # `env_type: "goal"` -- the CLI errors out otherwise, since HER needs the
+    # achieved/desired goals that only GoalEnvWrapper surfaces.
+    use_her: bool = False
+    her_ratio: float = 0.8
+    her_strategy: str = "future"  # "future" | "final" | "episode" | "random"
+    her_max_episode_len: int = 1000
+    # Filled in by the CLI from the environment, not from YAML: HER needs the
+    # goal split and the env's own sparse reward function to recompute rewards
+    # for relabelled goals.
+    her_obs_dim: int = 0
+    her_goal_dim: int = 0
+    her_reward_fn: Callable | None = field(default=None, repr=False, compare=False)
 
 
 @dataclass

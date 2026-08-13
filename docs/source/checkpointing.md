@@ -53,24 +53,33 @@ That policy is local and simple by design:
 
 `srl-train` exposes checkpoint-related control through:
 
-- `--ckptdir`: directory where checkpoints are written
+- `--ckptdir`: directory where checkpoints are written (default `checkpoints/`)
+- `--logdir`: directory where TensorBoard/metrics artifacts are written (default `runs/`)
 - `--resume`: resume from an existing checkpoint file
 
-Typical training layout looks like this:
+Checkpoints and run artifacts live in two separate top-level directories,
+not nested inside one another — `--ckptdir`/`<run_name>/` is a *sibling* of
+`--logdir`/`<run_name>/`:
 
 ```text
+checkpoints/
+  ppo_pendulum_ppo/
+    final_0000100000.pt
+
 runs/
   ppo_pendulum_ppo/
-    checkpoints/
-      ckpt_0000005000.pt
-      final_0000100000.pt
     metrics.jsonl
     history.csv
     summary.json
+    training_curves.svg
     training_curves.png
 ```
 
-The exact run directory name is derived by the training CLI from the algorithm and config stem.
+(Both `.svg` and `.png` are written unless `--no-plots` is passed.)
+
+The exact run directory name (`ppo_pendulum_ppo` above) is derived by the
+training CLI from the algorithm and config stem, and is the same under both
+`--ckptdir` and `--logdir`.
 
 ## Resume semantics
 
@@ -83,7 +92,7 @@ srl-train --config configs/envs/pendulum_ppo.yaml \
           --env Pendulum-v1 \
           --algo ppo \
           --steps 200000 \
-          --resume runs/ppo_pendulum_ppo/checkpoints/final_0000100000.pt
+          --resume checkpoints/ppo_pendulum_ppo/final_0000100000.pt
 ```
 
 What resume restores depends on the saved payload:

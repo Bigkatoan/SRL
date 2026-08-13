@@ -10,6 +10,41 @@ from dataclasses import fields
 
 from srl.utils.spaces import sample_action_space as _sample_action_space
 
+# `gymnasium_robotics.register_robotics_envs()` unconditionally re-registers
+# every Fetch/AntMaze/... variant on each call, and gymnasium.register() warns
+# loudly ("Overriding environment X already in registry") on every id that's
+# already there. `_make_cli_env` runs once for the training env and again for
+# every eval cycle (`_evaluate_agent` builds its own env the same way) --
+# without the once-per-process guard below, a single run re-registers
+# everything, and re-prints every one of gymnasium_robotics's ~400 warnings,
+# on every eval.
+#
+# On the currently pinned version, importing gymnasium_robotics already
+# registers everything as an import-time side effect, making the explicit
+# call redundant even the FIRST time -- but this is calling a private-ish
+# behavioral detail, not a documented contract, and the >=1.2.0 range this
+# project supports may not all auto-register on import. So: keep calling it
+# (for older-version compatibility), but only once per process, and swallow
+# the specific "already in registry" noise it's expected to produce -- this
+# is not a real problem to surface to a user, on the first call or any other.
+_robotics_envs_registered = False
+
+
+def _register_robotics_envs_once() -> None:
+    global _robotics_envs_registered
+    if _robotics_envs_registered:
+        return
+    import warnings
+
+    import gymnasium_robotics
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message=r".*[Oo]verriding environment .* already in registry.*"
+        )
+        gymnasium_robotics.register_robotics_envs()
+    _robotics_envs_registered = True
+
 
 def _make_cli_env(
     env_name: str, device: str, n_envs: int, env_type: str = "flat", render: bool = False
@@ -68,9 +103,7 @@ def _make_cli_env(
         return IsaacLabWrapper(base_env)
 
     if normalized_env_type == "goal":
-        import gymnasium_robotics
-
-        gymnasium_robotics.register_robotics_envs()
+        _register_robotics_envs_once()
         return GoalEnvWrapper(gym.make(normalized_env_name, **make_kwargs))
 
     if normalized_env_type == "racecar":
@@ -474,6 +507,86 @@ def _resolve_algo_config_cls(
     return visual_cls, extra_defaults
 
 
+def _her_goal_obs_parts(goal_obs: dict):
+    """Split a raw GoalEnv observation dict into HER's (obs, ag, dg) vectors.
+
+    ``GoalEnvWrapper``'s flat observation is
+    ``[observation | achieved_goal | desired_goal]``, and ``HERReplayBuffer``
+    re-appends the (possibly relabelled) desired goal at sample time. So the
+    part stored as "obs" is ``[observation | achieved_goal]`` -- that way the
+    sampled batch has exactly the layout, and dimension, the encoders were
+    built for.
+    """
+    import numpy as np
+
+    obs = np.asarray(goal_obs["observation"], dtype=np.float32).ravel()
+    ag = np.asarray(goal_obs["achieved_goal"], dtype=np.float32).ravel()
+    dg = np.asarray(goal_obs["desired_goal"], dtype=np.float32).ravel()
+    return np.concatenate([obs, ag]), ag, dg
+
+
+def _configure_her_from_env(algo_cfg, env, env_type: str) -> None:
+    """Fill the env-derived HER fields on an algo config, in place.
+
+    No-op unless ``use_her`` is set. Raises if the run is not goal-conditioned:
+    HER needs ``achieved_goal``/``desired_goal`` and the env's own sparse
+    reward function, which only a GoalEnv exposes.
+    """
+    import numpy as np
+
+    if not getattr(algo_cfg, "use_her", False):
+        return
+
+    if env_type != "goal":
+        raise SystemExit(
+            '[srl-train] use_her=True requires env_type: "goal" (a '
+            "gymnasium-robotics GoalEnv such as FetchReach-v4); got "
+            f'env_type: "{env_type}".'
+        )
+    if not getattr(env, "include_goal", True):
+        raise SystemExit(
+            "[srl-train] use_her=True is incompatible with include_goal: false -- "
+            "HER re-appends the desired goal to every sampled observation, which "
+            "only matches the model input when the flat obs includes the goal."
+        )
+    if getattr(env, "num_envs", 1) != 1:
+        raise SystemExit(
+            "[srl-train] use_her=True currently supports a single environment "
+            f"only (got num_envs={getattr(env, 'num_envs', 1)}); HER stores whole "
+            "episodes and the CLI collects them from one un-vectorized env."
+        )
+
+    unwrapped = getattr(env, "unwrapped", env)
+    space = getattr(unwrapped, "observation_space", None)
+    try:
+        obs_dim = int(np.prod(space["observation"].shape))
+        ag_dim = int(np.prod(space["achieved_goal"].shape))
+        dg_dim = int(np.prod(space["desired_goal"].shape))
+    except (TypeError, KeyError) as exc:
+        raise SystemExit(
+            "[srl-train] use_her=True but the environment's observation space is "
+            "not a GoalEnv Dict with 'observation'/'achieved_goal'/'desired_goal' "
+            f"keys: {exc}"
+        ) from exc
+
+    reward_fn = getattr(unwrapped, "compute_reward", None)
+    if not callable(reward_fn):
+        raise SystemExit(
+            "[srl-train] use_her=True but the environment exposes no "
+            "compute_reward(achieved_goal, desired_goal, info); HER cannot "
+            "recompute rewards for relabelled goals without it."
+        )
+
+    algo_cfg.her_obs_dim = obs_dim + ag_dim
+    algo_cfg.her_goal_dim = dg_dim
+    algo_cfg.her_reward_fn = reward_fn
+    print(
+        f"[srl-train] HER enabled: strategy={algo_cfg.her_strategy} "
+        f"ratio={algo_cfg.her_ratio} obs_dim={algo_cfg.her_obs_dim} "
+        f"goal_dim={dg_dim} max_episode_len={algo_cfg.her_max_episode_len}"
+    )
+
+
 def _validate_algo_model_compatibility(
     raw_cfg: dict, algo_name: str, config_path: str
 ) -> str | None:
@@ -609,12 +722,37 @@ def _maybe_run_evaluation(
     logger.record_metrics(
         eval_metrics, step=step, total_steps=args.steps, prefix=None, console=False
     )
+    success_part = ""
+    if "eval/success_mean" in eval_metrics:
+        # Only present for goal-conditioned envs (env_type: goal) -- see
+        # _evaluate_agent's is_success/success info-dict handling. It's the
+        # primary metric for exactly that env type, but was computed and
+        # written to metrics.jsonl/TensorBoard while never appearing in the
+        # live console line -- a user watching training against a Fetch/goal
+        # task never saw the one number that matters most without digging
+        # into log files after the fact.
+        success_part = f" | success_mean={eval_metrics['eval/success_mean']:.4f}"
     print(
-        f"[eval] step {step} | score_mean={eval_metrics['eval/score_mean']:.4f} "
-        f"| episodes={int(eval_metrics['eval/episodes'])}",
+        f"[eval] step {step} | score_mean={eval_metrics['eval/score_mean']:.4f}"
+        f"{success_part} | episodes={int(eval_metrics['eval/episodes'])}",
         flush=True,
     )
     return next_eval_step + eval_freq
+
+
+def _final_eval_already_ran_at(next_eval_step: int | None, eval_freq: int, step: int) -> bool:
+    """True iff the in-loop periodic eval already ran at exactly `step`.
+
+    `_maybe_run_evaluation` advances `next_eval_step` by exactly `eval_freq`
+    when it fires, and leaves it unchanged otherwise -- so "an eval just ran
+    at this exact step" is `next_eval_step == step + eval_freq`, and nothing
+    else. (`step < next_eval_step` is NOT a safe proxy for this: it's true
+    immediately after *any* eval fires, by construction, so using it as an
+    alternate "already ran" check here previously produced a duplicate eval
+    + duplicate `[eval]` log line whenever `total_steps` was an exact
+    multiple of `eval_freq`.)
+    """
+    return next_eval_step is not None and next_eval_step - eval_freq == step
 
 
 def _maybe_start_visualizer(agent, args, device: str):
@@ -651,7 +789,32 @@ def _maybe_start_visualizer(agent, args, device: str):
 
     if args.env_type == "mjlab" or args.env.startswith("mjlab:"):
         task_name = args.env.split(":", 1)[1]
-        return start_mjlab_visualizer(agent, task_name, device, remap_obs_fn=_remap)
+        handle = start_mjlab_visualizer(agent, task_name, device, remap_obs_fn=_remap)
+        if handle is not None and int(getattr(args, "eval_freq", 0)) > 0:
+            # mjlab's env construction does a one-time CUDA graph capture
+            # (mujoco_warp's Simulation.create_graph()). The visualizer
+            # thread steps its own env continuously on the GPU for the rest
+            # of the run; periodic in-training eval builds a brand-new mjlab
+            # env every `--eval-freq` steps. If that new env's graph-capture
+            # window overlaps with the visualizer's ongoing stepping, the
+            # capture gets corrupted -- confirmed via a real repro: training
+            # ran cleanly through 9+ eval-triggered env rebuilds with
+            # --visualize off, and crashed (`Warp CUDA error 901: operation
+            # failed due to a previous error during capture`, hard SIGABRT)
+            # at the second eval cycle with it on. Disabling eval removes
+            # the only other mjlab-env-construction call site left once
+            # training is running, which removes the race entirely --
+            # you're already watching the live policy via the viewer, so
+            # scripted eval episodes are redundant anyway.
+            args.eval_freq = 0
+            print(
+                "[srl-train] --visualize: disabling periodic evaluation for this "
+                "mjlab run (--eval-freq forced to 0). Evaluating while the "
+                "background viewer keeps stepping its own env can corrupt "
+                "mjlab's CUDA graph capture and crash training -- watch the "
+                "live viewer instead of scripted eval episodes.",
+            )
+        return handle
 
     return start_gym_visualizer(
         agent,
@@ -925,16 +1088,20 @@ def main(argv: list[str] | None = None) -> int:
         sac_cfg_cls, sac_aux_defaults = _resolve_algo_config_cls(
             algo_name, SACConfig, raw_cfg, train_cfg
         )
+        sac_cfg = _build_algo_config(
+            sac_cfg_cls,
+            train_cfg,
+            action_dim=action_dim,
+            replay_num_envs=getattr(env, "num_envs", 1),
+            **sac_aux_defaults,
+        )
+        # HER needs the goal split and the env's sparse reward fn, neither of
+        # which can come from YAML -- resolve them before the buffer is built.
+        _configure_her_from_env(sac_cfg, env, args.env_type)
         agent = SAC(
             model,
             target,
-            config=_build_algo_config(
-                sac_cfg_cls,
-                train_cfg,
-                action_dim=action_dim,
-                replay_num_envs=getattr(env, "num_envs", 1),
-                **sac_aux_defaults,
-            ),
+            config=sac_cfg,
             device=device,
         )
         visualizer_handle = _maybe_start_visualizer(agent, args, device)
@@ -1180,14 +1347,47 @@ def _run_on_policy(
         )
 
     eval_freq = int(getattr(args, "eval_freq", 0))
-    if next_eval_step is not None and (step < next_eval_step or next_eval_step - eval_freq != step):
+    if next_eval_step is not None and not _final_eval_already_ran_at(
+        next_eval_step, eval_freq, step
+    ):
         _maybe_run_evaluation(agent, args, logger, device=device, step=step, next_eval_step=step)
+
+
+def _warn_if_no_updates_will_run(agent, args, start_step: int) -> None:
+    """Warn when the step budget won't reach `learning_starts`/`start_steps`.
+
+    Off-policy algorithms only take their first gradient step once at least
+    that many env steps have been collected. A smoke-test run with a small
+    `--steps` (or a config's `total_steps`) below that threshold completes
+    "successfully" with zero gradient updates and byte-identical eval scores
+    across every checkpoint -- easy to misdiagnose as a training bug (or,
+    for a goal-conditioned config, as "HER isn't working") rather than what
+    it actually is: no learning happened at all in this run.
+    """
+    update_after = getattr(agent.cfg, "update_after", None)
+    source = "update_after"
+    if update_after is None:
+        update_after = getattr(agent.cfg, "learning_starts", None)
+        source = "learning_starts"
+    if update_after is None:
+        return
+    remaining_steps = int(args.steps) - int(start_step)
+    if remaining_steps < int(update_after):
+        print(
+            f"[srl-train] Warning: --steps leaves only {remaining_steps} env steps to "
+            f"collect, but this algorithm's {source} is {int(update_after)} -- no "
+            "gradient update will run in this call. Increase --steps (or the "
+            f"config's train.total_steps) past {source}, or lower it, to actually train.",
+            file=sys.stderr,
+        )
 
 
 def _run_off_policy(
     agent, env, args, callbacks, logger, *, start_step: int = 0, device: str = "cpu"
 ) -> None:
     import numpy as np
+
+    _warn_if_no_updates_will_run(agent, args, start_step)
 
     # ------------------------------------------------------------------
     # Async / GPU-buffer fast path (v0.2.0)
@@ -1256,8 +1456,14 @@ def _run_off_policy(
     random_steps = max(int(random_steps), 0)
     update_after = max(int(update_after), 0)
     update_every = max(int(update_every), 1)
-    obs, _ = env.reset(seed=args.seed)
+    obs, reset_info = env.reset(seed=args.seed)
     encoder_names = list(agent.model.encoders.keys())
+    # HER collection: episodes go in via add_transition() with the goal vectors
+    # that GoalEnvWrapper stashes in info["goal_obs"], not via buffer.add().
+    from srl.core.her_replay_buffer import HERReplayBuffer
+
+    her_buffer = agent.buffer if isinstance(agent.buffer, HERReplayBuffer) else None
+    goal_obs = reset_info.get("goal_obs") if her_buffer is not None else None
     vectorized_env = (
         args.env_type in ("isaaclab", "mjlab")
         or args.env.startswith("isaaclab:")
@@ -1336,6 +1542,29 @@ def _run_off_policy(
                     next_obs=next_obs_i,
                     env_idx=env_index,
                 )
+        elif her_buffer is not None:
+            next_goal_obs = info.get("goal_obs")
+            if next_goal_obs is None:
+                raise RuntimeError(
+                    "HER is enabled but the environment did not provide "
+                    "info['goal_obs']; expected a GoalEnvWrapper-wrapped env."
+                )
+            cur_obs_vec, cur_ag, cur_dg = _her_goal_obs_parts(goal_obs)
+            next_obs_vec, next_ag, _ = _her_goal_obs_parts(next_goal_obs)
+            her_buffer.add_transition(
+                obs=cur_obs_vec,
+                achieved_goal=cur_ag,
+                desired_goal=cur_dg,
+                action=np.asarray(action_np, dtype=np.float32).ravel(),
+                next_obs=next_obs_vec,
+                next_achieved_goal=next_ag,
+                # Real termination only; `truncated` closes the episode
+                # without fabricating a terminal state (Fetch tasks end by
+                # time limit, so `done` alone would never flush an episode).
+                done=bool(done),
+                truncated=bool(trunc),
+            )
+            goal_obs = next_goal_obs
         else:
             agent.buffer.add(
                 obs=obs,
@@ -1347,7 +1576,9 @@ def _run_off_policy(
             )
         obs = next_obs
         if not vectorized_env and (done or trunc):
-            obs, _ = env.reset()
+            obs, reset_info = env.reset()
+            if her_buffer is not None:
+                goal_obs = reset_info.get("goal_obs")
 
         gradient_steps = max(int(getattr(agent.cfg, "gradient_steps", 1)), 1)
         if env_step >= update_after and since_last_update >= update_every:
@@ -1367,6 +1598,11 @@ def _run_off_policy(
                         counts[key] = counts.get(key, 0) + 1
                 merged = {key: sums[key] / counts[key] for key in sums}
                 merged["train/utd_ratio"] = gradient_steps / max(update_span, 1)
+                if her_buffer is not None:
+                    # Makes it observable that HER is actually accumulating
+                    # episodes rather than merely being constructed.
+                    merged["her/episodes"] = float(len(her_buffer))
+                    merged["her/transitions"] = float(her_buffer.num_transitions)
                 logger.set_step(env_step)
                 logger.record_metrics(merged, step=env_step, total_steps=args.steps)
                 for cb in callbacks:
@@ -1376,8 +1612,8 @@ def _run_off_policy(
         )
 
     eval_freq = int(getattr(args, "eval_freq", 0))
-    if next_eval_step is not None and (
-        env_step < next_eval_step or next_eval_step - eval_freq != env_step
+    if next_eval_step is not None and not _final_eval_already_ran_at(
+        next_eval_step, eval_freq, env_step
     ):
         _maybe_run_evaluation(
             agent, args, logger, device=device, step=env_step, next_eval_step=env_step

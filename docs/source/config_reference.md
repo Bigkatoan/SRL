@@ -158,7 +158,7 @@ Common dictionary fields from `LayerConfig`:
 |---|---|
 | `out_features` | MLP output width |
 | `out_channels` | CNN output channels |
-| `kernel_size` | CNN kernel size |
+| `kernel` | CNN kernel size |
 | `stride` | CNN stride |
 | `padding` | CNN padding |
 | `activation` | Activation function name |
@@ -171,6 +171,13 @@ Common dictionary fields from `LayerConfig`:
 | `depthwise` | Depthwise convolution flag |
 | `norm_order` | `pre` or `post` normalization |
 | `weight_init` | Weight init strategy |
+
+```{warning}
+CNN shorthand lists are positional in the order
+`[out_channels, kernel, padding, activation, pooling]` — the third slot is **padding**,
+not stride. `stride` is only reachable through the dict form. See
+[Heads & Flows](yaml/heads_flows.md#layer-specification).
+```
 
 ## Flow graph
 
@@ -321,15 +328,15 @@ These fields appear on `SACConfig`, `DDPGConfig`, `TD3Config`, and `VisualSACCon
 (asyncrunnerconfig)=
 ## AsyncRunnerConfig (v0.2.0)
 
-Controls `AsyncOffPolicyRunner`. Pass an instance under `runner_cfg` to the CLI or
-construct it directly.
+Controls `AsyncOffPolicyRunner`. Construct it directly and pass it as the runner's
+`runner_cfg` argument.
 
 | Field | Type | Default | Meaning |
 |---|---|---|---|
 | `use_async` | `bool` | `False` | Split collection and training into separate threads |
 | `use_gpu_buffer` | `bool` | `False` | Replace the CPU replay buffer with `GPUReplayBuffer` |
-| `prefill_steps` | `int` | `1000` | Random-action prefill before gradient updates start |
-| `queue_maxsize` | `int` | `4` | Max transitions queued between collector and trainer |
+| `prefill_steps` | `int` | `0` | Declared but currently unread by the runner |
+| `queue_maxsize` | `int` | `2` | Declared but currently unread by the runner |
 
 ```python
 from srl.core.config import AsyncRunnerConfig
@@ -337,8 +344,10 @@ from srl.core.config import AsyncRunnerConfig
 runner_cfg = AsyncRunnerConfig(
     use_async      = True,
     use_gpu_buffer = True,
-    prefill_steps  = 5000,
 )
 ```
+
+Random-action warmup is controlled by the runner's own `random_steps` argument, not by
+`prefill_steps`. `AsyncRunnerConfig` is not built from the YAML `train:` block.
 
 See [async_runner.md](async_runner.md) for the full runner API.

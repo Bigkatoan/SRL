@@ -26,16 +26,22 @@ Environment creation is still handled procedurally by the CLI and wrapper classe
 
 Built-in losses can be selected, but there is not yet a general registry that lets users declare any custom loss purely from YAML.
 
-### Hindsight Experience Replay (HER) via YAML/CLI
+### Hindsight Experience Replay (HER) beyond single-env SAC
 
-`HERReplayBuffer` is implemented and unit-tested, but no train config field or
-CLI flag currently causes `srl-train` to use it. Every shipped
-`configs/envs/fetch_*.yaml` goal-conditioned config trains with a plain
-uniform-sampling `ReplayBuffer`, so no hindsight goal relabelling happens even
-though the task family is exactly the sparse-reward manipulation setting HER
-targets. Constructing `HERReplayBuffer` directly in Python and driving your
-own training loop with it does work today; there is just no YAML/CLI path to
-it yet.
+HER *is* available from YAML/CLI: set `use_her: true` in the `train:` block of
+a goal-conditioned config (`env_type: "goal"`) and `srl-train` builds a
+`HERReplayBuffer` and routes episodes into it. See
+[Replay Buffers](training/buffers.md#her--hindsight-experience-replay-goal-conditioned-tasks).
+
+What is *not* supported yet:
+
+- Only **SAC** is wired. `DDPGConfig` / `TD3Config` have no `use_her` field, so
+  those algorithms still train with a plain uniform `ReplayBuffer` on goal
+  tasks.
+- **Single environment only.** HER stores whole episodes and the CLI collects
+  them from one un-vectorized env; `--n-envs > 1` is rejected at startup.
+- Not compatible with the async / GPU-buffer fast path (`use_async`,
+  `use_gpu_buffer`), which manages its own buffer.
 
 ### Auxiliary encoder losses: partial YAML/CLI coverage
 

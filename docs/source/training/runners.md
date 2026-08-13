@@ -1,101 +1,121 @@
 # Runners & Training Loop
 
-Runner kiểm soát vòng lặp training: thu thập transitions từ môi trường, lưu vào buffer, và trigger gradient updates.
+The runner drives the training loop: it collects transitions from the environment,
+stores them in a buffer, and triggers gradient updates.
 
-## Synchronous Runner (default)
+## Synchronous runner (default)
 
-Tất cả diễn ra trên cùng một thread theo thứ tự:
+Everything happens on one thread, in order:
 
 ```
 collect → store → sample → update → repeat
 ```
 
-Đây là default, đủ dùng cho hầu hết trường hợp.
+This is what `srl-train` uses, and it is enough for almost every workload.
 
 ```bash
-# Sync runner — không cần config thêm
+# Sync runner — nothing extra to configure
 srl-train --config configs/envs/halfcheetah_sac.yaml
 ```
 
-## Async Off-Policy Runner (v0.2.0)
+## On-policy runner (PPO, A2C)
 
-`AsyncOffPolicyRunner` tách collection và training vào 2 threads:
-
-```
-Main thread (collector)            Daemon thread (trainer)
-────────────────────────           ─────────────────────────
-env.step()                    →    trainer_thread.step()
-buf.add(transition)           ←    signals via threading.Condition
-```
-
-**Lợi ích:**
-
-- Collector không bị block bởi gradient computation
-- Đặc biệt hữu ích với Isaac Lab (CUDA context phải ở main thread)
-- Trainer có CUDA stream riêng, không tranh tài nguyên với simulator
-
-**Kích hoạt:**
+On-policy algorithms collect a fixed-size rollout, compute returns and advantages, then
+run several optimisation epochs over that rollout before discarding it. The relevant
+`train:` fields are:
 
 ```yaml
 train:
-  use_async: true
-  use_gpu_buffer: true   # khuyến nghị kết hợp GPUReplayBuffer
-  prefill_steps: 1000
-```
-
-```python
-from srl.core.config import AsyncRunnerConfig
-from srl.runners import AsyncOffPolicyRunner
-
-runner_cfg = AsyncRunnerConfig(
-    use_async=True,
-    use_gpu_buffer=True,
-    prefill_steps=1000,
-    queue_maxsize=4,
-)
-```
-
-## `AsyncRunnerConfig` fields
-
-| Field | Type | Default | Mô tả |
-|---|---|---|---|
-| `use_async` | bool | False | Bật collector/trainer thread split |
-| `use_gpu_buffer` | bool | False | Dùng GPUReplayBuffer |
-| `prefill_steps` | int | 1000 | Random-action steps trước gradient update đầu |
-| `queue_maxsize` | int | 4 | Max transitions queued giữa threads |
-
-## On-Policy Runner (PPO/A2C)
-
-```yaml
-train:
-  n_steps: 2048
+  n_steps: 2048      # steps collected per env per rollout
   n_envs: 8
   n_epochs: 10
   batch_size: 256
 ```
 
-## Checkpointing
+A3C is different again: it spawns `n_workers` CPU worker processes that collect and
+compute gradients asynchronously, and it does not go through the vectorised runner at
+all.
 
-Runner tự động lưu checkpoint theo `eval_freq`:
+## Async off-policy runner (v0.2.0)
+
+`AsyncOffPolicyRunner` splits collection and training across two threads:
 
 ```
+Main thread (collector)            Daemon thread (trainer)
+────────────────────────           ─────────────────────────
+env.step()                    →    trainer thread's agent.update()
+buf.add(transition)           ←    signals via threading.Condition
+```
+
+**Why:**
+
+- The collector is not blocked while gradients are computed.
+- It suits Isaac Lab in particular, where the simulation context has to stay on the
+  main thread.
+- The trainer gets its own CUDA stream, so its compute overlaps with environment
+  stepping instead of contending with it.
+
+**Enabling it:**
+
+```python
+from srl.core.config import AsyncRunnerConfig
+from srl.runners import AsyncOffPolicyRunner
+
+runner = AsyncOffPolicyRunner(
+    agent=sac_agent,          # SAC / DDPG / TD3
+    env=env,
+    total_steps=1_000_000,
+    runner_cfg=AsyncRunnerConfig(use_async=True, use_gpu_buffer=True),
+    device="cuda:0",
+    random_steps=1000,        # random-action warmup before updates start
+    update_after=1000,
+    update_every=1,
+    gradient_steps=1,
+)
+runner.run()
+```
+
+With `use_async=False` (the default) the runner falls back to the standard synchronous
+loop; with `use_gpu_buffer=True` alone it swaps in the GPU buffer but keeps collection
+and training on one thread.
+
+```{warning}
+The async runner is a Python-API feature. `use_async` / `use_gpu_buffer` in a YAML
+`train:` block are currently ignored: `srl-train` maps the `train:` block onto the
+algorithm config dataclasses only, and never constructs an `AsyncRunnerConfig` from it.
+```
+
+See [Async Off-Policy Runner](../async_runner.md) for the full field reference and the
+Isaac Lab notes.
+
+## Checkpointing
+
+`srl-train` attaches a `CheckpointCallback` that saves every 100,000 steps, plus a
+`final_*` save when training ends. Checkpoints and run artifacts go to two separate
+top-level directories — `--ckptdir` (default `checkpoints/`) and `--logdir` (default
+`runs/`) — sharing the same `{algo}_{config_stem}` run name:
+
+```
+checkpoints/{algo}_{config_stem}/
+  ckpt_{step:010d}.pt
+  final_{step:010d}.pt
+
 runs/{algo}_{config_stem}/
-  checkpoints/
-    ckpt_{step:010d}.pt
-    final_{step:010d}.pt
   metrics.jsonl
+  history.csv
   summary.json
   training_curves.png
 ```
 
-Resume:
+Resume by pointing at the exact checkpoint file:
 
 ```bash
-srl-train --config my.yaml --resume runs/sac_half/checkpoints/final_0001000000.pt
+srl-train --config my.yaml --resume checkpoints/sac_my/final_0001000000.pt
 ```
 
-## Xem thêm
+## See also
 
 - [Replay Buffers](buffers.md)
-- [Async Runner API Reference](../async_runner.md)
+- [Async Off-Policy Runner](../async_runner.md)
+- [Checkpointing](../checkpointing.md)
 - [Isaac Lab Integration](../integrations/isaaclab.md)

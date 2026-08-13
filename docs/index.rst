@@ -96,7 +96,7 @@ Table of Contents
    :caption: Training System
 
    source/training/index
-   source/training/algorithms
+   source/algorithms
    source/training/runners
    source/training/buffers
    source/checkpointing
@@ -137,7 +137,6 @@ Table of Contents
    :maxdepth: 1
    :caption: Reference
 
-   source/algorithms
    source/config_reference
    source/limitations
    source/examples/encoder_examples

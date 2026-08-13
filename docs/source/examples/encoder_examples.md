@@ -1,14 +1,23 @@
-# Ví dụ: Cấu hình Encoders cho SAC / TD3 / Actor-Critic
+# Example: Encoder Configurations for SAC / TD3 / Actor-Critic
 
-Trang này chứa các ví dụ YAML và các bước kiểm thử nhanh để bạn có thể thử encoder trong các cấu hình thực tế.
+This page collects YAML snippets and quick smoke tests so you can try encoders in
+realistic setups.
 
-## 1) SAC — Vision (CNN) + encoder riêng
+```{note}
+These configs are not shipped with the repository — copy a snippet into a file of your
+own (`configs/examples/` is a reasonable home for them) before running the commands
+below. The shipped configs live in [configs/envs/](https://github.com/Bigkatoan/SRL/tree/main/configs/envs).
+```
 
-Mục tiêu: sử dụng `cnn` encoder, tách `encoder_optimizer`, và cập nhật encoder mỗi `encoder_update_freq` critic updates.
+## 1) SAC — vision (CNN) with a dedicated encoder optimizer
+
+Goal: use a `cnn` encoder with a separate `encoder_optimizer` that steps every
+`encoder_update_freq` critic updates.
 
 ```yaml
-# configs/examples/sac_image_encoder.yaml (snippet)
+# configs/examples/sac_image_encoder.yaml
 env_id: CarRacing-v3
+env_type: flat
 algo: sac
 
 encoders:
@@ -19,9 +28,13 @@ encoders:
     aux_type: autoencoder
     aux_latent_dim: 128
     layers:
-      - [32, 8, 4, relu]
-      - [64, 4, 2, relu]
-      - [64, 3, 1, relu]
+      - {out_channels: 32, kernel: 8, stride: 4, padding: 0, activation: relu}
+      - {out_channels: 64, kernel: 4, stride: 2, padding: 0, activation: relu}
+      - {out_channels: 64, kernel: 3, stride: 1, padding: 0, activation: relu}
+
+flows:
+  - "image_enc -> actor"
+  - "image_enc -> critic"
 
 actor:
   name: actor
@@ -47,27 +60,31 @@ train:
   update_every: 50
 ```
 
-Kiểm thử nhanh (smoke):
+Smoke test:
 
 ```bash
-python -m srl.cli.train --config configs/examples/sac_image_encoder.yaml --device cpu --seed 0 --no-plots
+srl-train --config configs/examples/sac_image_encoder.yaml --device cpu --seed 0 --no-plots
 ```
 
-Nếu bạn chạy trên GPU trong venv đã cấu hình:
-
-```bash
-tests/venv/bin/python -m srl.cli.train --config configs/examples/sac_image_encoder.yaml --device cuda --seed 0
+```{note}
+`encoder_update_freq` is a real `SACConfig` field, so it works from YAML. The encoder
+optimizer's learning rate (`encoder_lr`) and the auxiliary objective (`aux_loss_type`)
+live on `VisualSACConfig`, which the CLI never builds — without `encoder_lr` the
+encoder optimizer inherits `lr_critic`. See
+[Auxiliary Representation Learning](../yaml/auxiliary.md).
 ```
 
 ---
 
-## 2) TD3 — MLP (state-based) nhanh
+## 2) TD3 — MLP (state-based), fast
 
-Ví dụ cho môi trường vector-only (HalfCheetah). TD3 thường dùng deterministic actor.
+An example for a vector-only environment (HalfCheetah). TD3 uses a deterministic actor
+and requires a twin-Q critic.
 
 ```yaml
-# configs/examples/td3_state_encoder.yaml (snippet)
+# configs/examples/td3_state_encoder.yaml
 env_id: HalfCheetah-v5
+env_type: flat
 algo: td3
 
 encoders:
@@ -79,6 +96,10 @@ encoders:
       - {out_features: 256, activation: relu}
       - {out_features: 128, activation: relu}
 
+flows:
+  - "state_enc -> actor"
+  - "state_enc -> critic"
+
 actor:
   name: actor
   type: deterministic
@@ -86,41 +107,49 @@ actor:
 
 critic:
   name: critic
-  type: q
+  type: twin_q
   action_dim: 6
 
 train:
   total_steps: 300000
   batch_size: 256
-  encoder_lr: 1e-3
   lr_actor: 1e-3
   lr_critic: 1e-3
 ```
 
-Smoketest:
+Smoke test:
 
 ```bash
-python -m srl.cli.train --config configs/examples/td3_state_encoder.yaml --device cpu --no-plots
+srl-train --config configs/examples/td3_state_encoder.yaml --device cpu --no-plots
+```
+
+```{warning}
+`srl-train` rejects mismatched head types before building anything. TD3 requires
+`deterministic` + `twin_q`; a single `q` critic is only valid for DDPG.
 ```
 
 ---
 
-## 3) Actor-Critic đa phương thức (image + state)
+## 3) Multi-modal actor-critic (image + state)
 
-Khi actor/critic cần thông tin khác nhau, tách encoder cho từng branch.
+When the actor and critic need different information, give each branch its own
+encoders.
 
 ```yaml
 # configs/examples/multi_modal_ac.yaml
-env_id: SomeEnv-v0
+env_id: SomeEnv-v0     # replace with a real env that returns both keys
+env_type: flat
 algo: sac
 
 encoders:
   - name: image_enc
     type: cnn
+    input_name: front_camera
     input_shape: [3, 84, 84]
     latent_dim: 128
   - name: state_enc
     type: mlp
+    input_name: joint_states
     input_dim: 10
     latent_dim: 64
 
@@ -143,24 +172,39 @@ critic:
 train:
   total_steps: 500000
   encoder_update_freq: 2
-  encoder_lr: 3e-4
   lr_actor: 3e-4
   lr_critic: 3e-4
 ```
 
----
-
-## Tips & test checklist
-
-- Luôn khai báo `input_name` khi observation dict có nhiều key (tránh mapping heuristics).
-- Kiểm tra `ModelBuilder.from_yaml(...).summary()` để xác nhận kích thước latent input cho heads.
-- Nếu dùng contrastive/BYOL: bật `use_momentum: true` và tăng batch size/augmentations.
-- Với vision trên Isaac Lab: ưu tiên `encoder_update_freq=2`, mixed precision và batch lớn khi có GPU.
-
-## Nơi lưu ví dụ
-
-Lưu các file config ví dụ trong `configs/examples/` để dễ dùng lại.
+Both heads see `128 + 64 = 192` input features here — the builder sums the upstream
+`latent_dim`s, so there is no `input_dim` to set on the heads.
 
 ---
 
-Xem thêm hướng dẫn tổng quan: [Encoders guide](../encoders.md)
+## Tips and checklist
+
+- Always set `input_name` when the observation dict has more than one key, so routing
+  is explicit instead of relying on the count-matching fallback.
+- Check the graph before a long run:
+
+  ```python
+  from srl.registry.builder import ModelBuilder
+
+  model = ModelBuilder.from_yaml("configs/examples/multi_modal_ac.yaml")
+  print(model.encoder_names_for_head("actor"))   # encoders feeding the actor
+  print(model.encoder_names_for_head("critic"))
+  ```
+
+  `srl-visualize --config <file>` renders the same graph as a PNG.
+- For CURL/BYOL, set `use_momentum: true` on the encoder and raise the batch size — the
+  loss returns `None` without a momentum encoder.
+- On Isaac Lab vision tasks, `encoder_update_freq: 2` and a large batch are a good
+  starting point.
+- CNN shorthand layers are `[out_channels, kernel, padding, activation, pooling]`. The
+  third slot is padding, not stride — use the dict form when you need a stride.
+
+## See also
+
+- [Encoders guide](../encoders.md)
+- [YAML: Encoders](../yaml/encoders.md)
+- [Heads & Flows](../yaml/heads_flows.md)
