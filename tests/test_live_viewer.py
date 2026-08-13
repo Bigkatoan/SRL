@@ -18,7 +18,9 @@ import time
 
 import torch
 
+from srl.cli import train as train_module
 from srl.cli.train import _build_parser
+from srl.utils import live_viewer as live_viewer_module
 from srl.utils.live_viewer import (
     VisualizerHandle,
     _MjlabPolicyAdapter,
@@ -172,3 +174,74 @@ def test_start_gym_visualizer_render_failure_stops_the_thread_and_closes_env() -
     assert not handle.thread.is_alive()
     assert env.render_calls == 1
     assert env.closed is True
+
+
+class _FakeModel:
+    def __init__(self) -> None:
+        self.encoders = {"actor_state_enc": None}
+        self.encoder_input_names = {"actor_state_enc": "actor"}
+
+
+class _FakeAgentWithModel:
+    def __init__(self) -> None:
+        self.model = _FakeModel()
+
+
+class _FakeArgs:
+    def __init__(self, **kwargs) -> None:
+        self.visualize = True
+        self.env_type = "mjlab"
+        self.env = "mjlab:Some-Task"
+        self.eval_freq = 50_000
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+
+def test_mjlab_visualizer_forces_eval_freq_to_zero_to_avoid_cuda_graph_crash(
+    monkeypatch,
+) -> None:
+    """Regression test: mjlab's env construction does a one-time CUDA graph
+    capture (mujoco_warp's Simulation.create_graph()). --visualize's
+    background thread steps its own env continuously on the GPU for the rest
+    of the run; periodic in-training eval builds a brand-new mjlab env every
+    `--eval-freq` steps, and if that overlaps the visualizer's ongoing
+    stepping the capture gets corrupted -- confirmed via a real repro
+    (training survived 9+ eval-triggered env rebuilds with --visualize off,
+    crashed with a hard SIGABRT at the second eval cycle with it on).
+    `_maybe_start_visualizer` must force eval off for a successfully-started
+    mjlab visualizer to remove that race."""
+    fake_handle = VisualizerHandle(thread=threading.Thread(target=lambda: None), stop=lambda: None)
+    monkeypatch.setattr(live_viewer_module, "start_mjlab_visualizer", lambda *a, **k: fake_handle)
+
+    args = _FakeArgs(eval_freq=50_000)
+    handle = train_module._maybe_start_visualizer(_FakeAgentWithModel(), args, "cuda")
+
+    assert handle is fake_handle
+    assert args.eval_freq == 0
+
+
+def test_mjlab_visualizer_leaves_eval_freq_alone_when_it_fails_to_start(monkeypatch) -> None:
+    """If the visualizer never actually started (e.g. mjlab/viser missing),
+    there's no ongoing background GPU activity to race against -- eval must
+    stay untouched."""
+    monkeypatch.setattr(live_viewer_module, "start_mjlab_visualizer", lambda *a, **k: None)
+
+    args = _FakeArgs(eval_freq=50_000)
+    handle = train_module._maybe_start_visualizer(_FakeAgentWithModel(), args, "cuda")
+
+    assert handle is None
+    assert args.eval_freq == 50_000
+
+
+def test_gym_visualizer_does_not_touch_eval_freq(monkeypatch) -> None:
+    """The CUDA-graph-capture race is mjlab-specific (plain Gymnasium envs
+    don't do graph capture at all) -- --visualize on a flat env must not
+    disable eval."""
+    fake_handle = VisualizerHandle(thread=threading.Thread(target=lambda: None), stop=lambda: None)
+    monkeypatch.setattr(live_viewer_module, "start_gym_visualizer", lambda *a, **k: fake_handle)
+
+    args = _FakeArgs(env_type="flat", env="Pendulum-v1", eval_freq=50_000)
+    handle = train_module._maybe_start_visualizer(_FakeAgentWithModel(), args, "cpu")
+
+    assert handle is fake_handle
+    assert args.eval_freq == 50_000
