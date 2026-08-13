@@ -283,6 +283,197 @@ def _build_algo_config(config_cls, train_cfg: dict, **extra_overrides):
     return config_cls(**kwargs)
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Visual (auxiliary-encoder-loss) config auto-detection
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# ``VisualPPOConfig`` / ``VisualSACConfig`` are what switch the algorithms onto
+# their auxiliary-encoder-loss code paths (separate encoder optimizer, aux loss
+# on every update).  Nothing in the YAML schema names those classes, so the CLI
+# picks one by looking at what the config actually asks for:
+#
+#   1. any encoder declares an ``aux_type`` that ``srl.registry.builder``
+#      actually builds an aux head for, or
+#   2. the ``train:`` block sets a field that only exists on the Visual variant
+#      (``encoder_lr``, ``aux_loss_type``, ``aux_weight``, ...).
+#
+# Both signals are already-valid YAML, so existing configs light up with no
+# edits and no new syntax to learn.
+
+# Encoder-level ``aux_type`` -> algorithm-level ``aux_loss_type``.  Keys are the
+# authoritative set from ``srl.registry.builder``'s aux-head dispatch; anything
+# else builds no aux head at all.
+_AUX_TYPE_TO_LOSS: dict[str, str] = {
+    "autoencoder": "ae",
+    "contrastive": "curl",
+    "byol": "byol",
+}
+
+
+def _visual_config_for_algo(algo_name: str):
+    """Return the Visual* config class for *algo_name*, or None if it has none."""
+    from srl.core.config import VisualPPOConfig, VisualSACConfig
+
+    return {"ppo": VisualPPOConfig, "sac": VisualSACConfig}.get(algo_name.lower())
+
+
+def _visual_only_fields(visual_cls, base_cls) -> set[str]:
+    """Fields that exist on the Visual variant but not on the plain config."""
+    return {f.name for f in fields(visual_cls)} - {f.name for f in fields(base_cls)}
+
+
+def _encoder_aux_types(raw_cfg: dict) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    """Split declared encoder ``aux_type``s into (recognized, unrecognized).
+
+    Each entry is ``(encoder_name, aux_type)``.  Unrecognized values build no
+    aux head in the model builder, so they must not be treated as a signal --
+    they are reported to the user instead (usually a typo).
+    """
+    recognized: list[tuple[str, str]] = []
+    unrecognized: list[tuple[str, str]] = []
+    for index, enc in enumerate(raw_cfg.get("encoders") or []):
+        if not isinstance(enc, dict):
+            continue
+        aux_type = enc.get("aux_type")
+        if aux_type is None:
+            continue
+        name = str(enc.get("name") or f"encoder[{index}]")
+        aux_type = str(aux_type).strip().lower()
+        if aux_type in _AUX_TYPE_TO_LOSS:
+            recognized.append((name, aux_type))
+        else:
+            unrecognized.append((name, aux_type))
+    return recognized, unrecognized
+
+
+def _warn_unusable_aux(algo_name: str, raw_cfg: dict) -> list[tuple[str, str]]:
+    """Report aux requests that will not do anything; return the usable ones.
+
+    Covers the two ways an ``aux_type`` silently does nothing: an unrecognized
+    value (no head is built at all), and an algorithm with no Visual config
+    variant (head is built, but nothing trains it).  Both warn rather than
+    fail -- the run is otherwise valid.
+    """
+    recognized, unrecognized = _encoder_aux_types(raw_cfg)
+
+    for name, aux_type in unrecognized:
+        print(
+            f"[srl-train] Warning: encoder '{name}' sets aux_type: {aux_type!r}, which is "
+            f"not a known aux head ({', '.join(sorted(_AUX_TYPE_TO_LOSS))}). No auxiliary "
+            "head will be built and no auxiliary loss will run.",
+            file=sys.stderr,
+        )
+
+    if recognized and _visual_config_for_algo(algo_name) is None:
+        names = ", ".join(f"'{n}' (aux_type: {t})" for n, t in recognized)
+        print(
+            f"[srl-train] Warning: {names} requests an auxiliary encoder loss, but "
+            f"{algo_name.upper()} has no visual config variant, so the auxiliary loss "
+            "will not be trained. Use PPO or SAC for auxiliary encoder losses.",
+            file=sys.stderr,
+        )
+    return recognized
+
+
+def _warn_aux_loss_prerequisites(
+    algo_name: str,
+    raw_cfg: dict,
+    recognized: list[tuple[str, str]],
+    resolved_loss: str | None,
+) -> None:
+    """Warn when the selected aux loss cannot run against the built model.
+
+    Both cases below produce a silently-zero aux loss at runtime rather than an
+    error, so they are worth catching while the config is still on screen.
+    """
+    # PPO's aux path is reconstruction-only -- it ignores aux_loss_type and
+    # feeds every aux head into reconstruction_loss(). A projection head
+    # (contrastive/byol) fails the shape check there and gets skipped.
+    if algo_name.lower() == "ppo":
+        non_ae = [(n, t) for n, t in recognized if t != "autoencoder"]
+        if non_ae:
+            names = ", ".join(f"'{n}' (aux_type: {t})" for n, t in non_ae)
+            print(
+                f"[srl-train] Warning: {names} -- PPO's auxiliary loss only implements "
+                "reconstruction, so this head will be skipped at runtime. Use "
+                "aux_type: autoencoder with PPO, or switch to SAC for "
+                "contrastive/BYOL objectives.",
+                file=sys.stderr,
+            )
+        return
+
+    # CURL/BYOL encode the positive view through an EMA target copy, which only
+    # exists when the encoder sets use_momentum: true.
+    if resolved_loss in ("curl", "byol"):
+        has_momentum = any(
+            isinstance(enc, dict) and enc.get("use_momentum")
+            for enc in (raw_cfg.get("encoders") or [])
+        )
+        if not has_momentum:
+            print(
+                f"[srl-train] Warning: aux_loss_type '{resolved_loss}' needs a momentum "
+                "encoder, but no encoder sets use_momentum: true. The auxiliary loss will "
+                "not run. Add use_momentum: true to the visual encoder.",
+                file=sys.stderr,
+            )
+
+
+def _resolve_algo_config_cls(
+    algo_name: str,
+    base_cls,
+    raw_cfg: dict,
+    train_cfg: dict,
+) -> tuple[type, dict]:
+    """Choose between the plain and the Visual algorithm config.
+
+    Returns ``(config_cls, extra_defaults)``.  ``extra_defaults`` carries values
+    inferred from the model config (currently ``aux_loss_type``) and is only
+    ever populated with keys the user did not set explicitly in ``train:``.
+    """
+    recognized = _warn_unusable_aux(algo_name, raw_cfg)
+
+    visual_cls = _visual_config_for_algo(algo_name)
+    if visual_cls is None:
+        return base_cls, {}
+
+    visual_fields = _visual_only_fields(visual_cls, base_cls)
+    explicit_fields = sorted(visual_fields & set(train_cfg))
+
+    if not recognized and not explicit_fields:
+        return base_cls, {}
+
+    extra_defaults: dict = {}
+    if recognized and "aux_loss_type" not in train_cfg:
+        # Keep the algorithm's aux loss consistent with the head that was
+        # actually built: an "ae" loss needs a decoder, "curl"/"byol" need a
+        # projection head.  Defaulting to the config-class default ("curl")
+        # against an autoencoder head silently computes nothing.
+        distinct = {t for _, t in recognized}
+        if len(distinct) > 1:
+            print(
+                f"[srl-train] Warning: multiple encoder aux_types declared ({sorted(distinct)}); "
+                f"using '{recognized[0][1]}' from encoder '{recognized[0][0]}'. Set "
+                "aux_loss_type in the train: block to choose explicitly.",
+                file=sys.stderr,
+            )
+        extra_defaults["aux_loss_type"] = _AUX_TYPE_TO_LOSS[recognized[0][1]]
+
+    resolved_loss = extra_defaults.get("aux_loss_type", train_cfg.get("aux_loss_type"))
+    _warn_aux_loss_prerequisites(algo_name, raw_cfg, recognized, resolved_loss)
+
+    reasons = []
+    if recognized:
+        reasons.append("encoder aux_type: " + ", ".join(f"{n}={t}" for n, t in recognized))
+    if explicit_fields:
+        reasons.append("train: " + ", ".join(explicit_fields))
+    print(
+        f"[srl-train] Auxiliary encoder loss detected ({'; '.join(reasons)}) "
+        f"-> using {visual_cls.__name__}"
+        + (f" (aux_loss_type={resolved_loss!r})" if resolved_loss else "")
+    )
+    return visual_cls, extra_defaults
+
+
 def _validate_algo_model_compatibility(
     raw_cfg: dict, algo_name: str, config_path: str
 ) -> str | None:
@@ -547,6 +738,11 @@ def main(argv: list[str] | None = None) -> int:
     model = ModelBuilder.from_yaml(args.config)
     print(f"[srl-train] Algorithm: {algo_name.upper()}")
 
+    # PPO/SAC do this inside their own branch (it also selects the config
+    # class); the remaining algorithms only need the warning.
+    if _visual_config_for_algo(algo_name) is None:
+        _warn_unusable_aux(algo_name, raw_cfg)
+
     run_name = f"{algo_name}_{os.path.splitext(os.path.basename(args.config))[0]}"
     model_pipeline_path, training_pipeline_path = _resolve_pipeline_outputs(
         raw_cfg,
@@ -667,10 +863,16 @@ def main(argv: list[str] | None = None) -> int:
     if algo_name == "ppo":
         from srl.algorithms.ppo import PPO
 
+        ppo_cfg_cls, ppo_aux_defaults = _resolve_algo_config_cls(
+            algo_name, PPOConfig, raw_cfg, train_cfg
+        )
         agent = PPO(
             model,
             config=_build_algo_config(
-                PPOConfig, train_cfg, num_envs=getattr(env, "num_envs", args.n_envs)
+                ppo_cfg_cls,
+                train_cfg,
+                num_envs=getattr(env, "num_envs", args.n_envs),
+                **ppo_aux_defaults,
             ),
             device=device,
         )
@@ -720,14 +922,18 @@ def main(argv: list[str] | None = None) -> int:
         from srl.algorithms.sac import SAC
 
         target = copy.deepcopy(model)
+        sac_cfg_cls, sac_aux_defaults = _resolve_algo_config_cls(
+            algo_name, SACConfig, raw_cfg, train_cfg
+        )
         agent = SAC(
             model,
             target,
             config=_build_algo_config(
-                SACConfig,
+                sac_cfg_cls,
                 train_cfg,
                 action_dim=action_dim,
                 replay_num_envs=getattr(env, "num_envs", 1),
+                **sac_aux_defaults,
             ),
             device=device,
         )

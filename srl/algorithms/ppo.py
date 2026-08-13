@@ -295,6 +295,13 @@ class PPO(BaseAgent):
                 if aux_loss is not None:
                     weight = float(getattr(self.cfg, "aux_weight", 1.0))
                     total_aux = aux_loss * weight
+                    # Surface the aux loss so it is observable in the console /
+                    # TensorBoard metrics -- otherwise there is no way to tell
+                    # from a run whether the encoder is actually learning.
+                    metrics_accum.setdefault("aux_loss", []).append(float(aux_loss.item()))
+                    metrics_accum.setdefault("aux_loss_weighted", []).append(
+                        float(total_aux.item())
+                    )
                     self.encoder_optimizer.zero_grad()
                     total_aux.backward()
                     # Clip encoder/aux gradients (use params from optimizer)
