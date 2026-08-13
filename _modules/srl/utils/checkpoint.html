@@ -438,14 +438,22 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_restore_rng_state</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="c1"># torch.set_rng_state()/set_rng_state_all() both require CPU ByteTensors</span>
+    <span class="c1"># regardless of which device the *model* weights are being restored to --</span>
+    <span class="c1"># but CheckpointManager.load() calls torch.load(..., map_location=device),</span>
+    <span class="c1"># which relocates every tensor in the payload (these included) onto that</span>
+    <span class="c1"># device. On a CUDA resume, `.to(torch.uint8)` alone fixed the dtype but</span>
+    <span class="c1"># left the tensor on cuda, and set_rng_state() rejected it outright</span>
+    <span class="c1"># (&quot;RNG state must be a torch.ByteTensor&quot;) -- --resume was unusable on</span>
+    <span class="c1"># GPU. `.cpu()` first, independent of map_location.</span>
     <span class="k">if</span> <span class="s2">&quot;python_random&quot;</span> <span class="ow">in</span> <span class="n">state</span><span class="p">:</span>
         <span class="n">random</span><span class="o">.</span><span class="n">setstate</span><span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;python_random&quot;</span><span class="p">])</span>
     <span class="k">if</span> <span class="s2">&quot;numpy_random&quot;</span> <span class="ow">in</span> <span class="n">state</span><span class="p">:</span>
         <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">set_state</span><span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;numpy_random&quot;</span><span class="p">])</span>
     <span class="k">if</span> <span class="s2">&quot;torch_random&quot;</span> <span class="ow">in</span> <span class="n">state</span><span class="p">:</span>
-        <span class="n">torch</span><span class="o">.</span><span class="n">set_rng_state</span><span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;torch_random&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">uint8</span><span class="p">))</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">set_rng_state</span><span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;torch_random&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">uint8</span><span class="p">))</span>
     <span class="k">if</span> <span class="s2">&quot;torch_cuda_random&quot;</span> <span class="ow">in</span> <span class="n">state</span> <span class="ow">and</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
-        <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">set_rng_state_all</span><span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;torch_cuda_random&quot;</span><span class="p">])</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">set_rng_state_all</span><span class="p">([</span><span class="n">t</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">state</span><span class="p">[</span><span class="s2">&quot;torch_cuda_random&quot;</span><span class="p">]])</span>
 
 
 <div class="viewcode-block" id="CheckpointManager">
