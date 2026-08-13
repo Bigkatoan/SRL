@@ -69,6 +69,11 @@ class TwinQHead(nn.Module):
 _CRITIC_HEADS = {
     "value": ValueHead,
     "q_function": QFunctionHead,
+    "q": QFunctionHead,  # alias -- srl/registry/builder.py, srl/cli/train.py's
+    # DDPG-compatible-heads check, and config_schema.py's type comment all
+    # already treat "q" as a valid critic head type; it just wasn't actually
+    # registered here, so `critic: {type: q}` passed every validation check
+    # and then crashed at build time with "Unknown critic head type 'q'".
     "twin_q": TwinQHead,
 }
 
