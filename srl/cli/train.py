@@ -719,14 +719,27 @@ def _maybe_run_evaluation(
     step: int,
     next_eval_step: int | None,
     eval_env=None,
-) -> tuple[int | None, object | None]:
-    """Returns `(next_eval_step, eval_env)` -- `eval_env` is lazily built on
-    the first call that actually evaluates (never, if eval never fires this
-    run) and handed back so the caller can pass the *same* instance into the
-    next call, and close() it once at the very end of the run instead of
-    once per eval cycle."""
+    last_eval_step: int | None = None,
+) -> tuple[int | None, object | None, int | None]:
+    """Returns `(next_eval_step, eval_env, last_eval_step)`.
+
+    `eval_env` is lazily built on the first call that actually evaluates
+    (never, if eval never fires this run) and handed back so the caller can
+    pass the *same* instance into the next call, and close() it once at the
+    very end of the run instead of once per eval cycle.
+
+    `last_eval_step` is the real step at which eval last actually fired (or
+    unchanged from the input if it didn't fire this call) -- the caller's
+    "should the final eval run, or did periodic eval already cover this
+    exact step" decision must compare against this directly rather than
+    re-deriving it from `next_eval_step`/`eval_freq` arithmetic: on-policy
+    rollout stepping can overshoot past the nominal eval_freq-aligned
+    threshold (rollout_steps is a ceil-division), so the step periodic eval
+    actually fires at is not always an exact multiple of eval_freq, even
+    though next_eval_step's *schedule* always is.
+    """
     if next_eval_step is None or step < next_eval_step:
-        return next_eval_step, eval_env
+        return next_eval_step, eval_env, last_eval_step
 
     eval_freq = int(getattr(args, "eval_freq", 0))
     if eval_env is None:
@@ -758,22 +771,7 @@ def _maybe_run_evaluation(
         f"{success_part} | episodes={int(eval_metrics['eval/episodes'])}",
         flush=True,
     )
-    return next_eval_step + eval_freq, eval_env
-
-
-def _final_eval_already_ran_at(next_eval_step: int | None, eval_freq: int, step: int) -> bool:
-    """True iff the in-loop periodic eval already ran at exactly `step`.
-
-    `_maybe_run_evaluation` advances `next_eval_step` by exactly `eval_freq`
-    when it fires, and leaves it unchanged otherwise -- so "an eval just ran
-    at this exact step" is `next_eval_step == step + eval_freq`, and nothing
-    else. (`step < next_eval_step` is NOT a safe proxy for this: it's true
-    immediately after *any* eval fires, by construction, so using it as an
-    alternate "already ran" check here previously produced a duplicate eval
-    + duplicate `[eval]` log line whenever `total_steps` was an exact
-    multiple of `eval_freq`.)
-    """
-    return next_eval_step is not None and next_eval_step - eval_freq == step
+    return next_eval_step + eval_freq, eval_env, step
 
 
 def _maybe_start_visualizer(agent, args, device: str):
@@ -1324,6 +1322,7 @@ def _run_on_policy(
     # isaaclab/mjlab env every eval cycle is both wasteful and produces a
     # wall of repeated construction-banner logging.
     eval_env = None
+    last_eval_step = None
 
     try:
         while step < args.steps:
@@ -1369,7 +1368,7 @@ def _run_on_policy(
             logger.record_metrics(metrics, step=step, total_steps=args.steps)
             for cb in callbacks:
                 cb.on_step_end(step, metrics)
-            next_eval_step, eval_env = _maybe_run_evaluation(
+            next_eval_step, eval_env, last_eval_step = _maybe_run_evaluation(
                 agent,
                 args,
                 logger,
@@ -1377,13 +1376,11 @@ def _run_on_policy(
                 step=step,
                 next_eval_step=next_eval_step,
                 eval_env=eval_env,
+                last_eval_step=last_eval_step,
             )
 
-        eval_freq = int(getattr(args, "eval_freq", 0))
-        if next_eval_step is not None and not _final_eval_already_ran_at(
-            next_eval_step, eval_freq, step
-        ):
-            _, eval_env = _maybe_run_evaluation(
+        if next_eval_step is not None and last_eval_step != step:
+            _, eval_env, last_eval_step = _maybe_run_evaluation(
                 agent,
                 args,
                 logger,
@@ -1391,6 +1388,7 @@ def _run_on_policy(
                 step=step,
                 next_eval_step=step,
                 eval_env=eval_env,
+                last_eval_step=last_eval_step,
             )
     finally:
         if eval_env is not None:
@@ -1523,6 +1521,7 @@ def _run_off_policy(
     # isaaclab/mjlab env every eval cycle is both wasteful and produces a
     # wall of repeated construction-banner logging.
     eval_env = None
+    last_eval_step = None
 
     try:
         while env_step < args.steps:
@@ -1662,7 +1661,7 @@ def _run_off_policy(
                     logger.record_metrics(merged, step=env_step, total_steps=args.steps)
                     for cb in callbacks:
                         cb.on_step_end(env_step, merged)
-            next_eval_step, eval_env = _maybe_run_evaluation(
+            next_eval_step, eval_env, last_eval_step = _maybe_run_evaluation(
                 agent,
                 args,
                 logger,
@@ -1670,13 +1669,11 @@ def _run_off_policy(
                 step=env_step,
                 next_eval_step=next_eval_step,
                 eval_env=eval_env,
+                last_eval_step=last_eval_step,
             )
 
-        eval_freq = int(getattr(args, "eval_freq", 0))
-        if next_eval_step is not None and not _final_eval_already_ran_at(
-            next_eval_step, eval_freq, env_step
-        ):
-            _, eval_env = _maybe_run_evaluation(
+        if next_eval_step is not None and last_eval_step != env_step:
+            _, eval_env, last_eval_step = _maybe_run_evaluation(
                 agent,
                 args,
                 logger,
@@ -1684,6 +1681,7 @@ def _run_off_policy(
                 step=env_step,
                 next_eval_step=env_step,
                 eval_env=eval_env,
+                last_eval_step=last_eval_step,
             )
     finally:
         if eval_env is not None:
