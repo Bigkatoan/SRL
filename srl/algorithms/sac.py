@@ -138,15 +138,63 @@ class SAC(BaseAgent):
         else:
             self.target_entropy = float(self.cfg.target_entropy)
 
-        self.buffer = ReplayBuffer(
-            capacity=self.cfg.buffer_size,
-            num_envs=self.cfg.replay_num_envs,
-            n_step=self.cfg.replay_n_step,
-            gamma=self.cfg.gamma,
-            use_fp16=self.cfg.use_fp16,
-        )
+        if getattr(self.cfg, "use_her", False):
+            self.buffer = self._build_her_buffer()
+        else:
+            self.buffer = ReplayBuffer(
+                capacity=self.cfg.buffer_size,
+                num_envs=self.cfg.replay_num_envs,
+                n_step=self.cfg.replay_n_step,
+                gamma=self.cfg.gamma,
+                use_fp16=self.cfg.use_fp16,
+            )
 
         self._global_step = 0
+
+    def _build_her_buffer(self):
+        """Construct the HER buffer for a goal-conditioned run.
+
+        ``her_obs_dim`` / ``her_goal_dim`` / ``her_reward_fn`` are environment
+        facts, so the CLI fills them in on the config before constructing the
+        agent (see ``srl/cli/train.py``). Building SAC with ``use_her=True``
+        but without them is a wiring mistake, not a recoverable state -- HER
+        cannot relabel without a goal split, and silently falling back to a
+        plain ReplayBuffer is exactly the failure mode this feature exists to
+        remove -- so fail loudly.
+        """
+        from srl.core.her_replay_buffer import HERReplayBuffer
+
+        obs_dim = int(getattr(self.cfg, "her_obs_dim", 0) or 0)
+        goal_dim = int(getattr(self.cfg, "her_goal_dim", 0) or 0)
+        reward_fn = getattr(self.cfg, "her_reward_fn", None)
+        missing = [
+            name
+            for name, value in (
+                ("her_obs_dim", obs_dim),
+                ("her_goal_dim", goal_dim),
+                ("her_reward_fn", reward_fn),
+            )
+            if not value
+        ]
+        if missing:
+            raise ValueError(
+                "SACConfig.use_her=True requires " + ", ".join(missing) + " to be set. "
+                "These are derived from the environment; use a goal config "
+                '(env_type: "goal") via srl-train, which fills them in, or set '
+                "them yourself when constructing SAC directly."
+            )
+        return HERReplayBuffer(
+            capacity=self.cfg.buffer_size,
+            obs_dim=obs_dim,
+            goal_dim=goal_dim,
+            action_dim=int(self.cfg.action_dim),
+            reward_fn=reward_fn,
+            strategy=str(getattr(self.cfg, "her_strategy", "future")),
+            her_ratio=float(getattr(self.cfg, "her_ratio", 0.8)),
+            max_episode_len=int(getattr(self.cfg, "her_max_episode_len", 1000)),
+            gamma=self.cfg.gamma,
+            device="cpu",
+        )
 
     @property
     def alpha(self) -> torch.Tensor:
@@ -183,7 +231,15 @@ class SAC(BaseAgent):
         raise NotImplementedError("Use a TrainingLoop or call update() directly.")
 
     def update(self) -> dict[str, float]:
-        if len(self.buffer) < self.cfg.batch_size:
+        # HERReplayBuffer is episode-indexed, so its __len__ counts episodes,
+        # not transitions -- gating it on `len(buffer) >= batch_size` would
+        # stall training for batch_size *episodes*. It exposes can_sample()
+        # for exactly this reason; plain ReplayBuffer keeps the length check.
+        _can_sample = getattr(self.buffer, "can_sample", None)
+        if _can_sample is not None:
+            if not _can_sample(self.cfg.batch_size):
+                return {}
+        elif len(self.buffer) < self.cfg.batch_size:
             return {}
 
         self.model.train()
