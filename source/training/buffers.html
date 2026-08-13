@@ -481,6 +481,14 @@
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#checkpointing">Checkpointing</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#her-hindsight-experience-replay-goal-conditioned-tasks">HER — Hindsight Experience Replay (goal-conditioned tasks)</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#enabling-it-from-yaml">Enabling it from YAML</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#config-fields">Config fields</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#requirements-and-limitations">Requirements and limitations</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-it-directly">Using it directly</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ket-hop-voi-async-runner">Kết hợp với Async Runner</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pairing-with-the-async-runner">Pairing with the async runner</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>
@@ -631,6 +639,148 @@ device:</p>
 </div>
 </section>
 </section>
+<section id="her-hindsight-experience-replay-goal-conditioned-tasks">
+<h2>HER — Hindsight Experience Replay (goal-conditioned tasks)<a class="headerlink" href="#her-hindsight-experience-replay-goal-conditioned-tasks" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">HERReplayBuffer</span></code> implements Hindsight Experience Replay
+(<a class="reference external" href="https://arxiv.org/abs/1707.01495">Andrychowicz et al., 2017</a>) for
+goal-conditioned environments with sparse rewards — the Fetch and AntMaze
+families from <code class="docutils literal notranslate"><span class="pre">gymnasium-robotics</span></code>, for example.</p>
+<p>On a task like <code class="docutils literal notranslate"><span class="pre">FetchReach-v4</span></code> the reward is <code class="docutils literal notranslate"><span class="pre">-1</span></code> on every step until the
+gripper is within a small threshold of the goal, and <code class="docutils literal notranslate"><span class="pre">0</span></code> after. Early in
+training the agent essentially never reaches the goal, so a plain
+<code class="docutils literal notranslate"><span class="pre">ReplayBuffer</span></code> stores a stream of transitions that all carry reward <code class="docutils literal notranslate"><span class="pre">-1</span></code> and
+the critic gets almost no signal. HER re-labels a fraction of each sampled
+batch with a goal the trajectory <em>actually did</em> achieve, and recomputes the
+reward against that goal — turning failed episodes into successful ones for a
+different goal.</p>
+<section id="enabling-it-from-yaml">
+<h3>Enabling it from YAML<a class="headerlink" href="#enabling-it-from-yaml" title="Link to this heading">#</a></h3>
+<p>Set <code class="docutils literal notranslate"><span class="pre">use_her:</span> <span class="pre">true</span></code> in the <code class="docutils literal notranslate"><span class="pre">train:</span></code> block of a goal-conditioned config
+(<code class="docutils literal notranslate"><span class="pre">env_type:</span> <span class="pre">&quot;goal&quot;</span></code>). It is <strong>off by default</strong> everywhere:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">env_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;goal&quot;</span>
+
+<span class="nt">train</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">use_her</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">her_ratio</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.8</span><span class="w">            </span><span class="c1"># fraction of each batch that gets relabelled</span>
+<span class="w">  </span><span class="nt">her_strategy</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;future&quot;</span><span class="w">    </span><span class="c1"># future | final | episode | random</span>
+<span class="w">  </span><span class="nt">her_max_episode_len</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span><span class="w">   </span><span class="c1"># must be &gt;= the env&#39;s episode length</span>
+</pre></div>
+</div>
+<p>Then train as usual:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>srl-train<span class="w"> </span>--config<span class="w"> </span>configs/envs/fetch_reach_sac_her.yaml<span class="w"> </span>--env<span class="w"> </span>FetchReach-v4
+</pre></div>
+</div>
+<p>A ready-made config ships as <code class="docutils literal notranslate"><span class="pre">configs/envs/fetch_reach_sac_her.yaml</span></code>. The run
+prints a confirmation line at startup and logs <code class="docutils literal notranslate"><span class="pre">her/episodes</span></code> and
+<code class="docutils literal notranslate"><span class="pre">her/transitions</span></code> alongside the usual metrics, so you can see relabelling is
+actually engaged:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">srl</span><span class="o">-</span><span class="n">train</span><span class="p">]</span> <span class="n">HER</span> <span class="n">enabled</span><span class="p">:</span> <span class="n">strategy</span><span class="o">=</span><span class="n">future</span> <span class="n">ratio</span><span class="o">=</span><span class="mf">0.8</span> <span class="n">obs_dim</span><span class="o">=</span><span class="mi">13</span> <span class="n">goal_dim</span><span class="o">=</span><span class="mi">3</span> <span class="n">max_episode_len</span><span class="o">=</span><span class="mi">50</span>
+</pre></div>
+</div>
+</section>
+<section id="config-fields">
+<h3>Config fields<a class="headerlink" href="#config-fields" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_her</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Swap <code class="docutils literal notranslate"><span class="pre">ReplayBuffer</span></code> for <code class="docutils literal notranslate"><span class="pre">HERReplayBuffer</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">her_ratio</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.8</span></code></p></td>
+<td><p>Fraction of a sampled batch whose <code class="docutils literal notranslate"><span class="pre">desired_goal</span></code> is relabelled. <code class="docutils literal notranslate"><span class="pre">0.8</span></code> is the paper’s 4:1 ratio.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">her_strategy</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;future&quot;</span></code></p></td>
+<td><p>Which achieved goal to relabel with.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">her_max_episode_len</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1000</span></code></p></td>
+<td><p>Per-episode preallocation; set it to the env’s episode length to avoid wasting memory.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Relabelling strategies:</p>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">future</span></code></strong> — a goal achieved later in the same episode (recommended, and
+the paper’s best-performing variant).</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">final</span></code></strong> — the goal achieved at the end of the episode.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">episode</span></code></strong> — any goal achieved in the same episode.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">random</span></code></strong> — any goal achieved in any stored episode.</p></li>
+</ul>
+<p>An unrecognised strategy raises at construction rather than silently
+degrading to no relabelling.</p>
+</section>
+<section id="requirements-and-limitations">
+<h3>Requirements and limitations<a class="headerlink" href="#requirements-and-limitations" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Requires <code class="docutils literal notranslate"><span class="pre">env_type:</span> <span class="pre">&quot;goal&quot;</span></code>, i.e. a <code class="docutils literal notranslate"><span class="pre">GoalEnvWrapper</span></code>-wrapped env exposing
+<code class="docutils literal notranslate"><span class="pre">achieved_goal</span></code>/<code class="docutils literal notranslate"><span class="pre">desired_goal</span></code> and a <code class="docutils literal notranslate"><span class="pre">compute_reward()</span></code> — the reward for a
+relabelled goal has to be recomputed, and only the env can do that. The CLI
+errors out at startup otherwise instead of quietly training without HER.</p></li>
+<li><p>Single environment only (<code class="docutils literal notranslate"><span class="pre">--n-envs</span> <span class="pre">1</span></code>). HER stores whole episodes, and the
+CLI collects them from one un-vectorized env.</p></li>
+<li><p>Incompatible with <code class="docutils literal notranslate"><span class="pre">include_goal:</span> <span class="pre">false</span></code>.</p></li>
+<li><p>Currently wired for <strong>SAC</strong> only. DDPG/TD3 still build a plain
+<code class="docutils literal notranslate"><span class="pre">ReplayBuffer</span></code> even if these fields are set.</p></li>
+<li><p>Not compatible with the async / GPU-buffer fast path (<code class="docutils literal notranslate"><span class="pre">use_async</span></code>,
+<code class="docutils literal notranslate"><span class="pre">use_gpu_buffer</span></code>), which uses its own buffer.</p></li>
+</ul>
+</section>
+<section id="using-it-directly">
+<h3>Using it directly<a class="headerlink" href="#using-it-directly" title="Link to this heading">#</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.core.her_replay_buffer</span><span class="w"> </span><span class="kn">import</span> <span class="n">HERReplayBuffer</span>
+
+<span class="n">buf</span> <span class="o">=</span> <span class="n">HERReplayBuffer</span><span class="p">(</span>
+    <span class="n">capacity</span><span class="o">=</span><span class="mi">1_000_000</span><span class="p">,</span>
+    <span class="n">obs_dim</span><span class="o">=</span><span class="mi">13</span><span class="p">,</span>       <span class="c1"># [observation | achieved_goal]</span>
+    <span class="n">goal_dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>       <span class="c1"># desired_goal</span>
+    <span class="n">action_dim</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+    <span class="n">reward_fn</span><span class="o">=</span><span class="n">env</span><span class="o">.</span><span class="n">unwrapped</span><span class="o">.</span><span class="n">compute_reward</span><span class="p">,</span>
+    <span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;future&quot;</span><span class="p">,</span>
+    <span class="n">her_ratio</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
+    <span class="n">max_episode_len</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">buf</span><span class="o">.</span><span class="n">add_transition</span><span class="p">(</span>
+    <span class="n">obs</span><span class="p">,</span> <span class="n">achieved_goal</span><span class="p">,</span> <span class="n">desired_goal</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span>
+    <span class="n">next_obs</span><span class="p">,</span> <span class="n">next_achieved_goal</span><span class="p">,</span>
+    <span class="n">done</span><span class="o">=</span><span class="n">terminated</span><span class="p">,</span>      <span class="c1"># real termination only</span>
+    <span class="n">truncated</span><span class="o">=</span><span class="n">truncated</span><span class="p">,</span>  <span class="c1"># closes the episode without faking a terminal</span>
+<span class="p">)</span>
+
+<span class="n">batch</span> <span class="o">=</span> <span class="n">buf</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">256</span><span class="p">)</span>   <span class="c1"># batch.obs[&quot;state&quot;] -&gt; (256, obs_dim + goal_dim)</span>
+</pre></div>
+</div>
+<p>Two details matter when driving it yourself:</p>
+<ul class="simple">
+<li><p><strong>Observation layout.</strong> <code class="docutils literal notranslate"><span class="pre">sample()</span></code> appends the (possibly relabelled)
+desired goal itself, so the vector you pass as <code class="docutils literal notranslate"><span class="pre">obs</span></code> must <em>exclude</em> it.
+With <code class="docutils literal notranslate"><span class="pre">GoalEnvWrapper</span></code>, whose flat obs is
+<code class="docutils literal notranslate"><span class="pre">[observation</span> <span class="pre">|</span> <span class="pre">achieved_goal</span> <span class="pre">|</span> <span class="pre">desired_goal]</span></code>, store
+<code class="docutils literal notranslate"><span class="pre">[observation</span> <span class="pre">|</span> <span class="pre">achieved_goal]</span></code> — the concatenation then reproduces exactly
+the layout the encoders were built for.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">done</span></code> vs <code class="docutils literal notranslate"><span class="pre">truncated</span></code>.</strong> Time-limited goal envs (every Fetch task) end by
+truncation with <code class="docutils literal notranslate"><span class="pre">terminated</span></code> always <code class="docutils literal notranslate"><span class="pre">False</span></code>. <code class="docutils literal notranslate"><span class="pre">truncated</span></code> closes the episode;
+<code class="docutils literal notranslate"><span class="pre">done</span></code> is what gets stored per timestep. Passing the time limit as <code class="docutils literal notranslate"><span class="pre">done</span></code>
+fabricates terminal states and biases the bootstrap target for the
+non-relabelled fraction of a batch.</p></li>
+</ul>
+<p>Note that <code class="docutils literal notranslate"><span class="pre">len(buf)</span></code> counts <strong>episodes</strong> (the buffer is episode-indexed); use
+<code class="docutils literal notranslate"><span class="pre">buf.num_transitions</span></code> for the transition count and <code class="docutils literal notranslate"><span class="pre">buf.can_sample(batch_size)</span></code>
+for the readiness check.</p>
+</section>
+</section>
+<section id="ket-hop-voi-async-runner">
+<h2>Kết hợp với Async Runner<a class="headerlink" href="#ket-hop-voi-async-runner" title="Link to this heading">#</a></h2>
+</section>
 <section id="pairing-with-the-async-runner">
 <h2>Pairing with the async runner<a class="headerlink" href="#pairing-with-the-async-runner" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">AsyncOffPolicyRunner</span></code> swaps the agent’s CPU buffer for a <code class="docutils literal notranslate"><span class="pre">GPUReplayBuffer</span></code> when
@@ -728,6 +878,14 @@ count over from the old buffer:</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#checkpointing">Checkpointing</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#her-hindsight-experience-replay-goal-conditioned-tasks">HER — Hindsight Experience Replay (goal-conditioned tasks)</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#enabling-it-from-yaml">Enabling it from YAML</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#config-fields">Config fields</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#requirements-and-limitations">Requirements and limitations</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-it-directly">Using it directly</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ket-hop-voi-async-runner">Kết hợp với Async Runner</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pairing-with-the-async-runner">Pairing with the async runner</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>

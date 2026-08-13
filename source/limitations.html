@@ -478,6 +478,7 @@
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#generic-reward-shaping-pipelines-in-yaml">Generic reward shaping pipelines in YAML</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#generic-environment-wrapper-stacks-in-yaml">Generic environment wrapper stacks in YAML</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#arbitrary-custom-loss-registration-from-yaml">Arbitrary custom loss registration from YAML</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#hindsight-experience-replay-her-beyond-single-env-sac">Hindsight Experience Replay (HER) beyond single-env SAC</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#multi-agent-rl">Multi-agent RL</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ros-2-as-a-full-package">ROS 2 as a full package</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ros-2-deployment-parity">ROS 2 deployment parity</a></li>
@@ -520,6 +521,23 @@
 <section id="arbitrary-custom-loss-registration-from-yaml">
 <h3>Arbitrary custom loss registration from YAML<a class="headerlink" href="#arbitrary-custom-loss-registration-from-yaml" title="Link to this heading">#</a></h3>
 <p>Built-in losses can be selected, but there is not yet a general registry that lets users declare any custom loss purely from YAML.</p>
+</section>
+<section id="hindsight-experience-replay-her-beyond-single-env-sac">
+<h3>Hindsight Experience Replay (HER) beyond single-env SAC<a class="headerlink" href="#hindsight-experience-replay-her-beyond-single-env-sac" title="Link to this heading">#</a></h3>
+<p>HER <em>is</em> available from YAML/CLI: set <code class="docutils literal notranslate"><span class="pre">use_her:</span> <span class="pre">true</span></code> in the <code class="docutils literal notranslate"><span class="pre">train:</span></code> block of
+a goal-conditioned config (<code class="docutils literal notranslate"><span class="pre">env_type:</span> <span class="pre">&quot;goal&quot;</span></code>) and <code class="docutils literal notranslate"><span class="pre">srl-train</span></code> builds a
+<code class="docutils literal notranslate"><span class="pre">HERReplayBuffer</span></code> and routes episodes into it. See
+<a class="reference internal" href="training/buffers.html#her-hindsight-experience-replay-goal-conditioned-tasks"><span class="std std-ref">Replay Buffers</span></a>.</p>
+<p>What is <em>not</em> supported yet:</p>
+<ul class="simple">
+<li><p>Only <strong>SAC</strong> is wired. <code class="docutils literal notranslate"><span class="pre">DDPGConfig</span></code> / <code class="docutils literal notranslate"><span class="pre">TD3Config</span></code> have no <code class="docutils literal notranslate"><span class="pre">use_her</span></code> field, so
+those algorithms still train with a plain uniform <code class="docutils literal notranslate"><span class="pre">ReplayBuffer</span></code> on goal
+tasks.</p></li>
+<li><p><strong>Single environment only.</strong> HER stores whole episodes and the CLI collects
+them from one un-vectorized env; <code class="docutils literal notranslate"><span class="pre">--n-envs</span> <span class="pre">&gt;</span> <span class="pre">1</span></code> is rejected at startup.</p></li>
+<li><p>Not compatible with the async / GPU-buffer fast path (<code class="docutils literal notranslate"><span class="pre">use_async</span></code>,
+<code class="docutils literal notranslate"><span class="pre">use_gpu_buffer</span></code>), which manages its own buffer.</p></li>
+</ul>
 </section>
 <section id="multi-agent-rl">
 <h3>Multi-agent RL<a class="headerlink" href="#multi-agent-rl" title="Link to this heading">#</a></h3>
@@ -600,6 +618,7 @@
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#generic-reward-shaping-pipelines-in-yaml">Generic reward shaping pipelines in YAML</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#generic-environment-wrapper-stacks-in-yaml">Generic environment wrapper stacks in YAML</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#arbitrary-custom-loss-registration-from-yaml">Arbitrary custom loss registration from YAML</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#hindsight-experience-replay-her-beyond-single-env-sac">Hindsight Experience Replay (HER) beyond single-env SAC</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#multi-agent-rl">Multi-agent RL</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ros-2-as-a-full-package">ROS 2 as a full package</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ros-2-deployment-parity">ROS 2 deployment parity</a></li>

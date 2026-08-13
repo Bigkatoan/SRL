@@ -107,6 +107,131 @@ state = buf.state_dict()    # CPU tensors, portable
 buf.load_state_dict(state)  # restore on any device
 ```
 
+## HER — Hindsight Experience Replay (goal-conditioned tasks)
+
+`HERReplayBuffer` implements Hindsight Experience Replay
+([Andrychowicz et al., 2017](https://arxiv.org/abs/1707.01495)) for
+goal-conditioned environments with sparse rewards — the Fetch and AntMaze
+families from `gymnasium-robotics`, for example.
+
+On a task like `FetchReach-v4` the reward is `-1` on every step until the
+gripper is within a small threshold of the goal, and `0` after. Early in
+training the agent essentially never reaches the goal, so a plain
+`ReplayBuffer` stores a stream of transitions that all carry reward `-1` and
+the critic gets almost no signal. HER re-labels a fraction of each sampled
+batch with a goal the trajectory *actually did* achieve, and recomputes the
+reward against that goal — turning failed episodes into successful ones for a
+different goal.
+
+### Enabling it from YAML
+
+Set `use_her: true` in the `train:` block of a goal-conditioned config
+(`env_type: "goal"`). It is **off by default** everywhere:
+
+```yaml
+env_type: "goal"
+
+train:
+  use_her: true
+  her_ratio: 0.8            # fraction of each batch that gets relabelled
+  her_strategy: "future"    # future | final | episode | random
+  her_max_episode_len: 50   # must be >= the env's episode length
+```
+
+Then train as usual:
+
+```bash
+srl-train --config configs/envs/fetch_reach_sac_her.yaml --env FetchReach-v4
+```
+
+A ready-made config ships as `configs/envs/fetch_reach_sac_her.yaml`. The run
+prints a confirmation line at startup and logs `her/episodes` and
+`her/transitions` alongside the usual metrics, so you can see relabelling is
+actually engaged:
+
+```
+[srl-train] HER enabled: strategy=future ratio=0.8 obs_dim=13 goal_dim=3 max_episode_len=50
+```
+
+### Config fields
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `use_her` | `false` | Swap `ReplayBuffer` for `HERReplayBuffer`. |
+| `her_ratio` | `0.8` | Fraction of a sampled batch whose `desired_goal` is relabelled. `0.8` is the paper's 4:1 ratio. |
+| `her_strategy` | `"future"` | Which achieved goal to relabel with. |
+| `her_max_episode_len` | `1000` | Per-episode preallocation; set it to the env's episode length to avoid wasting memory. |
+
+Relabelling strategies:
+
+- **`future`** — a goal achieved later in the same episode (recommended, and
+  the paper's best-performing variant).
+- **`final`** — the goal achieved at the end of the episode.
+- **`episode`** — any goal achieved in the same episode.
+- **`random`** — any goal achieved in any stored episode.
+
+An unrecognised strategy raises at construction rather than silently
+degrading to no relabelling.
+
+### Requirements and limitations
+
+- Requires `env_type: "goal"`, i.e. a `GoalEnvWrapper`-wrapped env exposing
+  `achieved_goal`/`desired_goal` and a `compute_reward()` — the reward for a
+  relabelled goal has to be recomputed, and only the env can do that. The CLI
+  errors out at startup otherwise instead of quietly training without HER.
+- Single environment only (`--n-envs 1`). HER stores whole episodes, and the
+  CLI collects them from one un-vectorized env.
+- Incompatible with `include_goal: false`.
+- Currently wired for **SAC** only. DDPG/TD3 still build a plain
+  `ReplayBuffer` even if these fields are set.
+- Not compatible with the async / GPU-buffer fast path (`use_async`,
+  `use_gpu_buffer`), which uses its own buffer.
+
+### Using it directly
+
+```python
+from srl.core.her_replay_buffer import HERReplayBuffer
+
+buf = HERReplayBuffer(
+    capacity=1_000_000,
+    obs_dim=13,       # [observation | achieved_goal]
+    goal_dim=3,       # desired_goal
+    action_dim=4,
+    reward_fn=env.unwrapped.compute_reward,
+    strategy="future",
+    her_ratio=0.8,
+    max_episode_len=50,
+)
+
+buf.add_transition(
+    obs, achieved_goal, desired_goal, action,
+    next_obs, next_achieved_goal,
+    done=terminated,      # real termination only
+    truncated=truncated,  # closes the episode without faking a terminal
+)
+
+batch = buf.sample(256)   # batch.obs["state"] -> (256, obs_dim + goal_dim)
+```
+
+Two details matter when driving it yourself:
+
+- **Observation layout.** `sample()` appends the (possibly relabelled)
+  desired goal itself, so the vector you pass as `obs` must *exclude* it.
+  With `GoalEnvWrapper`, whose flat obs is
+  `[observation | achieved_goal | desired_goal]`, store
+  `[observation | achieved_goal]` — the concatenation then reproduces exactly
+  the layout the encoders were built for.
+- **`done` vs `truncated`.** Time-limited goal envs (every Fetch task) end by
+  truncation with `terminated` always `False`. `truncated` closes the episode;
+  `done` is what gets stored per timestep. Passing the time limit as `done`
+  fabricates terminal states and biases the bootstrap target for the
+  non-relabelled fraction of a batch.
+
+Note that `len(buf)` counts **episodes** (the buffer is episode-indexed); use
+`buf.num_transitions` for the transition count and `buf.can_sample(batch_size)`
+for the readiness check.
+
+## Kết hợp với Async Runner
 ## Pairing with the async runner
 
 `AsyncOffPolicyRunner` swaps the agent's CPU buffer for a `GPUReplayBuffer` when
