@@ -174,6 +174,29 @@ def test_a2c_one_gradient_step_is_finite_and_moves_params() -> None:
     assert before != after
 
 
+def test_a2c_update_ignores_batch_size_and_always_takes_one_full_rollout_step() -> None:
+    """Regression test for the divergence bug: a mis-set `batch_size` (not
+    scaled to `n_steps * num_envs`) used to split one rollout into several
+    sequential minibatch gradient updates against increasingly stale
+    advantages/log-probs -- confirmed by direct repro to blow up policy loss
+    within a few thousand steps at num_envs=16 with the *documented default*
+    `batch_size=5`. A2C.update() must always take exactly one gradient step
+    over the full rollout, regardless of `cfg.batch_size`."""
+    from srl.algorithms.a2c import A2C
+    from srl.core.config import A2CConfig
+
+    rng = np.random.default_rng(0)
+    model = ModelBuilder.from_dict(_onpolicy_model_dict("gaussian", "value"))
+    # n_steps * num_envs = 12, but batch_size is deliberately much smaller --
+    # if update() honored it, this would loop 6 times (12 / 2) instead of 1.
+    agent = A2C(model, config=A2CConfig(n_steps=6, num_envs=2, batch_size=2), device="cpu")
+
+    _fill_rollout_buffer(agent, n_steps=6, num_envs=2, rng=rng)
+    assert agent._global_step == 0
+    agent.update()
+    assert agent._global_step == 1  # exactly one optimizer step, not six
+
+
 def test_a3c_worker_gradient_step_is_finite_and_moves_shared_model() -> None:
     """Exercises `_worker_fn`'s real loss/backward path in-process (no
     multiprocessing spawn -- too slow/flaky for a unit test), with a plain
