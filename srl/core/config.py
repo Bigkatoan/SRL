@@ -32,6 +32,10 @@ class A2CConfig:
     lr: float = 7e-4
     n_steps: int = 5
     num_envs: int = 1
+    # Not read by A2C.update() -- A2C always takes one gradient step over the
+    # full rollout (n_steps * num_envs transitions), matching the canonical
+    # algorithm. Kept only for backward compatibility with existing code
+    # that constructs A2CConfig(batch_size=...) explicitly.
     batch_size: int = 5
     gamma: float = 0.99
     gae_lambda: float = 1.0
