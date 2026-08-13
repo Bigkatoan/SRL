@@ -609,9 +609,19 @@ def _maybe_run_evaluation(
     logger.record_metrics(
         eval_metrics, step=step, total_steps=args.steps, prefix=None, console=False
     )
+    success_part = ""
+    if "eval/success_mean" in eval_metrics:
+        # Only present for goal-conditioned envs (env_type: goal) -- see
+        # _evaluate_agent's is_success/success info-dict handling. It's the
+        # primary metric for exactly that env type, but was computed and
+        # written to metrics.jsonl/TensorBoard while never appearing in the
+        # live console line -- a user watching training against a Fetch/goal
+        # task never saw the one number that matters most without digging
+        # into log files after the fact.
+        success_part = f" | success_mean={eval_metrics['eval/success_mean']:.4f}"
     print(
-        f"[eval] step {step} | score_mean={eval_metrics['eval/score_mean']:.4f} "
-        f"| episodes={int(eval_metrics['eval/episodes'])}",
+        f"[eval] step {step} | score_mean={eval_metrics['eval/score_mean']:.4f}"
+        f"{success_part} | episodes={int(eval_metrics['eval/episodes'])}",
         flush=True,
     )
     return next_eval_step + eval_freq
