@@ -651,7 +651,9 @@ overwrite whatever the YAML says.</p></li>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p><code class="docutils literal notranslate"><span class="pre">encoder_lr</span></code>, <code class="docutils literal notranslate"><span class="pre">encoder_optimize_with_critic</span></code>, <code class="docutils literal notranslate"><span class="pre">aux_loss_type</span></code>, and <code class="docutils literal notranslate"><span class="pre">aux_weight</span></code> live on
-<code class="docutils literal notranslate"><span class="pre">VisualSACConfig</span></code>, which <code class="docutils literal notranslate"><span class="pre">srl-train</span></code> never builds — see
+<code class="docutils literal notranslate"><span class="pre">VisualSACConfig</span></code>, not plain <code class="docutils literal notranslate"><span class="pre">SACConfig</span></code>. <code class="docutils literal notranslate"><span class="pre">srl-train</span></code> builds <code class="docutils literal notranslate"><span class="pre">VisualSACConfig</span></code>
+automatically when an encoder declares a recognised <code class="docutils literal notranslate"><span class="pre">aux_type</span></code>, or when the <code class="docutils literal notranslate"><span class="pre">train:</span></code>
+block itself sets one of these Visual-only fields — see
 <a class="reference internal" href="auxiliary.html"><span class="std std-doc">Auxiliary Representation Learning</span></a>. Without <code class="docutils literal notranslate"><span class="pre">encoder_lr</span></code> the encoder
 optimizer uses <code class="docutils literal notranslate"><span class="pre">lr_critic</span></code>.</p>
 </div>
@@ -741,22 +743,29 @@ optimizer uses <code class="docutils literal notranslate"><span class="pre">lr_c
 <section id="full-example-sac-on-a-vision-task">
 <h2>Full example — SAC on a vision task<a class="headerlink" href="#full-example-sac-on-a-vision-task" title="Link to this heading">#</a></h2>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">train</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">total_steps</span><span class="p">:</span><span class="w">         </span><span class="l l-Scalar l-Scalar-Plain">500_000</span>
-<span class="w">  </span><span class="nt">n_envs</span><span class="p">:</span><span class="w">              </span><span class="l l-Scalar l-Scalar-Plain">1</span>
-<span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w">          </span><span class="l l-Scalar l-Scalar-Plain">128</span>
-<span class="w">  </span><span class="nt">gamma</span><span class="p">:</span><span class="w">               </span><span class="l l-Scalar l-Scalar-Plain">0.99</span>
-<span class="w">  </span><span class="nt">lr_actor</span><span class="p">:</span><span class="w">            </span><span class="l l-Scalar l-Scalar-Plain">3e-4</span>
-<span class="w">  </span><span class="nt">lr_critic</span><span class="p">:</span><span class="w">           </span><span class="l l-Scalar l-Scalar-Plain">3e-4</span>
-<span class="w">  </span><span class="nt">lr_alpha</span><span class="p">:</span><span class="w">            </span><span class="l l-Scalar l-Scalar-Plain">3e-4</span>
-<span class="w">  </span><span class="nt">tau</span><span class="p">:</span><span class="w">                 </span><span class="l l-Scalar l-Scalar-Plain">0.005</span>
-<span class="w">  </span><span class="nt">buffer_size</span><span class="p">:</span><span class="w">         </span><span class="l l-Scalar l-Scalar-Plain">100_000</span>
-<span class="w">  </span><span class="nt">start_steps</span><span class="p">:</span><span class="w">         </span><span class="l l-Scalar l-Scalar-Plain">1000</span>
-<span class="w">  </span><span class="nt">update_after</span><span class="p">:</span><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">1000</span>
-<span class="w">  </span><span class="nt">update_every</span><span class="p">:</span><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">50</span>
-<span class="w">  </span><span class="nt">gradient_steps</span><span class="p">:</span><span class="w">      </span><span class="l l-Scalar l-Scalar-Plain">1</span>
-<span class="w">  </span><span class="nt">encoder_update_freq</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">  </span><span class="nt">total_steps</span><span class="p">:</span><span class="w">                  </span><span class="l l-Scalar l-Scalar-Plain">500_000</span>
+<span class="w">  </span><span class="nt">n_envs</span><span class="p">:</span><span class="w">                       </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w">                   </span><span class="l l-Scalar l-Scalar-Plain">128</span>
+<span class="w">  </span><span class="nt">gamma</span><span class="p">:</span><span class="w">                        </span><span class="l l-Scalar l-Scalar-Plain">0.99</span>
+<span class="w">  </span><span class="nt">lr_actor</span><span class="p">:</span><span class="w">                     </span><span class="l l-Scalar l-Scalar-Plain">3e-4</span>
+<span class="w">  </span><span class="nt">lr_critic</span><span class="p">:</span><span class="w">                    </span><span class="l l-Scalar l-Scalar-Plain">3e-4</span>
+<span class="w">  </span><span class="nt">lr_alpha</span><span class="p">:</span><span class="w">                     </span><span class="l l-Scalar l-Scalar-Plain">3e-4</span>
+<span class="w">  </span><span class="nt">encoder_lr</span><span class="p">:</span><span class="w">                   </span><span class="l l-Scalar l-Scalar-Plain">1e-4</span>
+<span class="w">  </span><span class="nt">tau</span><span class="p">:</span><span class="w">                          </span><span class="l l-Scalar l-Scalar-Plain">0.005</span>
+<span class="w">  </span><span class="nt">buffer_size</span><span class="p">:</span><span class="w">                  </span><span class="l l-Scalar l-Scalar-Plain">100_000</span>
+<span class="w">  </span><span class="nt">start_steps</span><span class="p">:</span><span class="w">                  </span><span class="l l-Scalar l-Scalar-Plain">1000</span>
+<span class="w">  </span><span class="nt">update_after</span><span class="p">:</span><span class="w">                 </span><span class="l l-Scalar l-Scalar-Plain">1000</span>
+<span class="w">  </span><span class="nt">update_every</span><span class="p">:</span><span class="w">                 </span><span class="l l-Scalar l-Scalar-Plain">50</span>
+<span class="w">  </span><span class="nt">gradient_steps</span><span class="p">:</span><span class="w">               </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">  </span><span class="nt">encoder_update_freq</span><span class="p">:</span><span class="w">          </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">  </span><span class="nt">encoder_optimize_with_critic</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">aux_loss_type</span><span class="p">:</span><span class="w">                </span><span class="l l-Scalar l-Scalar-Plain">curl</span>
 </pre></div>
 </div>
+<p><code class="docutils literal notranslate"><span class="pre">encoder_lr</span></code> is a <code class="docutils literal notranslate"><span class="pre">VisualSACConfig</span></code>-only field, so setting it here is what makes
+<code class="docutils literal notranslate"><span class="pre">srl-train</span></code> auto-select <code class="docutils literal notranslate"><span class="pre">VisualSACConfig</span></code> for this run (see the note above) –
+<code class="docutils literal notranslate"><span class="pre">eval_freq</span></code> and <code class="docutils literal notranslate"><span class="pre">eval_episodes</span></code> are <strong>not</strong> valid inside <code class="docutils literal notranslate"><span class="pre">train:</span></code>; they are
+<code class="docutils literal notranslate"><span class="pre">--eval-freq</span></code>/<code class="docutils literal notranslate"><span class="pre">--eval-episodes</span></code> command-line flags only.</p>
 </section>
 <section id="full-example-ppo-on-isaac-lab">
 <h2>Full example — PPO on Isaac Lab<a class="headerlink" href="#full-example-ppo-on-isaac-lab" title="Link to this heading">#</a></h2>

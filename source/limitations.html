@@ -479,6 +479,7 @@
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#generic-environment-wrapper-stacks-in-yaml">Generic environment wrapper stacks in YAML</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#arbitrary-custom-loss-registration-from-yaml">Arbitrary custom loss registration from YAML</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#hindsight-experience-replay-her-beyond-single-env-sac">Hindsight Experience Replay (HER) beyond single-env SAC</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#auxiliary-encoder-losses-partial-yaml-cli-coverage">Auxiliary encoder losses: partial YAML/CLI coverage</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#multi-agent-rl">Multi-agent RL</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ros-2-as-a-full-package">ROS 2 as a full package</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ros-2-deployment-parity">ROS 2 deployment parity</a></li>
@@ -538,6 +539,46 @@ them from one un-vectorized env; <code class="docutils literal notranslate"><spa
 <li><p>Not compatible with the async / GPU-buffer fast path (<code class="docutils literal notranslate"><span class="pre">use_async</span></code>,
 <code class="docutils literal notranslate"><span class="pre">use_gpu_buffer</span></code>), which manages its own buffer.</p></li>
 </ul>
+</section>
+<section id="auxiliary-encoder-losses-partial-yaml-cli-coverage">
+<h3>Auxiliary encoder losses: partial YAML/CLI coverage<a class="headerlink" href="#auxiliary-encoder-losses-partial-yaml-cli-coverage" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">srl-train</span></code> now builds <code class="docutils literal notranslate"><span class="pre">VisualPPOConfig</span></code> / <code class="docutils literal notranslate"><span class="pre">VisualSACConfig</span></code> automatically, so
+auxiliary encoder losses do run from YAML. It switches to the Visual variant
+when any encoder declares a recognised <code class="docutils literal notranslate"><span class="pre">aux_type</span></code> (<code class="docutils literal notranslate"><span class="pre">autoencoder</span></code>,
+<code class="docutils literal notranslate"><span class="pre">contrastive</span></code>, <code class="docutils literal notranslate"><span class="pre">byol</span></code>), or when the <code class="docutils literal notranslate"><span class="pre">train:</span></code> block sets a Visual-only field
+(<code class="docutils literal notranslate"><span class="pre">encoder_lr</span></code>, <code class="docutils literal notranslate"><span class="pre">aux_loss_type</span></code>, <code class="docutils literal notranslate"><span class="pre">aux_weight</span></code>, <code class="docutils literal notranslate"><span class="pre">augmentation_mode</span></code>, …), and
+derives <code class="docutils literal notranslate"><span class="pre">aux_loss_type</span></code> from the declared <code class="docutils literal notranslate"><span class="pre">aux_type</span></code> so the loss matches the
+head that was built. PPO reports the result as <code class="docutils literal notranslate"><span class="pre">ppo/aux_loss</span></code>, SAC as
+<code class="docutils literal notranslate"><span class="pre">sac/aux_loss</span></code>. Anything the CLI cannot honour is warned about rather than
+silently ignored.</p>
+<p>What still does <strong>not</strong> work:</p>
+<ul class="simple">
+<li><p><strong>PPO implements reconstruction only.</strong> <code class="docutils literal notranslate"><span class="pre">PPO.update()</span></code> feeds every aux head
+through <code class="docutils literal notranslate"><span class="pre">reconstruction_loss()</span></code> and ignores <code class="docutils literal notranslate"><span class="pre">aux_loss_type</span></code>, so
+<code class="docutils literal notranslate"><span class="pre">aux_type:</span> <span class="pre">contrastive</span></code> / <code class="docutils literal notranslate"><span class="pre">byol</span></code> are skipped at runtime on PPO. Use
+<code class="docutils literal notranslate"><span class="pre">aux_type:</span> <span class="pre">autoencoder</span></code> with PPO, or SAC for the other objectives.</p></li>
+<li><p><strong>SAC’s augmentation-based losses are unusable.</strong> <code class="docutils literal notranslate"><span class="pre">curl</span></code>, <code class="docutils literal notranslate"><span class="pre">byol</span></code>, <code class="docutils literal notranslate"><span class="pre">drq</span></code>,
+<code class="docutils literal notranslate"><span class="pre">barlow</span></code> and <code class="docutils literal notranslate"><span class="pre">augmentation_mode:</span> <span class="pre">aggressive</span></code> all route through
+<code class="docutils literal notranslate"><span class="pre">random_crop()</span></code>, which outputs 90% of the input resolution instead of
+preserving it. The shared encoder is built for the full-size observation, so
+the augmented view fails the encoder’s flatten/projection shapes. Only <code class="docutils literal notranslate"><span class="pre">ae</span></code>,
+<code class="docutils literal notranslate"><span class="pre">vae</span></code> and <code class="docutils literal notranslate"><span class="pre">spr</span></code> avoid augmentation. <code class="docutils literal notranslate"><span class="pre">curl</span></code> is still the <code class="docutils literal notranslate"><span class="pre">VisualSACConfig</span></code>
+default, so set <code class="docutils literal notranslate"><span class="pre">aux_loss_type</span></code> explicitly (or rely on the <code class="docutils literal notranslate"><span class="pre">aux_type</span></code>-derived
+value) rather than taking the default.</p></li>
+<li><p><strong>SAC matches encoders to observations by name substring.</strong> The off-policy
+loop stores un-remapped environment observations in the replay buffer, and
+SAC’s aux helpers then look for an encoder whose name contains the raw
+observation key (or vice-versa). <code class="docutils literal notranslate"><span class="pre">GymnasiumWrapper</span></code> emits <code class="docutils literal notranslate"><span class="pre">state</span></code>, so an
+encoder named <code class="docutils literal notranslate"><span class="pre">visual_enc</span></code> never matches and the auxiliary loss silently
+computes nothing. <code class="docutils literal notranslate"><span class="pre">configs/envs/car_racing_sac_visual.yaml</span></code> names its encoder
+<code class="docutils literal notranslate"><span class="pre">state_enc</span></code> for exactly this reason.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">use_fp16:</span> <span class="pre">true</span></code> is incompatible with CNN encoders.</strong> The replay buffer
+returns half-precision tensors while model weights stay float32.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">configs/envs/car_racing_ppo_visual.yaml</span></code> and
+<code class="docutils literal notranslate"><span class="pre">configs/envs/car_racing_sac_visual.yaml</span></code> are the two shipped configs that
+exercise the working paths. See <a class="reference internal" href="encoders.html"><span class="std std-doc">Encoders</span></a> for the config fields
+involved.</p>
 </section>
 <section id="multi-agent-rl">
 <h3>Multi-agent RL<a class="headerlink" href="#multi-agent-rl" title="Link to this heading">#</a></h3>
@@ -619,6 +660,7 @@ them from one un-vectorized env; <code class="docutils literal notranslate"><spa
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#generic-environment-wrapper-stacks-in-yaml">Generic environment wrapper stacks in YAML</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#arbitrary-custom-loss-registration-from-yaml">Arbitrary custom loss registration from YAML</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#hindsight-experience-replay-her-beyond-single-env-sac">Hindsight Experience Replay (HER) beyond single-env SAC</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#auxiliary-encoder-losses-partial-yaml-cli-coverage">Auxiliary encoder losses: partial YAML/CLI coverage</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#multi-agent-rl">Multi-agent RL</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ros-2-as-a-full-package">ROS 2 as a full package</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ros-2-deployment-parity">ROS 2 deployment parity</a></li>

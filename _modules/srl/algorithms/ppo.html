@@ -715,6 +715,13 @@
                 <span class="k">if</span> <span class="n">aux_loss</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">weight</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="p">,</span> <span class="s2">&quot;aux_weight&quot;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
                     <span class="n">total_aux</span> <span class="o">=</span> <span class="n">aux_loss</span> <span class="o">*</span> <span class="n">weight</span>
+                    <span class="c1"># Surface the aux loss so it is observable in the console /</span>
+                    <span class="c1"># TensorBoard metrics -- otherwise there is no way to tell</span>
+                    <span class="c1"># from a run whether the encoder is actually learning.</span>
+                    <span class="n">metrics_accum</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;aux_loss&quot;</span><span class="p">,</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">aux_loss</span><span class="o">.</span><span class="n">item</span><span class="p">()))</span>
+                    <span class="n">metrics_accum</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;aux_loss_weighted&quot;</span><span class="p">,</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="nb">float</span><span class="p">(</span><span class="n">total_aux</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+                    <span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">encoder_optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
                     <span class="n">total_aux</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
                     <span class="c1"># Clip encoder/aux gradients (use params from optimizer)</span>

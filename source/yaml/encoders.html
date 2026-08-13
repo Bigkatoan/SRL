@@ -725,10 +725,12 @@ can be set from the <code class="docutils literal notranslate"><span class="pre"
 </pre></div>
 </div>
 <p>The encoder optimizer’s learning rate comes from <code class="docutils literal notranslate"><span class="pre">encoder_lr</span></code>, which only exists on
-<code class="docutils literal notranslate"><span class="pre">VisualSACConfig</span></code>/<code class="docutils literal notranslate"><span class="pre">VisualPPOConfig</span></code>. When it is absent — which is the case for every
-config <code class="docutils literal notranslate"><span class="pre">srl-train</span></code> builds today — the encoder optimizer falls back to <code class="docutils literal notranslate"><span class="pre">lr_critic</span></code>.
-<code class="docutils literal notranslate"><span class="pre">encoder_lr</span></code>, <code class="docutils literal notranslate"><span class="pre">encoder_optimize_with_critic</span></code>, and <code class="docutils literal notranslate"><span class="pre">aux_loss_type</span></code> therefore need the
-Python API; see <a class="reference internal" href="../algorithms.html"><span class="std std-doc">Algorithms</span></a>.</p>
+<code class="docutils literal notranslate"><span class="pre">VisualSACConfig</span></code>/<code class="docutils literal notranslate"><span class="pre">VisualPPOConfig</span></code> (not on <code class="docutils literal notranslate"><span class="pre">DDPGConfig</span></code>/<code class="docutils literal notranslate"><span class="pre">TD3Config</span></code>, which have no
+Visual variant). <code class="docutils literal notranslate"><span class="pre">srl-train</span></code> builds one of the Visual configs automatically when an
+encoder declares a recognised <code class="docutils literal notranslate"><span class="pre">aux_type</span></code>, or when the <code class="docutils literal notranslate"><span class="pre">train:</span></code> block itself sets a
+Visual-only field such as <code class="docutils literal notranslate"><span class="pre">encoder_lr</span></code> — see <a class="reference internal" href="auxiliary.html"><span class="std std-doc">Auxiliary Representation
+Learning</span></a>. When <code class="docutils literal notranslate"><span class="pre">encoder_lr</span></code> is absent, the encoder optimizer falls back
+to <code class="docutils literal notranslate"><span class="pre">lr_critic</span></code>.</p>
 </section>
 <section id="see-also">
 <h2>See also<a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
