@@ -18,13 +18,22 @@ SRL is a modular reinforcement learning library for continuous-control environme
 `srl-rl` is not published on PyPI yet.
 
 ```bash
-# recommended
-pip install git+https://github.com/Bigkatoan/SRL.git
-
-# or clone locally
+# recommended -- also gets you configs/, which every example below needs
 git clone https://github.com/Bigkatoan/SRL.git
 cd SRL
 pip install -e .
+```
+
+> **Important:** `pip install git+https://github.com/Bigkatoan/SRL.git` (no clone) installs
+> the `srl` Python package and CLI entry points, but **not** the repo-root
+> `configs/` directory — it isn't part of the installed package. Every
+> `--config configs/envs/...` example in this README and the docs assumes
+> `configs/` is present, so unless you're supplying your own YAML from
+> scratch, clone the repo rather than installing straight from the git URL.
+
+```bash
+# package-only install, if you don't need the example configs
+pip install git+https://github.com/Bigkatoan/SRL.git
 ```
 
 Optional extras:
