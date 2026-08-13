@@ -325,10 +325,6 @@ These fields appear on `SACConfig`, `DDPGConfig`, `TD3Config`, and `VisualSACCon
 | `aux_loss_type` | `str` | `"curl"` | Auxiliary encoder loss: `none \| ae \| vae \| curl \| byol \| drq \| spr \| barlow` |
 | `encoder_lr` | `float` | `1e-4` | Learning rate for the dedicated encoder optimizer |
 
-The `VisualSACConfig`-only fields have to be set in Python: `srl-train` always builds a
-plain `SACConfig` from the `train:` block. When `encoder_lr` is absent, the encoder
-optimizer falls back to `lr_critic`.
-
 ---
 
 (asyncrunnerconfig)=

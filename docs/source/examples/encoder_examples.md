@@ -50,6 +50,8 @@ train:
   total_steps: 200000
   batch_size: 256
   encoder_update_freq: 2
+  encoder_optimize_with_critic: true
+  encoder_lr: 3e-4
   lr_actor: 3e-4
   lr_critic: 3e-4
   buffer_size: 100000

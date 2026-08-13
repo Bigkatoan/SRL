@@ -64,7 +64,9 @@ SAC also accepts `alpha`, `init_alpha`, `auto_entropy_tuning`, `target_entropy`,
 
 ```{note}
 `encoder_lr`, `encoder_optimize_with_critic`, `aux_loss_type`, and `aux_weight` live on
-`VisualSACConfig`, which `srl-train` never builds — see
+`VisualSACConfig`, not plain `SACConfig`. `srl-train` builds `VisualSACConfig`
+automatically when an encoder declares a recognised `aux_type`, or when the `train:`
+block itself sets one of these Visual-only fields — see
 [Auxiliary Representation Learning](auxiliary.md). Without `encoder_lr` the encoder
 optimizer uses `lr_critic`.
 ```
@@ -94,21 +96,29 @@ A2C also accepts `rms_prop_eps`. A3C accepts `n_workers`, but the CLI overrides 
 
 ```yaml
 train:
-  total_steps:         500_000
-  n_envs:              1
-  batch_size:          128
-  gamma:               0.99
-  lr_actor:            3e-4
-  lr_critic:           3e-4
-  lr_alpha:            3e-4
-  tau:                 0.005
-  buffer_size:         100_000
-  start_steps:         1000
-  update_after:        1000
-  update_every:        50
-  gradient_steps:      1
-  encoder_update_freq: 2
+  total_steps:                  500_000
+  n_envs:                       1
+  batch_size:                   128
+  gamma:                        0.99
+  lr_actor:                     3e-4
+  lr_critic:                    3e-4
+  lr_alpha:                     3e-4
+  encoder_lr:                   1e-4
+  tau:                          0.005
+  buffer_size:                  100_000
+  start_steps:                  1000
+  update_after:                 1000
+  update_every:                 50
+  gradient_steps:               1
+  encoder_update_freq:          2
+  encoder_optimize_with_critic: true
+  aux_loss_type:                curl
 ```
+
+`encoder_lr` is a `VisualSACConfig`-only field, so setting it here is what makes
+`srl-train` auto-select `VisualSACConfig` for this run (see the note above) --
+`eval_freq` and `eval_episodes` are **not** valid inside `train:`; they are
+`--eval-freq`/`--eval-episodes` command-line flags only.
 
 ## Full example — PPO on Isaac Lab
 

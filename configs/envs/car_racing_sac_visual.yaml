@@ -1,0 +1,78 @@
+# SAC on CarRacing-v3 from pixels  (obs=96x96x3 RGB, act=3)
+#
+# Exercises the VisualSACConfig auxiliary-encoder-loss path: one CNN encoder is
+# shared by actor and critic (SAC-AE style) and is trained by a pixel
+# reconstruction objective alongside the critic gradient.
+#
+# srl-train auto-selects VisualSACConfig because the encoder declares
+# `aux_type`, and derives `aux_loss_type: ae` from it.
+#
+# Encoder naming: SAC's aux helpers locate the encoder by substring-matching
+# the *raw* observation key (the off-policy loop stores un-remapped env obs in
+# the replay buffer). GymnasiumWrapper emits its observation under "state", so
+# the encoder is named `state_enc` -- rename it and the auxiliary loss silently
+# stops running. See docs/source/limitations.md.
+#
+# Memory note: the replay buffer preallocates obs *and* next_obs up front, so
+# 20k x 96x96x3 x 4 bytes x 2 ~= 4.4 GB of RAM. Raise buffer_size only if you
+# have the headroom. `use_fp16: true` would halve this, but it is currently
+# incompatible with CNN encoders -- the buffer hands back half-precision
+# tensors while the model's weights stay float32.
+
+env_id: "CarRacing-v3"
+env_type: "flat"
+
+algo: sac
+
+encoders:
+  - name: state_enc
+    type: cnn
+    input_shape: [3, 96, 96]
+    latent_dim: 256
+    aux_type: autoencoder
+    layers:
+      - [32, 8, 4, relu]
+      - [64, 4, 2, relu]
+      - [64, 3, 1, relu]
+
+flows:
+  - "state_enc -> actor"
+  - "state_enc -> critic"
+
+actor:
+  name: actor
+  type: squashed_gaussian
+  action_dim: 3
+  log_std_min: -5.0
+  log_std_max: 2.0
+  layers:
+    - {out_features: 256, activation: relu}
+
+critic:
+  name: critic
+  type: twin_q
+  action_dim: 3
+  layers:
+    - {out_features: 256, activation: relu}
+
+losses:
+  - {name: sac_q,           weight: 1.0}
+  - {name: sac_policy,      weight: 1.0}
+  - {name: sac_temperature, weight: 1.0}
+
+train:
+  total_steps: 1_000_000
+  lr_actor: 1e-3
+  lr_critic: 1e-3
+  lr_alpha: 1e-4
+  encoder_lr: 1e-3
+  buffer_size: 20_000
+  batch_size: 128
+  gamma: 0.99
+  tau: 0.01
+  learning_starts: 1_000
+  train_freq: 1
+  gradient_steps: 1
+  # Encoder/aux settings (VisualSACConfig)
+  encoder_update_freq: 2
+  aux_weight: 1.0

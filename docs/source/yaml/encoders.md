@@ -136,10 +136,12 @@ train:
 ```
 
 The encoder optimizer's learning rate comes from `encoder_lr`, which only exists on
-`VisualSACConfig`/`VisualPPOConfig`. When it is absent — which is the case for every
-config `srl-train` builds today — the encoder optimizer falls back to `lr_critic`.
-`encoder_lr`, `encoder_optimize_with_critic`, and `aux_loss_type` therefore need the
-Python API; see [Algorithms](../algorithms.md).
+`VisualSACConfig`/`VisualPPOConfig` (not on `DDPGConfig`/`TD3Config`, which have no
+Visual variant). `srl-train` builds one of the Visual configs automatically when an
+encoder declares a recognised `aux_type`, or when the `train:` block itself sets a
+Visual-only field such as `encoder_lr` — see [Auxiliary Representation
+Learning](auxiliary.md). When `encoder_lr` is absent, the encoder optimizer falls back
+to `lr_critic`.
 
 ## See also
 

@@ -137,8 +137,13 @@ class ReplayBuffer:
         self._obs = {}
         self._next_obs = {}
         for k, v in obs.items():
-            arr = np.asarray(v)
-            shape = arr.shape[1:] if arr.ndim > 1 else arr.shape
+            # `add()`/`_write()` store exactly one transition per call (the
+            # vectorized CLI loop splits per-env before calling), so the
+            # observation handed in here IS the per-transition shape. Dropping
+            # a leading axis here used to eat the channel dim of image
+            # observations -- a (3, 96, 96) frame allocated (96, 96) slots and
+            # every pixel-based off-policy run died on the first add().
+            shape = np.asarray(v).shape
             self._obs[k] = np.zeros((self.capacity, *shape), dtype=self.storage_dtype)
             self._next_obs[k] = np.zeros((self.capacity, *shape), dtype=self.storage_dtype)
         a = np.asarray(action)
