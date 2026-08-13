@@ -73,7 +73,21 @@ class A2C(BaseAgent):
         self.model.train()
         metrics_accum: dict[str, list] = {}
 
-        for mini in self.buffer.get_batches(self.cfg.batch_size):
+        # A2C (unlike PPO) takes exactly one synchronous gradient step over
+        # the *entire* just-collected rollout -- there is no clipped
+        # surrogate objective here to keep repeated minibatch updates safe
+        # against a policy that has already moved since the advantages were
+        # computed. `self.cfg.batch_size` doesn't scale with `num_envs`
+        # (rollout size is `n_steps * num_envs`), so using it directly could
+        # split one rollout into many sequential updates against
+        # increasingly stale advantages/log-probs -- confirmed by direct
+        # repro to blow up policy loss within a few thousand steps at
+        # num_envs=16 with the documented default `batch_size=5`. Always use
+        # the full rollout as a single batch, matching the canonical
+        # algorithm; `batch_size` is kept on `A2CConfig` for backward
+        # compatibility but is no longer read here.
+        full_batch_size = self.cfg.n_steps * max(getattr(self.cfg, "num_envs", 1), 1)
+        for mini in self.buffer.get_batches(full_batch_size):
             obs = {k: v.to(self.device) for k, v in mini.obs.items()}
             actions = mini.actions.to(self.device)
             # actor_action=actions: re-evaluate the action actually taken under
