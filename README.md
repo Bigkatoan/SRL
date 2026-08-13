@@ -31,7 +31,7 @@ Optional extras:
 
 ```bash
 pip install "srl-rl[mujoco] @ git+https://github.com/Bigkatoan/SRL.git"
-pip install "srl-rl @ git+https://github.com/Bigkatoan/SRL.git[box2d]"
+pip install "srl-rl[box2d] @ git+https://github.com/Bigkatoan/SRL.git"
 pip install "srl-rl[robotics] @ git+https://github.com/Bigkatoan/SRL.git"
 pip install "srl-rl[all] @ git+https://github.com/Bigkatoan/SRL.git"
 ```

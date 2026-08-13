@@ -37,7 +37,7 @@ pip install -e ".[dev]"
 pip install "srl-rl[mujoco] @ git+https://github.com/Bigkatoan/SRL.git"
 
 # Gymnasium Box2D
-pip install "srl-rl @ git+https://github.com/Bigkatoan/SRL.git[box2d]"
+pip install "srl-rl[box2d] @ git+https://github.com/Bigkatoan/SRL.git"
 
 # gymnasium-robotics (Fetch, AntMaze, …)
 pip install "srl-rl[robotics] @ git+https://github.com/Bigkatoan/SRL.git"
