@@ -1,0 +1,92 @@
+# SAC + Hindsight Experience Replay on FetchReach-v4  (obs_flat=16, act=4)
+# Flat obs = [observation(10) | achieved_goal(3) | desired_goal(3)]
+#
+# This is fetch_reach_sac.yaml with HER switched on. FetchReach's reward is
+# sparse (-1 until the gripper is within the goal threshold, then 0), which is
+# exactly the setting HER exists for: without relabelling, almost every stored
+# transition carries reward -1 and the critic has no signal to bootstrap from.
+#
+# HER is opt-in and defaults to OFF everywhere (SACConfig.use_her = False), so
+# the plain fetch_reach_sac.yaml keeps its original uniform-replay behaviour.
+#
+# Target: success_rate > 0.90 (converges far sooner than the non-HER config)
+
+env_id: "FetchReach-v4"
+env_type: "goal"
+
+algo: sac
+
+encoders:
+  - name: actor_state_enc
+    type: mlp
+    input_dim: 16
+    latent_dim: 256
+    layers:
+      - {out_features: 256, activation: relu, norm: layer_norm}
+      - {out_features: 256, activation: relu, norm: layer_norm}
+  - name: critic_state_enc
+    type: mlp
+    input_dim: 16
+    latent_dim: 256
+    layers:
+      - {out_features: 256, activation: relu, norm: layer_norm}
+      - {out_features: 256, activation: relu, norm: layer_norm}
+
+flows:
+  - "actor_state_enc -> actor"
+  - "critic_state_enc -> critic"
+
+actor:
+  name: actor
+  type: squashed_gaussian
+  action_dim: 4
+  log_std_min: -5.0
+  log_std_max: 2.0
+  layers:
+    - {out_features: 256, activation: relu, norm: layer_norm}
+
+critic:
+  name: critic
+  type: twin_q
+  action_dim: 4
+  layers:
+    - {out_features: 256, activation: relu, norm: layer_norm}
+
+losses:
+  - {name: sac_q,           weight: 1.0}
+  - {name: sac_policy,      weight: 1.0}
+  - {name: sac_temperature, weight: 1.0}
+
+train:
+  total_steps: 500_000
+  lr_actor: 3e-4
+  lr_critic: 3e-4
+  lr_alpha: 3e-4
+  buffer_size: 1_000_000
+  batch_size: 256
+  gamma: 0.98
+  tau: 0.005
+  learning_starts: 1_000
+  # The standard HER "cycle" recipe: a batch of gradient steps once per
+  # episode-length block of environment steps, rather than 40 updates on every
+  # single step.
+  train_freq: 50
+  gradient_steps: 40
+
+  # ── Hindsight Experience Replay ──────────────────────────────────────────
+  use_her: true
+  # Fraction of each sampled batch whose desired_goal is relabelled. 0.8 is the
+  # value from the original HER paper (4 relabelled : 1 real).
+  her_ratio: 0.8
+  # "future" | "final" | "episode" | "random". "future" is recommended.
+  her_strategy: "future"
+  # Must be >= the env's episode length; FetchReach truncates at 50 steps. It
+  # sizes the buffer's per-episode preallocation, so leaving it at the 1000
+  # default would waste ~20x the memory for no benefit.
+  her_max_episode_len: 50
+
+  # GoalEnv settings
+  env_id: "FetchReach-v4"
+  # HER re-appends the desired goal to every sampled observation, so the flat
+  # obs must include the goal (include_goal: false is rejected at startup).
+  include_goal: true
