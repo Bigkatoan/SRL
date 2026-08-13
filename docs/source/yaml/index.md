@@ -1,32 +1,34 @@
 # YAML Configuration System
 
-YAML là ngôn ngữ cấu hình trung tâm của SRL. Toàn bộ kiến trúc mô hình — encoder, flows, actor/critic heads, losses, và training hyperparameters — được khai báo trong một file YAML duy nhất, sau đó được materialize thành runtime model graph bởi `ModelBuilder`.
+YAML is SRL's central configuration language. The whole model architecture — encoders,
+flows, actor/critic heads, losses, and training hyperparameters — is declared in a
+single YAML file, which `ModelBuilder` then materialises into a runtime model graph.
 
-## Tại sao SRL dùng YAML
+## Why SRL uses YAML
 
-| Không dùng YAML | Dùng SRL + YAML |
+| Without YAML | With SRL + YAML |
 |---|---|
-| Viết `nn.Module` thủ công | Khai báo encoder type và layers |
-| Hard-code observation routing trong `forward()` | Khai báo `flows` graph |
-| Copy hyperparameters giữa nhiều script | Một file YAML dùng cho cả CLI, viz, benchmark |
-| Khó tái lập thí nghiệm | Config file = source of truth |
+| Hand-write `nn.Module` subclasses | Declare an encoder type and its layers |
+| Hard-code observation routing inside `forward()` | Declare a `flows` graph |
+| Copy hyperparameters between scripts | One YAML file serves training, visualization, and benchmarking |
+| Experiments are hard to reproduce | The config file is the source of truth |
 
 ## Build pipeline
 
 ```
 YAML file
   ↓ ModelBuilder.from_yaml(path)
-  ↓ parse → EncoderConfig, HeadConfig, LossConfig
+  ↓ parse → AgentModelConfig, EncoderConfig, HeadConfig, LossConfig
   ↓ instantiate encoders + heads
-  ↓ FlowGraph.from_edges(flows)
+  ↓ FlowGraph parses the `flows` edges into a DAG
   ↓
 AgentModel (runtime)
   ↓ observation → encoder graph → latent concat → head dispatch
   ↓
-actor(·), critic(·), aux_modules(·)
+actor(·), critic(·)
 ```
 
-## File YAML cơ bản
+## A minimal YAML file
 
 ```yaml
 # configs/envs/halfcheetah_sac.yaml
@@ -59,23 +61,25 @@ critic:
 train:
   total_steps: 1_000_000
   batch_size:  256
-  lr:          3e-4
+  lr_actor:    3e-4
+  lr_critic:   3e-4
 ```
 
-Chạy:
+Run it:
 
 ```bash
 srl-train --config configs/envs/halfcheetah_sac.yaml
 ```
 
-## Các trang trong phần này
+## Pages in this section
 
-- [Encoders](encoders.md) — khai báo và cấu hình feature extractors (MLP, CNN, LSTM, text)
-- [Heads & Flows](heads_flows.md) — actor/critic heads và routing graph
-- [Auxiliary Representation Learning](auxiliary.md) — autoencoder, BYOL, CURL, DrQ, SPR, Barlow
-- [Training Block Reference](training_block.md) — tất cả các trường trong block `train:`
+- [Encoders](encoders.md) — declaring and configuring feature extractors (MLP, CNN, LSTM, text)
+- [Heads & Flows](heads_flows.md) — actor/critic heads and the routing graph
+- [Auxiliary Representation Learning](auxiliary.md) — autoencoder, VAE, CURL, BYOL, DrQ, SPR, Barlow Twins
+- [Training Block Reference](training_block.md) — every field in the `train:` block
 
-## Xem thêm
+## See also
 
-- [Training System](../training/index.md) — trainer, runner, optimizer patterns
-- [Config Reference](../config_reference.md) — field-level reference đầy đủ
+- [YAML Core Guide](../yaml_core.md) — the narrative walkthrough of the declarative layer
+- [Training System](../training/index.md) — trainers, runners, and optimizer patterns
+- [Configuration Reference](../config_reference.md) — the complete field-level reference

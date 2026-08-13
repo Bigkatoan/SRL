@@ -7,7 +7,7 @@ This page walks you through the full workflow in ~30 lines of code.
 ## 1. Install
 
 ```bash
-pip install "git+https://github.com/Bigkatoan/SRL.git#egg=srl-rl[mujoco]"
+pip install "srl-rl[mujoco] @ git+https://github.com/Bigkatoan/SRL.git"
 ```
 
 ---

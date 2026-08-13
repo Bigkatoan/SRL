@@ -31,14 +31,22 @@ def _capture_rng_state() -> dict[str, Any]:
 
 
 def _restore_rng_state(state: dict[str, Any]) -> None:
+    # torch.set_rng_state()/set_rng_state_all() both require CPU ByteTensors
+    # regardless of which device the *model* weights are being restored to --
+    # but CheckpointManager.load() calls torch.load(..., map_location=device),
+    # which relocates every tensor in the payload (these included) onto that
+    # device. On a CUDA resume, `.to(torch.uint8)` alone fixed the dtype but
+    # left the tensor on cuda, and set_rng_state() rejected it outright
+    # ("RNG state must be a torch.ByteTensor") -- --resume was unusable on
+    # GPU. `.cpu()` first, independent of map_location.
     if "python_random" in state:
         random.setstate(state["python_random"])
     if "numpy_random" in state:
         np.random.set_state(state["numpy_random"])
     if "torch_random" in state:
-        torch.set_rng_state(state["torch_random"].to(torch.uint8))
+        torch.set_rng_state(state["torch_random"].cpu().to(torch.uint8))
     if "torch_cuda_random" in state and torch.cuda.is_available():
-        torch.cuda.set_rng_state_all(state["torch_cuda_random"])
+        torch.cuda.set_rng_state_all([t.cpu().to(torch.uint8) for t in state["torch_cuda_random"]])
 
 
 class CheckpointManager:
