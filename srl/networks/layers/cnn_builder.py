@@ -18,7 +18,7 @@ from srl.networks.layers.pooling import get_pooling
 # Helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
-_SHORTHAND_KEYS = ("out_channels", "kernel", "padding", "activation", "pooling")
+_SHORTHAND_KEYS = ("out_channels", "kernel", "stride", "activation", "pooling")
 
 
 def _normalise_layer(layer: list | dict[str, Any]) -> dict[str, Any]:
@@ -112,7 +112,11 @@ def build_cnn(
         out_ch: int = cfg["out_channels"]
         kernel: int = cfg.get("kernel", 3)
         stride: int = cfg.get("stride", 1)
-        padding = cfg.get("padding", "same")
+        # "same" padding is only well-defined (and only accepted by
+        # nn.Conv2d) for stride=1; strided layers -- the common case for
+        # shorthand-list downsampling convs like [32, 8, 4, relu] -- default
+        # to "valid" (no padding) instead.
+        padding = cfg.get("padding", "same" if stride == 1 else "valid")
         activation = _resolve(cfg, "activation", default_activation)
         norm_name = _resolve(cfg, "norm", default_norm)
         dropout_rate = float(_resolve(cfg, "dropout", default_dropout))

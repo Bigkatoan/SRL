@@ -1,36 +1,48 @@
-# Hướng dẫn Encoders (Thiết lập & Best Practices)
+# Encoders (Setup & Best Practices)
 
-Tóm tắt ngắn: trang này mô tả vai trò của `encoder` trong pipeline SRL, các kiểu encoder tích hợp, các trường cấu hình quan trọng, ví dụ YAML, lời khuyên tối ưu hóa và bước kiểm thử đơn giản.
+This page describes the role of `encoder` blocks in the SRL model pipeline, the
+built-in encoder types, the config fields that matter, YAML examples, tuning
+advice, and a quick smoke test.
 
-## 1. Tổng quan
+## 1. Overview
 
-Encoder là module chuyển đổi observation (ảnh, vector, text, ...) thành latent vectors dùng cho actor/critic.
-Encoder ở lớp giới hạn giữa môi trường và các head chính — chọn và cấu hình encoder đúng là bước quyết định cho hiệu năng.
+An encoder is the module that turns raw observations (images, vectors, text, ...)
+into latent vectors consumed by the actor/critic heads. It sits at the boundary
+between the environment and the rest of the model graph — choosing and
+configuring it correctly is usually the single biggest factor in performance.
 
-## 2. Khi nào dùng loại encoder nào
+## 2. Which encoder type to use
 
-- mlp: dữ liệu vector/low-dim (state). Nhẹ, nhanh.
-- cnn: ảnh (vision). Tránh quá sâu nếu dùng realtime/Isaac Lab.
-- lstm: chuỗi/độ trễ/stacked frames với phụ thuộc thời gian.
-- text: input kí tự hoặc embedding cho ngôn ngữ.
+- `mlp` — vector / low-dimensional state input. Lightweight, fast.
+- `cnn` — image (vision) input. Avoid very deep stacks for realtime or Isaac Lab use.
+- `lstm` — sequences, latency, or stacked frames with a time dependency.
+- `text` — token or embedding input for language.
 
-## 3. Các trường cấu hình quan trọng (schema)
+## 3. Key config fields (schema)
 
-- `name` — id của encoder trong `flows`
-- `type` — `mlp`, `cnn`, `lstm`, `text`, hoặc key registry
-- `input_name` — tên key trong observation dict (khuyến nghị luôn khai báo)
-- `input_dim` / `input_shape` — kích thước input
-- `latent_dim` — kích thước output latent
-- `layers` — cấu trúc lớp (builder-driven)
-- `aux_type`, `aux_latent_dim` — nếu dùng auxiliary heads (ae, vae, byol, contrastive...)
-- `use_momentum`, `momentum_tau` — bật momentum encoder cho contrastive/BYOL
+- `name` — the encoder's id, referenced from `flows`
+- `type` — `mlp`, `cnn`, `lstm`, `text`, or a registered custom key
+- `input_name` — the observation dict key this encoder reads (always declare this explicitly)
+- `input_dim` / `input_shape` — input size
+- `latent_dim` — output latent size
+- `layers` — layer structure (builder-driven)
+- `aux_type`, `aux_latent_dim` — set these to attach an auxiliary head (`autoencoder`, `contrastive`, `byol`)
+- `use_momentum`, `momentum_tau` — enable a momentum (EMA) target encoder for contrastive/BYOL
 - `recurrent`, `lstm_hidden`, `frame_stack`
 
-Tham khảo schema chi tiết: [srl/registry/config_schema.py](https://github.com/Bigkatoan/SRL/blob/main/srl/registry/config_schema.py)
+Full schema reference: [srl/registry/config_schema.py](https://github.com/Bigkatoan/SRL/blob/main/srl/registry/config_schema.py)
 
-## 4. Ví dụ cấu hình YAML
+```{note}
+`aux_type` (encoder-level, one of `autoencoder`/`contrastive`/`byol`) and
+`aux_loss_type` (train-config level, one of `none`/`ae`/`vae`/`curl`/`byol`/`drq`/`spr`/`barlow`)
+are two different fields with overlapping names — see
+[Limitations](limitations.md) for how they relate and the current state of
+wiring this up through `srl-train`.
+```
 
-Ví dụ MLP (state):
+## 4. Example YAML configs
+
+MLP (state) example:
 
 ```yaml
 encoders:
@@ -43,7 +55,7 @@ encoders:
       - {out_features: 128, activation: relu}
 ```
 
-Ví dụ CNN (vision) với auxiliary reconstruction:
+CNN (vision) example with an auxiliary reconstruction head:
 
 ```yaml
 encoders:
@@ -59,37 +71,45 @@ encoders:
       - [64, 3, 1, relu]
 ```
 
-## 5. Optimizer & update policy cho encoder
+## 5. Encoder optimizer & update policy
 
-Đề xuất cấu hình train liên quan tới encoder:
+Relevant training-config fields when an encoder is involved:
 
-- Tách `encoder_optimizer` riêng (tránh cập nhật kép khi actor/critic backward đều chứa encoder params).
-- `encoder_update_freq` — cập nhật encoder mỗi N bước critic; thường `2` cho vision.
-- `encoder_optimize_with_critic` — nếu true, critic loss sẽ cập nhật encoder (thay vì actor).
+- A separate `encoder_optimizer` avoids double-updating encoder params when both
+  the actor and critic backward passes touch them.
+- `encoder_update_freq` — update the encoder every N critic steps; `2` is a
+  common choice for vision.
+- `encoder_optimize_with_critic` — if true, the critic loss also updates the
+  encoder (instead of only the auxiliary loss).
 
-Ví dụ (train block):
+Example (`VisualSACConfig`-style train block):
 
 ```yaml
 train:
   total_steps: 1_000_000
   encoder_update_freq: 2
   encoder_optimize_with_critic: true
-  lr_encoder: 3e-4
+  encoder_lr: 3e-4
   lr_actor: 3e-4
   lr_critic: 3e-4
 ```
 
+```{note}
+As of this writing, `srl-train` does not yet read this block into
+`VisualPPOConfig`/`VisualSACConfig` — see [Limitations](limitations.md).
+```
+
 ## 6. Auxiliary representation learning
 
-Các kiểu phụ trợ: `autoencoder`, `vae`, `contrastive`, `byol`, `drq`, `spr`, `barlow`.
+Supported auxiliary modes: `autoencoder`, `vae`, `contrastive`, `byol`, `drq`, `spr`, `barlow`.
 
-- Dùng `use_momentum=true` khi cấu hình BYOL hoặc contrastive momentum.
-- Projection head thường có `aux_latent_dim` nhỏ hơn latent chính.
-- Lưu ý: augmentations và batch size có ảnh hưởng lớn tới chất lượng contrastive.
+- Set `use_momentum: true` when configuring BYOL or contrastive-momentum encoders.
+- The projection head's `aux_latent_dim` is usually smaller than the main latent dim.
+- Augmentations and batch size have a large effect on contrastive quality.
 
-## 7. Kết nối với actor/critic (`flows`)
+## 7. Wiring into actor/critic (`flows`)
 
-- Định nghĩa rõ `flows` để actor/critic nhận đúng encoder:
+Declare `flows` explicitly so the actor/critic receive the right encoder:
 
 ```yaml
 flows:
@@ -99,40 +119,30 @@ flows:
   - "state_enc -> critic"
 ```
 
-- Khuyến nghị: nếu actor và critic cần biểu diễn khác nhau, tách encoder cho từng branch.
+If the actor and critic need different representations, use separate encoders
+per branch.
 
-## 8. Kiểm thử & debug nhanh
+## 8. Quick testing & debugging
 
-- Nếu gặp lỗi shape, kiểm tra `input_shape` / `input_dim` và `input_name` mapping.
-- Khởi tạo model bằng `ModelBuilder.from_yaml(...)` và in `builder.summary()` để xem kích thước latent.
-- Chạy smoke test:
+- On a shape error, check `input_shape` / `input_dim` and the `input_name` mapping first.
+- Inspect the built model graph with `--save-model-pipeline` (writes a pipeline
+  diagram instead of training) to confirm encoder output sizes match what
+  downstream heads expect.
+- Run a smoke test:
 
 ```bash
-# module fallback từ source
+# module fallback, running from source
 python -m srl.cli.train --config configs/envs/halfcheetah_sac.yaml --device cpu --seed 0 --no-plots
 ```
 
-## 9. Best practices (tham khảo NVIDIA & công nghiệp)
+## 9. Best practices
 
-- Với vision/Isaac: tận dụng momentum encoder cho contrastive/BYOL; dùng mixed-precision nếu có GPU.
-- Tránh mạng quá sâu cho realtime; ưu tiên batch lớn + augment cho contrastive.
-- Tách optimizer để điều chỉnh lr riêng cho encoder khi cần fine-tune.
-- Kiểm tra pipeline bằng small end-to-end smoke test trước khi scale.
+- For vision / Isaac workloads: use a momentum encoder for contrastive/BYOL, and mixed precision when a GPU is available.
+- Avoid very deep networks for realtime use; prefer larger batches and stronger augmentation for contrastive learning.
+- Use a separate optimizer to tune the encoder's learning rate independently when fine-tuning.
+- Validate the pipeline with a small end-to-end smoke test before scaling up.
 
-Tham khảo tài liệu NVIDIA Isaac/Isaac Sim khi làm tích hợp môi trường GPU: https://docs.omniverse.nvidia.com/isaac/ (tài liệu tham khảo cấu trúc và best-practices về môi trường GPU).
+## 10. More examples
 
-## 10. Liên kết nhanh
-
-
-
-Nếu bạn đồng ý, tôi sẽ:
-
-## Ví dụ và hướng dẫn thêm
-
-Xem các ví dụ cấu hình và các bước kiểm thử nhanh tại: [Examples: encoder examples](examples/encoder_examples.md)
-
-Nếu bạn muốn tôi triển khai thêm, tôi có thể:
-- mở rộng các cấu hình ví dụ thành file YAML đầy đủ trong `configs/examples/`
-- thêm hướng dẫn kiểm thử CI/smoke tests
-- tổ chức lại nav theo mẫu NVIDIA (Architecture → Encoders → Deployment)
-Bạn muốn tôi triển khai tiếp phần nào trước?
+See [Examples: encoder examples](examples/encoder_examples.md) for further
+configuration examples and smoke-test steps.

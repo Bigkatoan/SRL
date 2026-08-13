@@ -1013,13 +1013,27 @@ def _remap_obs_to_encoders(
 
 
 def _obs_to_tensors(obs_dict: dict, device, *, force_batch: bool) -> dict:
+    """``force_batch=True`` means: this obs dict came from a single env step
+    that *may or may not* already carry an explicit leading batch dim --
+    isaaclab/mjlab always pre-batch (even at num_envs=1: vectors come back
+    (1, D), images (1, C, H, W)), while a plain gymnasium/goal/racecar env
+    never does (vectors (D,), images (C, H, W)).
+
+    Both unbatched shapes have odd ndim (1 for a vector, 3 for an image) and
+    both pre-batched shapes have even ndim (2, 4) -- so parity of ndim tells
+    us whether to add the batch dim, regardless of whether this is a flat
+    vector or an image. (A shape[0]-based heuristic here previously
+    mistook an unbatched (C, H, W) image's channel count for an existing
+    batch size and skipped expanding it, crashing the first real eval/
+    visualize step against any CNN-encoder config.)
+    """
     import numpy as np
     import torch
 
     tensor_obs = {}
     for key, value in obs_dict.items():
         arr = np.asarray(value)
-        if force_batch and (arr.ndim == 0 or not (arr.ndim > 1 and arr.shape[0] >= 1)):
+        if force_batch and (arr.ndim == 0 or arr.ndim % 2 == 1):
             arr = np.expand_dims(arr, axis=0)
         tensor_obs[key] = torch.from_numpy(arr).float().to(device)
     return tensor_obs

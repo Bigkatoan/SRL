@@ -6,6 +6,8 @@ from typing import Any
 
 import numpy as np
 
+from srl.envs._image_obs import maybe_hwc_to_chw
+
 
 class IsaacLabWrapper:
     """Wrap an Isaac Lab ``ManagerBasedRLEnv`` to match the SRL interface.
@@ -101,8 +103,8 @@ class IsaacLabWrapper:
 
     def _wrap_obs(self, obs: Any) -> dict[str, np.ndarray]:
         if isinstance(obs, dict):
-            return {k: _maybe_hwc_to_chw(_to_np(v)) for k, v in obs.items()}
-        return {self.obs_key: _maybe_hwc_to_chw(_to_np(obs))}
+            return {k: maybe_hwc_to_chw(_to_np(v)) for k, v in obs.items()}
+        return {self.obs_key: maybe_hwc_to_chw(_to_np(obs))}
 
 
 def _to_np(x: Any) -> np.ndarray:
@@ -116,24 +118,3 @@ def _to_np(x: Any) -> np.ndarray:
     except ImportError:
         pass
     return np.asarray(x)
-
-
-def _maybe_hwc_to_chw(arr: np.ndarray) -> np.ndarray:
-    """Transpose HWC image observations to CHW for SRL's CNNEncoder.
-
-    Isaac Lab tiled cameras return (N, H, W, C) for batched envs and
-    (H, W, C) for single-env observations.  SRL's CNNEncoder expects
-    (N, C, H, W) / (C, H, W) respectively.
-
-    Detection: last axis has 1, 3, or 4 channels AND the spatial dimensions
-    are substantially larger — this avoids mis-transposing flat state vectors.
-    """
-    if arr.ndim == 4:  # (N, H, W, C) batched
-        n, h, w, c = arr.shape
-        if c in (1, 3, 4) and h > c and w > c:
-            return arr.transpose(0, 3, 1, 2)  # → (N, C, H, W)
-    elif arr.ndim == 3:  # (H, W, C) single env
-        h, w, c = arr.shape
-        if c in (1, 3, 4) and h > c and w > c:
-            return arr.transpose(2, 0, 1)  # → (C, H, W)
-    return arr
