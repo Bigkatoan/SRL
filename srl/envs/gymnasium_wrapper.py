@@ -5,11 +5,18 @@ from __future__ import annotations
 import gymnasium as gym
 import numpy as np
 
+from srl.envs._image_obs import maybe_hwc_to_chw
+
 
 class GymnasiumWrapper(gym.Wrapper):
     """Thin wrapper around any Gymnasium environment.
 
     * Converts ``obs`` to ``dict`` form (key = ``"state"`` or ``"pixels"``).
+    * Transposes HWC pixel observations to CHW for SRL's CNNEncoder (see
+      ``_image_obs.maybe_hwc_to_chw`` -- Gymnasium's native pixel envs, e.g.
+      CarRacing, hand back (H, W, C); a plain ``np.asarray`` here previously
+      passed that straight through, so any config with a CNN encoder crashed
+      on the very first real observation with a channel-count mismatch).
     * Exposes ``obs_space``, ``act_space`` helpers.
     * Stores ``num_envs = 1`` for API uniformity with vector envs.
     """
@@ -29,7 +36,7 @@ class GymnasiumWrapper(gym.Wrapper):
 
     def reset(self, **kwargs) -> tuple[dict[str, np.ndarray], dict]:
         obs, info = self.env.reset(**kwargs)
-        return {self.obs_key: np.asarray(obs)}, info
+        return {self.obs_key: maybe_hwc_to_chw(np.asarray(obs))}, info
 
     def step(self, action: np.ndarray):
         obs, reward, terminated, truncated, info = self.env.step(action)
@@ -40,4 +47,10 @@ class GymnasiumWrapper(gym.Wrapper):
         # every task with an episode time limit (i.e. nearly everything).
         # Callers that want "episode ended for any reason" already OR these
         # two themselves (see srl/cli/train.py's reset/logging call sites).
-        return {self.obs_key: np.asarray(obs)}, float(reward), terminated, truncated, info
+        return (
+            {self.obs_key: maybe_hwc_to_chw(np.asarray(obs))},
+            float(reward),
+            terminated,
+            truncated,
+            info,
+        )
