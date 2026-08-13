@@ -42,7 +42,26 @@ class HERReplayBuffer:
         80% relabelled, 20% from original buffer.
     max_episode_len:
         Maximum steps per episode (for pre-allocation).
+    obs_key:
+        Dict key under which :meth:`sample` returns the observation tensors.
+        SRL models take a ``dict[str, Tensor]`` keyed by encoder input name,
+        so the batch must be wrapped the same way ``ReplayBuffer`` wraps
+        its own -- defaults to ``"state"``, matching
+        :class:`~srl.envs.goal_env_wrapper.GoalEnvWrapper`'s own ``obs_key``.
+
+    Observation layout
+    ------------------
+    ``obs`` passed to :meth:`add_transition` must be the observation *without*
+    the desired goal appended; :meth:`sample` appends the (possibly relabelled)
+    desired goal itself.  Wiring this to ``GoalEnvWrapper``, whose flat obs is
+    ``[observation | achieved_goal | desired_goal]``, therefore means storing
+    ``[observation | achieved_goal]`` as ``obs`` (``obs_dim = observation +
+    achieved_goal``) and ``desired_goal`` as the goal -- the concatenation in
+    :meth:`sample` then reproduces exactly the layout the model was built for.
     """
+
+    #: Goal relabelling strategies understood by :meth:`sample`.
+    STRATEGIES = ("future", "final", "episode", "random")
 
     def __init__(
         self,
@@ -56,8 +75,20 @@ class HERReplayBuffer:
         max_episode_len: int = 1000,
         gamma: float = 0.99,
         device: str | torch.device = "cpu",
+        obs_key: str = "state",
     ) -> None:
+        if strategy not in self.STRATEGIES:
+            # sample() dispatches on `strategy` with a plain if/elif chain and
+            # no else, so an unrecognised value silently leaves every goal
+            # un-relabelled -- i.e. HER quietly degrades to a plain replay
+            # buffer instead of failing. Reject it at construction instead.
+            raise ValueError(
+                f"unknown HER strategy {strategy!r}; expected one of {list(self.STRATEGIES)}"
+            )
+        if not 0.0 <= her_ratio <= 1.0:
+            raise ValueError(f"her_ratio must be in [0, 1], got {her_ratio}")
         self.capacity = capacity
+        self.obs_key = obs_key
         self.obs_dim = obs_dim
         self.goal_dim = goal_dim
         self.action_dim = action_dim
@@ -103,11 +134,25 @@ class HERReplayBuffer:
         next_obs: np.ndarray,
         next_achieved_goal: np.ndarray,
         done: bool,
+        truncated: bool = False,
     ) -> None:
+        """Append one transition to the in-progress episode.
+
+        ``done`` is the *real* termination flag and is what gets stored per
+        timestep (see ``_done``); ``truncated`` only closes the episode.
+        Both are needed because a time-limited goal env -- every Fetch task,
+        for instance -- ends by truncation with ``terminated`` always False, so
+        keying the episode commit off ``done`` alone would never flush an
+        episode, and transitions from many separate rollouts would be
+        concatenated into one bogus "episode" that HER then relabels across.
+        Storing ``truncated`` as ``done`` instead would be the opposite error:
+        it fabricates terminal states at the time limit and biases the
+        bootstrap target for the non-relabelled fraction of a batch.
+        """
         self._current_ep.append(
             (obs, achieved_goal, desired_goal, action, next_obs, next_achieved_goal, done)
         )
-        if done or len(self._current_ep) >= self.max_episode_len:
+        if done or truncated or len(self._current_ep) >= self.max_episode_len:
             self._commit_episode()
 
     def _commit_episode(self) -> None:
@@ -192,13 +237,69 @@ class HERReplayBuffer:
         full_obs = np.concatenate([obs, dg], axis=-1)
         full_next_obs = np.concatenate([next_obs, dg], axis=-1)
 
+        # Wrapped as a dict, exactly like ReplayBuffer.sample(): SRL models
+        # take dict observations keyed by encoder input name, and consumers
+        # (e.g. SAC.update) iterate `batch.obs.items()`. Returning the bare
+        # concatenated tensor here made this buffer unusable with any real
+        # agent.
         return ReplayBatch(
-            observations=_t(full_obs),
+            observations={self.obs_key: _t(full_obs)},
             actions=_t(actions),
             rewards=_t(rewards),
-            next_observations=_t(full_next_obs),
+            next_observations={self.obs_key: _t(full_next_obs)},
             dones=_t(dones),
         )
 
     def __len__(self) -> int:
+        """Number of stored *episodes* (this buffer is episode-indexed)."""
         return self._n_stored
+
+    @property
+    def num_transitions(self) -> int:
+        """Total stored transitions across all episodes."""
+        return int(self._ep_len[: self._n_stored].sum())
+
+    def can_sample(self, batch_size: int) -> bool:
+        """Whether :meth:`sample` can serve a batch of *batch_size*.
+
+        ``__len__`` counts episodes, so the usual off-policy readiness check
+        ``len(buffer) >= batch_size`` means something different here than it
+        does for ``ReplayBuffer`` (where it counts transitions). Agents should
+        prefer this method so the two buffers gate updates equivalently.
+        """
+        return self._n_stored > 0 and self.num_transitions >= batch_size
+
+    # ------------------------------------------------------------------
+    # Checkpointing
+    # ------------------------------------------------------------------
+
+    def state_dict(self) -> dict:
+        """Serialisable buffer state.
+
+        ``reward_fn`` is deliberately excluded -- it is a live callable bound
+        to the environment (``env.unwrapped.compute_reward``) and is
+        re-attached by whoever rebuilds the buffer.
+        """
+        return {
+            "obs": self._obs,
+            "ag": self._ag,
+            "dg": self._dg,
+            "actions": self._actions,
+            "done": self._done,
+            "ep_len": self._ep_len,
+            "ep_ptr": self._ep_ptr,
+            "n_stored": self._n_stored,
+        }
+
+    def load_state_dict(self, state: dict) -> None:
+        if not state:
+            return
+        self._obs = np.asarray(state["obs"], dtype=np.float32)
+        self._ag = np.asarray(state["ag"], dtype=np.float32)
+        self._dg = np.asarray(state["dg"], dtype=np.float32)
+        self._actions = np.asarray(state["actions"], dtype=np.float32)
+        self._done = np.asarray(state["done"], dtype=np.float32)
+        self._ep_len = np.asarray(state["ep_len"], dtype=np.int32)
+        self._ep_ptr = int(state["ep_ptr"])
+        self._n_stored = int(state["n_stored"])
+        self._current_ep = []

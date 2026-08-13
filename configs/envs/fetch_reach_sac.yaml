@@ -1,6 +1,11 @@
 # SAC on FetchReach-v4  (obs_flat=16, act=4)
 # Flat obs = [observation(10) | achieved_goal(3) | desired_goal(3)]
 # Target: success_rate > 0.90 (convergence ~500k steps)
+#
+# This config uses the plain uniform-sampling replay buffer: Hindsight
+# Experience Replay defaults to OFF (SACConfig.use_her = False). On a sparse
+# reward like FetchReach's, HER usually converges much faster -- see
+# fetch_reach_sac_her.yaml, or add `use_her: true` to the train block below.
 
 env_id: "FetchReach-v4"
 env_type: "goal"
