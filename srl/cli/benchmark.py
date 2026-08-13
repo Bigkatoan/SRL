@@ -38,8 +38,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--eval-freq",
         type=int,
-        default=0,
-        help="Evaluation frequency in counted steps (0 disables eval)",
+        default=None,
+        help=(
+            "Evaluation frequency in counted steps. Defaults to --steps (one "
+            "eval, at the end of each case) so a report always has an "
+            "eval_score column filled in unless explicitly disabled with 0."
+        ),
     )
     parser.add_argument(
         "--eval-episodes", type=int, default=5, help="Evaluation episodes per eval phase"
@@ -123,8 +127,10 @@ def _run_case(args, mode: str) -> dict[str, object]:
             timeout=900,
         )
         elapsed = time.perf_counter() - start_time
-        metrics = _parse_metrics(result.stdout)
-        metrics.update(_load_summary_metrics(logdir, args.config, args.algo))
+        metrics = _reconcile_metrics(
+            _parse_metrics(result.stdout),
+            _load_summary_metrics(logdir, args.config, args.algo),
+        )
         return {
             "mode": mode,
             "returncode": result.returncode,
@@ -133,6 +139,30 @@ def _run_case(args, mode: str) -> dict[str, object]:
             "stdout": result.stdout,
             "stderr": result.stderr,
         }
+
+
+def _reconcile_metrics(
+    stdout_metrics: dict[str, float], summary_metrics: dict[str, float]
+) -> dict[str, float]:
+    """Merge stdout-scraped metrics with the authoritative summary.json ones.
+
+    `_parse_metrics` scrapes the last-printed `[train]` console block, which
+    lags behind the true final step whenever `--log-interval` doesn't divide
+    `--steps` evenly (including whenever `--log-interval >= --steps`, i.e.
+    exactly one console print ever happens, at a step short of the real
+    final one). Its short display keys (`fps`, under the console's `rollout`
+    sub-header) don't collide with summary.json's fully-qualified keys
+    (`train/fps`), so a plain dict `update()` adds the correct final value
+    alongside the stale one instead of replacing it -- `_print_summary`
+    (and any --output json consumer) reading the short `fps` key then
+    silently got the stale mid-training snapshot instead of the real final
+    number. Reflect the authoritative value back onto the short key too.
+    """
+    metrics = dict(stdout_metrics)
+    metrics.update(summary_metrics)
+    if "train/fps" in summary_metrics:
+        metrics["fps"] = summary_metrics["train/fps"]
+    return metrics
 
 
 def _load_summary_metrics(logdir: Path, config_path: str, algo: str | None) -> dict[str, float]:
@@ -187,7 +217,7 @@ def _judge_case(
 
 
 def _print_summary(cases: list[dict[str, object]]) -> None:
-    print("mode      return  elapsed_s  fps      eval_score  critic_loss  utd_ratio  target")
+    print("mode      exit_code  elapsed_s  fps      eval_score  critic_loss  utd_ratio  target")
     for case in cases:
         metrics = case.get("metrics", {})
         fps = metrics.get("fps") if isinstance(metrics, dict) else None
@@ -199,7 +229,7 @@ def _print_summary(cases: list[dict[str, object]]) -> None:
             critic_loss = metrics.get("sac/critic_loss", metrics.get("td3/critic_loss"))
             utd_ratio = metrics.get("train/utd_ratio")
         print(
-            f"{case['mode']:<9} {case['returncode']!s:<7} {case['elapsed_sec']:<10.2f} "
+            f"{case['mode']:<9} {case['returncode']!s:<10} {case['elapsed_sec']:<10.2f} "
             f"{_fmt(fps):<8} {_fmt(eval_score):<11} {_fmt(critic_loss):<12} "
             f"{_fmt(utd_ratio):<10} {judge.get('status', '-')}"
         )
@@ -214,6 +244,8 @@ def _fmt(value) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+    if args.eval_freq is None:
+        args.eval_freq = args.steps
 
     modes = [mode.strip() for mode in args.modes.split(",") if mode.strip()]
     targets = _load_targets(args.target_file)
