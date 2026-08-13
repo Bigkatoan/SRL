@@ -469,6 +469,21 @@ def _maybe_run_evaluation(
     return next_eval_step + eval_freq
 
 
+def _final_eval_already_ran_at(next_eval_step: int | None, eval_freq: int, step: int) -> bool:
+    """True iff the in-loop periodic eval already ran at exactly `step`.
+
+    `_maybe_run_evaluation` advances `next_eval_step` by exactly `eval_freq`
+    when it fires, and leaves it unchanged otherwise -- so "an eval just ran
+    at this exact step" is `next_eval_step == step + eval_freq`, and nothing
+    else. (`step < next_eval_step` is NOT a safe proxy for this: it's true
+    immediately after *any* eval fires, by construction, so using it as an
+    alternate "already ran" check here previously produced a duplicate eval
+    + duplicate `[eval]` log line whenever `total_steps` was an exact
+    multiple of `eval_freq`.)
+    """
+    return next_eval_step is not None and next_eval_step - eval_freq == step
+
+
 def _maybe_start_visualizer(agent, args, device: str):
     """Start the ``--visualize`` background viewer, if requested.
 
@@ -1028,7 +1043,9 @@ def _run_on_policy(
         )
 
     eval_freq = int(getattr(args, "eval_freq", 0))
-    if next_eval_step is not None and (step < next_eval_step or next_eval_step - eval_freq != step):
+    if next_eval_step is not None and not _final_eval_already_ran_at(
+        next_eval_step, eval_freq, step
+    ):
         _maybe_run_evaluation(agent, args, logger, device=device, step=step, next_eval_step=step)
 
 
@@ -1255,8 +1272,8 @@ def _run_off_policy(
         )
 
     eval_freq = int(getattr(args, "eval_freq", 0))
-    if next_eval_step is not None and (
-        env_step < next_eval_step or next_eval_step - eval_freq != env_step
+    if next_eval_step is not None and not _final_eval_already_ran_at(
+        next_eval_step, eval_freq, env_step
     ):
         _maybe_run_evaluation(
             agent, args, logger, device=device, step=env_step, next_eval_step=env_step
