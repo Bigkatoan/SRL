@@ -34,6 +34,7 @@ def _fake_args(eval_freq: int) -> SimpleNamespace:
 
 
 def test_eval_line_includes_success_mean_for_goal_conditioned_tasks(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(train_module, "_make_cli_env", lambda *a, **k: object())
     monkeypatch.setattr(
         train_module,
         "_evaluate_agent",
@@ -62,6 +63,7 @@ def test_eval_line_includes_success_mean_for_goal_conditioned_tasks(monkeypatch,
 
 
 def test_eval_line_omits_success_mean_when_not_present(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(train_module, "_make_cli_env", lambda *a, **k: object())
     monkeypatch.setattr(
         train_module,
         "_evaluate_agent",

@@ -653,64 +653,72 @@ def _next_eval_step(start_step: int, eval_freq: int) -> int | None:
 
 
 def _evaluate_agent(
-    agent, *, env_name: str, env_type: str, device: str, seed: int, episodes: int, render: bool
+    agent, eval_env, *, env_type: str, seed: int, episodes: int, render: bool
 ) -> dict[str, float]:
+    """Run `episodes` deterministic eval episodes against `eval_env`.
+
+    `eval_env` is owned by the caller (constructed once, reused across every
+    eval cycle in a run, closed once at the end) -- see the callers in
+    `_run_on_policy`/`_run_off_policy`. This function never constructs or
+    closes it: rebuilding an isaaclab/mjlab env every eval cycle is both
+    wasteful (a full GPU-batched simulator instance) and produces a wall of
+    repeated construction-banner logging (Warp module loads, `Setting seed`,
+    the ObservationManager/TerminationManager/... tables) on every single
+    eval, which reads exactly like the environment is "repeatedly
+    reinitializing" -- confirmed by a real test pass on JAVIS's mjlab task.
+    """
     import numpy as np
 
-    eval_env = _make_cli_env(env_name, device, 1, env_type)
     episode_scores: list[float] = []
     episode_lengths: list[int] = []
     success_values: list[float] = []
     encoder_names = list(agent.model.encoders.keys())
 
-    try:
-        for episode_index in range(max(int(episodes), 1)):
-            obs, _ = eval_env.reset(seed=seed + episode_index)
-            done = False
-            truncated = False
-            score = 0.0
-            length = 0
+    for episode_index in range(max(int(episodes), 1)):
+        obs, _ = eval_env.reset(seed=seed + episode_index)
+        done = False
+        truncated = False
+        score = 0.0
+        length = 0
 
-            while not (done or truncated):
-                obs_remapped = _remap_obs_to_encoders(
-                    obs,
-                    encoder_names,
-                    encoder_input_names=getattr(agent.model, "encoder_input_names", None),
-                )
-                obs_t = _obs_to_tensors(obs_remapped, agent.device, force_batch=True)
-                action, _, _, _ = agent.predict(obs_t, deterministic=True)
-                action_np = action.detach().cpu().numpy()
-                # isaaclab/mjlab envs always expect a batched (num_envs,
-                # action_dim) action, even at num_envs=1 -- IsaacLabWrapper
-                # never unbatches, unlike a plain gymnasium.Env. Squeezing
-                # here for those env types produces a 1-D action and
-                # `action.shape[1]` in the env's action manager raises
-                # IndexError.
-                if (
-                    env_type not in ("isaaclab", "mjlab")
-                    and action_np.ndim > 1
-                    and action_np.shape[0] == 1
-                ):
-                    action_np = action_np.squeeze(0)
-                next_obs, reward, done, truncated, info = eval_env.step(action_np)
-                score += float(np.asarray(reward).reshape(-1)[0])
-                length += 1
-                obs = next_obs
-                if render and hasattr(eval_env, "render"):
+        while not (done or truncated):
+            obs_remapped = _remap_obs_to_encoders(
+                obs,
+                encoder_names,
+                encoder_input_names=getattr(agent.model, "encoder_input_names", None),
+            )
+            obs_t = _obs_to_tensors(obs_remapped, agent.device, force_batch=True)
+            action, _, _, _ = agent.predict(obs_t, deterministic=True)
+            action_np = action.detach().cpu().numpy()
+            # isaaclab/mjlab envs always expect a batched (num_envs,
+            # action_dim) action, even at num_envs=1 -- IsaacLabWrapper
+            # never unbatches, unlike a plain gymnasium.Env. Squeezing
+            # here for those env types produces a 1-D action and
+            # `action.shape[1]` in the env's action manager raises
+            # IndexError.
+            if (
+                env_type not in ("isaaclab", "mjlab")
+                and action_np.ndim > 1
+                and action_np.shape[0] == 1
+            ):
+                action_np = action_np.squeeze(0)
+            next_obs, reward, done, truncated, info = eval_env.step(action_np)
+            score += float(np.asarray(reward).reshape(-1)[0])
+            length += 1
+            obs = next_obs
+            if render and hasattr(eval_env, "render"):
+                try:
+                    eval_env.render()
+                except Exception:
+                    pass
+            for key in ("is_success", "success"):
+                if isinstance(info, dict) and key in info:
                     try:
-                        eval_env.render()
+                        success_values.append(float(np.asarray(info[key]).reshape(-1)[0]))
                     except Exception:
                         pass
-                for key in ("is_success", "success"):
-                    if isinstance(info, dict) and key in info:
-                        try:
-                            success_values.append(float(np.asarray(info[key]).reshape(-1)[0]))
-                        except Exception:
-                            pass
-            episode_scores.append(score)
-            episode_lengths.append(length)
-    finally:
-        eval_env.close()
+        episode_scores.append(score)
+        episode_lengths.append(length)
 
     metrics = {
         "eval/score_mean": float(sum(episode_scores) / len(episode_scores)),
@@ -724,18 +732,44 @@ def _evaluate_agent(
 
 
 def _maybe_run_evaluation(
-    agent, args, logger, *, device: str, step: int, next_eval_step: int | None
-) -> int | None:
+    agent,
+    args,
+    logger,
+    *,
+    device: str,
+    step: int,
+    next_eval_step: int | None,
+    eval_env=None,
+    last_eval_step: int | None = None,
+) -> tuple[int | None, object | None, int | None]:
+    """Returns `(next_eval_step, eval_env, last_eval_step)`.
+
+    `eval_env` is lazily built on the first call that actually evaluates
+    (never, if eval never fires this run) and handed back so the caller can
+    pass the *same* instance into the next call, and close() it once at the
+    very end of the run instead of once per eval cycle.
+
+    `last_eval_step` is the real step at which eval last actually fired (or
+    unchanged from the input if it didn't fire this call) -- the caller's
+    "should the final eval run, or did periodic eval already cover this
+    exact step" decision must compare against this directly rather than
+    re-deriving it from `next_eval_step`/`eval_freq` arithmetic: on-policy
+    rollout stepping can overshoot past the nominal eval_freq-aligned
+    threshold (rollout_steps is a ceil-division), so the step periodic eval
+    actually fires at is not always an exact multiple of eval_freq, even
+    though next_eval_step's *schedule* always is.
+    """
     if next_eval_step is None or step < next_eval_step:
-        return next_eval_step
+        return next_eval_step, eval_env, last_eval_step
 
     eval_freq = int(getattr(args, "eval_freq", 0))
+    if eval_env is None:
+        eval_env = _make_cli_env(args.env, device, 1, getattr(args, "env_type", "flat"))
 
     eval_metrics = _evaluate_agent(
         agent,
-        env_name=args.env,
+        eval_env,
         env_type=getattr(args, "env_type", "flat"),
-        device=device,
         seed=args.seed + 10_000,
         episodes=getattr(args, "eval_episodes", 1),
         render=bool(getattr(args, "render", False)),
@@ -758,22 +792,7 @@ def _maybe_run_evaluation(
         f"{success_part} | episodes={int(eval_metrics['eval/episodes'])}",
         flush=True,
     )
-    return next_eval_step + eval_freq
-
-
-def _final_eval_already_ran_at(next_eval_step: int | None, eval_freq: int, step: int) -> bool:
-    """True iff the in-loop periodic eval already ran at exactly `step`.
-
-    `_maybe_run_evaluation` advances `next_eval_step` by exactly `eval_freq`
-    when it fires, and leaves it unchanged otherwise -- so "an eval just ran
-    at this exact step" is `next_eval_step == step + eval_freq`, and nothing
-    else. (`step < next_eval_step` is NOT a safe proxy for this: it's true
-    immediately after *any* eval fires, by construction, so using it as an
-    alternate "already ran" check here previously produced a duplicate eval
-    + duplicate `[eval]` log line whenever `total_steps` was an exact
-    multiple of `eval_freq`.)
-    """
-    return next_eval_step is not None and next_eval_step - eval_freq == step
+    return next_eval_step + eval_freq, eval_env, step
 
 
 def _maybe_start_visualizer(agent, args, device: str):
@@ -1319,59 +1338,82 @@ def _run_on_policy(
     step = start_step
     next_eval_step = _next_eval_step(start_step, int(getattr(args, "eval_freq", 0)))
     encoder_names = list(agent.model.encoders.keys())
+    # Built lazily by _maybe_run_evaluation on first actual eval, reused for
+    # every eval cycle in this run, closed once at the end -- rebuilding an
+    # isaaclab/mjlab env every eval cycle is both wasteful and produces a
+    # wall of repeated construction-banner logging.
+    eval_env = None
+    last_eval_step = None
 
-    while step < args.steps:
-        remaining_steps = max(args.steps - step, 0)
-        rollout_steps = min(
-            n_steps,
-            max(1, math.ceil(remaining_steps / max(getattr(agent.cfg, "num_envs", 1), 1))),
-        )
-        for _ in range(rollout_steps):
-            obs_remapped = _remap_obs_to_encoders(
+    try:
+        while step < args.steps:
+            remaining_steps = max(args.steps - step, 0)
+            rollout_steps = min(
+                n_steps,
+                max(1, math.ceil(remaining_steps / max(getattr(agent.cfg, "num_envs", 1), 1))),
+            )
+            for _ in range(rollout_steps):
+                obs_remapped = _remap_obs_to_encoders(
+                    obs,
+                    encoder_names,
+                    encoder_input_names=getattr(agent.model, "encoder_input_names", None),
+                )
+                obs_t = _obs_to_tensors(obs_remapped, agent.device, force_batch=False)
+                action, log_prob, value, _ = agent.predict(obs_t)
+                action_np = action.cpu().numpy()
+                next_obs, reward, done, trunc, info = env.step(action_np)
+                logger.update_episodes(reward, done, trunc, step=step, info=info)
+                agent.buffer.add(
+                    obs=obs,
+                    action=action_np,
+                    reward=np.asarray(reward),
+                    done=np.asarray(done),
+                    log_prob=log_prob.cpu().numpy() if log_prob is not None else None,
+                    value=value.cpu().numpy() if value is not None else None,
+                )
+                obs = next_obs
+                step += getattr(agent.cfg, "num_envs", 1)
+
+            obs_remapped_final = _remap_obs_to_encoders(
                 obs,
                 encoder_names,
                 encoder_input_names=getattr(agent.model, "encoder_input_names", None),
             )
-            obs_t = _obs_to_tensors(obs_remapped, agent.device, force_batch=False)
-            action, log_prob, value, _ = agent.predict(obs_t)
-            action_np = action.cpu().numpy()
-            next_obs, reward, done, trunc, info = env.step(action_np)
-            logger.update_episodes(reward, done, trunc, step=step, info=info)
-            agent.buffer.add(
-                obs=obs,
-                action=action_np,
-                reward=np.asarray(reward),
-                done=np.asarray(done),
-                log_prob=log_prob.cpu().numpy() if log_prob is not None else None,
-                value=value.cpu().numpy() if value is not None else None,
+            last_t = _obs_to_tensors(obs_remapped_final, agent.device, force_batch=False)
+            _, _, last_val, _ = agent.predict(last_t)
+            agent.buffer.compute_returns_and_advantages(
+                last_value=last_val.cpu().numpy() if last_val is not None else 0.0
             )
-            obs = next_obs
-            step += getattr(agent.cfg, "num_envs", 1)
+            metrics = agent.update()
+            logger.set_step(step)
+            logger.record_metrics(metrics, step=step, total_steps=args.steps)
+            for cb in callbacks:
+                cb.on_step_end(step, metrics)
+            next_eval_step, eval_env, last_eval_step = _maybe_run_evaluation(
+                agent,
+                args,
+                logger,
+                device=device,
+                step=step,
+                next_eval_step=next_eval_step,
+                eval_env=eval_env,
+                last_eval_step=last_eval_step,
+            )
 
-        obs_remapped_final = _remap_obs_to_encoders(
-            obs,
-            encoder_names,
-            encoder_input_names=getattr(agent.model, "encoder_input_names", None),
-        )
-        last_t = _obs_to_tensors(obs_remapped_final, agent.device, force_batch=False)
-        _, _, last_val, _ = agent.predict(last_t)
-        agent.buffer.compute_returns_and_advantages(
-            last_value=last_val.cpu().numpy() if last_val is not None else 0.0
-        )
-        metrics = agent.update()
-        logger.set_step(step)
-        logger.record_metrics(metrics, step=step, total_steps=args.steps)
-        for cb in callbacks:
-            cb.on_step_end(step, metrics)
-        next_eval_step = _maybe_run_evaluation(
-            agent, args, logger, device=device, step=step, next_eval_step=next_eval_step
-        )
-
-    eval_freq = int(getattr(args, "eval_freq", 0))
-    if next_eval_step is not None and not _final_eval_already_ran_at(
-        next_eval_step, eval_freq, step
-    ):
-        _maybe_run_evaluation(agent, args, logger, device=device, step=step, next_eval_step=step)
+        if next_eval_step is not None and last_eval_step != step:
+            _, eval_env, last_eval_step = _maybe_run_evaluation(
+                agent,
+                args,
+                logger,
+                device=device,
+                step=step,
+                next_eval_step=step,
+                eval_env=eval_env,
+                last_eval_step=last_eval_step,
+            )
+    finally:
+        if eval_env is not None:
+            eval_env.close()
 
 
 def _warn_if_no_updates_will_run(agent, args, start_step: int) -> None:
@@ -1495,150 +1537,176 @@ def _run_off_policy(
     env_step = start_step
     since_last_update = 0
     next_eval_step = _next_eval_step(start_step, int(getattr(args, "eval_freq", 0)))
+    # Built lazily by _maybe_run_evaluation on first actual eval, reused for
+    # every eval cycle in this run, closed once at the end -- rebuilding an
+    # isaaclab/mjlab env every eval cycle is both wasteful and produces a
+    # wall of repeated construction-banner logging.
+    eval_env = None
+    last_eval_step = None
 
-    while env_step < args.steps:
-        remaining_steps = max(args.steps - env_step, 0)
-        active_envs = min(step_increment, remaining_steps) if vectorized_env else 1
-        obs_remapped = _remap_obs_to_encoders(
-            obs,
-            encoder_names,
-            encoder_input_names=getattr(agent.model, "encoder_input_names", None),
-        )
-        obs_t = _obs_to_tensors(obs_remapped, agent.device, force_batch=not vectorized_env)
-        if env_step < random_steps:
-            if vectorized_env:
-                # `env.act_space` on isaaclab/mjlab envs is already the
-                # BATCHED (num_envs, action_dim) space -- use
-                # `single_act_space` (one env's space) per sample, else
-                # stacking N samples of the already-batched space produces
-                # an (N, num_envs, action_dim) array instead of
-                # (num_envs, action_dim).
-                per_env_space = getattr(env, "single_act_space", env.act_space)
-                action_np = np.stack(
-                    [
-                        _sample_action_space(per_env_space)
-                        for _ in range(getattr(env, "num_envs", 1))
-                    ],
-                    axis=0,
-                )
-            else:
-                action_np = _sample_action_space(env.act_space)
-        else:
-            action, _, _, _ = agent.predict(obs_t)
-            action_np = action.cpu().numpy()
-            if not vectorized_env and action_np.ndim > 1 and action_np.shape[0] == 1:
-                action_np = action_np.squeeze(0)
-
-        next_obs, reward, done, trunc, info = env.step(action_np)
-        env_step += active_envs
-        since_last_update += active_envs
-        log_reward = reward
-        log_done = done
-        log_trunc = trunc
-        log_info = info
-        if vectorized_env and active_envs < step_increment:
-            log_reward = np.asarray(reward)[:active_envs]
-            log_done = np.asarray(done)[:active_envs]
-            log_trunc = np.asarray(trunc)[:active_envs]
-            log_info = list(info)[:active_envs]
-        logger.update_episodes(log_reward, log_done, log_trunc, step=env_step, info=log_info)
-        if vectorized_env:
-            transitions = _split_vector_transition(
+    try:
+        while env_step < args.steps:
+            remaining_steps = max(args.steps - env_step, 0)
+            active_envs = min(step_increment, remaining_steps) if vectorized_env else 1
+            obs_remapped = _remap_obs_to_encoders(
                 obs,
-                next_obs,
-                action_np,
-                reward,
-                done,
-                trunc,
-            )[:active_envs]
-            for env_index, (obs_i, next_obs_i, action_i, reward_i, done_i, trunc_i) in enumerate(
-                transitions
-            ):
+                encoder_names,
+                encoder_input_names=getattr(agent.model, "encoder_input_names", None),
+            )
+            obs_t = _obs_to_tensors(obs_remapped, agent.device, force_batch=not vectorized_env)
+            if env_step < random_steps:
+                if vectorized_env:
+                    # `env.act_space` on isaaclab/mjlab envs is already the
+                    # BATCHED (num_envs, action_dim) space -- use
+                    # `single_act_space` (one env's space) per sample, else
+                    # stacking N samples of the already-batched space produces
+                    # an (N, num_envs, action_dim) array instead of
+                    # (num_envs, action_dim).
+                    per_env_space = getattr(env, "single_act_space", env.act_space)
+                    action_np = np.stack(
+                        [
+                            _sample_action_space(per_env_space)
+                            for _ in range(getattr(env, "num_envs", 1))
+                        ],
+                        axis=0,
+                    )
+                else:
+                    action_np = _sample_action_space(env.act_space)
+            else:
+                action, _, _, _ = agent.predict(obs_t)
+                action_np = action.cpu().numpy()
+                if not vectorized_env and action_np.ndim > 1 and action_np.shape[0] == 1:
+                    action_np = action_np.squeeze(0)
+
+            next_obs, reward, done, trunc, info = env.step(action_np)
+            env_step += active_envs
+            since_last_update += active_envs
+            log_reward = reward
+            log_done = done
+            log_trunc = trunc
+            log_info = info
+            if vectorized_env and active_envs < step_increment:
+                log_reward = np.asarray(reward)[:active_envs]
+                log_done = np.asarray(done)[:active_envs]
+                log_trunc = np.asarray(trunc)[:active_envs]
+                log_info = list(info)[:active_envs]
+            logger.update_episodes(log_reward, log_done, log_trunc, step=env_step, info=log_info)
+            if vectorized_env:
+                transitions = _split_vector_transition(
+                    obs,
+                    next_obs,
+                    action_np,
+                    reward,
+                    done,
+                    trunc,
+                )[:active_envs]
+                for env_index, (
+                    obs_i,
+                    next_obs_i,
+                    action_i,
+                    reward_i,
+                    done_i,
+                    trunc_i,
+                ) in enumerate(transitions):
+                    agent.buffer.add(
+                        obs=obs_i,
+                        action=action_i,
+                        reward=np.array([reward_i], dtype=np.float32),
+                        done=np.array([done_i], dtype=bool),
+                        truncated=np.array([trunc_i], dtype=bool),
+                        next_obs=next_obs_i,
+                        env_idx=env_index,
+                    )
+            elif her_buffer is not None:
+                next_goal_obs = info.get("goal_obs")
+                if next_goal_obs is None:
+                    raise RuntimeError(
+                        "HER is enabled but the environment did not provide "
+                        "info['goal_obs']; expected a GoalEnvWrapper-wrapped env."
+                    )
+                cur_obs_vec, cur_ag, cur_dg = _her_goal_obs_parts(goal_obs)
+                next_obs_vec, next_ag, _ = _her_goal_obs_parts(next_goal_obs)
+                her_buffer.add_transition(
+                    obs=cur_obs_vec,
+                    achieved_goal=cur_ag,
+                    desired_goal=cur_dg,
+                    action=np.asarray(action_np, dtype=np.float32).ravel(),
+                    next_obs=next_obs_vec,
+                    next_achieved_goal=next_ag,
+                    # Real termination only; `truncated` closes the episode
+                    # without fabricating a terminal state (Fetch tasks end by
+                    # time limit, so `done` alone would never flush an episode).
+                    done=bool(done),
+                    truncated=bool(trunc),
+                )
+                goal_obs = next_goal_obs
+            else:
                 agent.buffer.add(
-                    obs=obs_i,
-                    action=action_i,
-                    reward=np.array([reward_i], dtype=np.float32),
-                    done=np.array([done_i], dtype=bool),
-                    truncated=np.array([trunc_i], dtype=bool),
-                    next_obs=next_obs_i,
-                    env_idx=env_index,
+                    obs=obs,
+                    action=action_np,
+                    reward=np.array([reward], dtype=np.float32),
+                    done=np.array([done], dtype=bool),
+                    truncated=np.array([trunc], dtype=bool),
+                    next_obs=next_obs,
                 )
-        elif her_buffer is not None:
-            next_goal_obs = info.get("goal_obs")
-            if next_goal_obs is None:
-                raise RuntimeError(
-                    "HER is enabled but the environment did not provide "
-                    "info['goal_obs']; expected a GoalEnvWrapper-wrapped env."
-                )
-            cur_obs_vec, cur_ag, cur_dg = _her_goal_obs_parts(goal_obs)
-            next_obs_vec, next_ag, _ = _her_goal_obs_parts(next_goal_obs)
-            her_buffer.add_transition(
-                obs=cur_obs_vec,
-                achieved_goal=cur_ag,
-                desired_goal=cur_dg,
-                action=np.asarray(action_np, dtype=np.float32).ravel(),
-                next_obs=next_obs_vec,
-                next_achieved_goal=next_ag,
-                # Real termination only; `truncated` closes the episode
-                # without fabricating a terminal state (Fetch tasks end by
-                # time limit, so `done` alone would never flush an episode).
-                done=bool(done),
-                truncated=bool(trunc),
-            )
-            goal_obs = next_goal_obs
-        else:
-            agent.buffer.add(
-                obs=obs,
-                action=action_np,
-                reward=np.array([reward], dtype=np.float32),
-                done=np.array([done], dtype=bool),
-                truncated=np.array([trunc], dtype=bool),
-                next_obs=next_obs,
-            )
-        obs = next_obs
-        if not vectorized_env and (done or trunc):
-            obs, reset_info = env.reset()
-            if her_buffer is not None:
-                goal_obs = reset_info.get("goal_obs")
-
-        gradient_steps = max(int(getattr(agent.cfg, "gradient_steps", 1)), 1)
-        if env_step >= update_after and since_last_update >= update_every:
-            update_span = since_last_update
-            metrics_list = []
-            for _ in range(gradient_steps):
-                metrics = agent.update()
-                if metrics:
-                    metrics_list.append(metrics)
-            since_last_update = 0
-            if metrics_list:
-                sums: dict[str, float] = {}
-                counts: dict[str, int] = {}
-                for metric in metrics_list:
-                    for key, value in metric.items():
-                        sums[key] = sums.get(key, 0.0) + float(value)
-                        counts[key] = counts.get(key, 0) + 1
-                merged = {key: sums[key] / counts[key] for key in sums}
-                merged["train/utd_ratio"] = gradient_steps / max(update_span, 1)
+            obs = next_obs
+            if not vectorized_env and (done or trunc):
+                obs, reset_info = env.reset()
                 if her_buffer is not None:
-                    # Makes it observable that HER is actually accumulating
-                    # episodes rather than merely being constructed.
-                    merged["her/episodes"] = float(len(her_buffer))
-                    merged["her/transitions"] = float(her_buffer.num_transitions)
-                logger.set_step(env_step)
-                logger.record_metrics(merged, step=env_step, total_steps=args.steps)
-                for cb in callbacks:
-                    cb.on_step_end(env_step, merged)
-        next_eval_step = _maybe_run_evaluation(
-            agent, args, logger, device=device, step=env_step, next_eval_step=next_eval_step
-        )
+                    goal_obs = reset_info.get("goal_obs")
 
-    eval_freq = int(getattr(args, "eval_freq", 0))
-    if next_eval_step is not None and not _final_eval_already_ran_at(
-        next_eval_step, eval_freq, env_step
-    ):
-        _maybe_run_evaluation(
-            agent, args, logger, device=device, step=env_step, next_eval_step=env_step
-        )
+            gradient_steps = max(int(getattr(agent.cfg, "gradient_steps", 1)), 1)
+            if env_step >= update_after and since_last_update >= update_every:
+                update_span = since_last_update
+                metrics_list = []
+                for _ in range(gradient_steps):
+                    metrics = agent.update()
+                    if metrics:
+                        metrics_list.append(metrics)
+                since_last_update = 0
+                if metrics_list:
+                    sums: dict[str, float] = {}
+                    counts: dict[str, int] = {}
+                    for metric in metrics_list:
+                        for key, value in metric.items():
+                            sums[key] = sums.get(key, 0.0) + float(value)
+                            counts[key] = counts.get(key, 0) + 1
+                    merged = {key: sums[key] / counts[key] for key in sums}
+                    merged["train/utd_ratio"] = gradient_steps / max(update_span, 1)
+                    if her_buffer is not None:
+                        # Makes it observable that HER is actually accumulating
+                        # episodes rather than merely being constructed.
+                        merged["her/episodes"] = float(len(her_buffer))
+                        merged["her/transitions"] = float(her_buffer.num_transitions)
+                    logger.set_step(env_step)
+                    logger.record_metrics(merged, step=env_step, total_steps=args.steps)
+                    for cb in callbacks:
+                        cb.on_step_end(env_step, merged)
+            next_eval_step, eval_env, last_eval_step = _maybe_run_evaluation(
+                agent,
+                args,
+                logger,
+                device=device,
+                step=env_step,
+                next_eval_step=next_eval_step,
+                eval_env=eval_env,
+                last_eval_step=last_eval_step,
+            )
+
+        if next_eval_step is not None and last_eval_step != env_step:
+            _, eval_env, last_eval_step = _maybe_run_evaluation(
+                agent,
+                args,
+                logger,
+                device=device,
+                step=env_step,
+                next_eval_step=env_step,
+                eval_env=eval_env,
+                last_eval_step=last_eval_step,
+            )
+    finally:
+        if eval_env is not None:
+            eval_env.close()
 
 
 if __name__ == "__main__":

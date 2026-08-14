@@ -230,6 +230,62 @@ def test_srl_train_main_runs_full_loop_on_fake_mjlab_env(
     assert any(checkpoint_dir.rglob("*.pt")), "expected at least one checkpoint to be written"
 
 
+@pytest.mark.parametrize(
+    "config_dict, config_name", [(PPO_CONFIG, "ppo.yaml"), (SAC_CONFIG, "sac.yaml")]
+)
+def test_eval_env_is_built_once_and_reused_across_multiple_eval_cycles(
+    monkeypatch, tmp_path, config_dict, config_name
+) -> None:
+    """Regression test: the eval env must be built once per run and reused,
+    not rebuilt every eval cycle. Confirmed on a real mjlab task that
+    rebuilding it every cycle produced a wall of repeated construction-
+    banner logging (Warp module loads, `Setting seed`, manager tables) that
+    reads exactly like the environment "repeatedly reinitializing"."""
+    call_count = 0
+    real_fake_make_cli_env = _fake_make_cli_env
+
+    def _counting_fake_make_cli_env(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return real_fake_make_cli_env(*args, **kwargs)
+
+    monkeypatch.setattr(train_module, "_make_cli_env", _counting_fake_make_cli_env)
+
+    config_path = _write_config(tmp_path, config_name, config_dict)
+    total_steps = config_dict["train"]["total_steps"]
+    # Small enough eval_freq that periodic eval fires several times within
+    # total_steps (not just once, and not just the final-step eval).
+    eval_freq = max(total_steps // 4, 1)
+
+    exit_code = train_module.main(
+        [
+            "--config",
+            config_path,
+            "--logdir",
+            str(tmp_path / "runs"),
+            "--ckptdir",
+            str(tmp_path / "checkpoints"),
+            "--eval-freq",
+            str(eval_freq),
+            "--eval-episodes",
+            "1",
+            "--no-plots",
+            "--seed",
+            "0",
+        ]
+    )
+
+    assert exit_code == 0
+    # One call to build the training env, at most one more to build the eval
+    # env (lazily, on the first eval cycle that actually fires) -- never one
+    # per eval cycle.
+    assert call_count <= 2, (
+        f"_make_cli_env was called {call_count} times; expected at most 2 "
+        "(training env once, eval env once) -- the eval env must be reused "
+        "across eval cycles, not rebuilt every time"
+    )
+
+
 def test_resolve_env_action_dim_uses_single_env_space_not_batched() -> None:
     """Regression test: action_dim must be the per-env dimensionality, not
     num_envs * action_dim. Confirmed via a real mjlab run that the old code
