@@ -125,6 +125,7 @@ Table of Contents
    source/environments/robotics
    source/environments/racecar
    source/environments/isaaclab
+   source/environments/mjlab
    source/environments/m3bot
 
 .. toctree::

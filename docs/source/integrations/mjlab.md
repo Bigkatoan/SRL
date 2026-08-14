@@ -13,6 +13,7 @@ pip install git+https://github.com/Bigkatoan/SRL.git
 
 No app bootstrap, no `OMNI_KIT_ACCEPT_EULA`, no separate runtime interpreter -- mjlab is a normal Python package.
 
+(mjlab-task-registration)=
 ## Task registration
 
 mjlab resolves tasks by string id through its own registry (`mjlab.tasks.registry`), populated by auto-importing every package registered under the `mjlab.tasks` entry-point group -- the same mechanism `import mjlab` itself runs at import time. Any project that registers its own tasks this way in its `pyproject.toml`:
@@ -24,6 +25,7 @@ your_pkg = "your_pkg.tasks"
 
 is automatically discoverable here with no extra wiring, as long as it's installed in the same environment as `mjlab`/`srl-rl`.
 
+(mjlab-usage)=
 ## Usage
 
 `--env mjlab:<task>` (or `env_type: mjlab` in the YAML, which prefixes the id automatically -- see `_normalize_env_name` in `srl/cli/train.py`):
@@ -109,6 +111,7 @@ render context, so `--visualize` is not supported there. See
 {ref}`the CLI reference <live-viewer-visualize>` for the full behavior,
 including the other env types' `--visualize` backends.
 
+(mjlab-javis-example)=
 ## Real-world example: JAVIS
 
 [JAVIS](https://github.com/Bigkatoan/JAVIS) is a 2-wheel differential-drive rover
@@ -116,6 +119,31 @@ including the other env types' `--visualize` backends.
 Intel RealSense D435 camera, an IMU, and ODrive wheel motor controllers) that trains
 through this exact backend. It's a good reference for wiring your own robot's mjlab
 task into SRL end to end.
+
+### Environment setup
+
+Training runs on an x86_64 + CUDA workstation, not the Jetson the robot itself uses.
+JAVIS's own `requirements-sim.txt` pins the exact versions this page was verified
+against (mjlab 1.5.3 / mujoco 3.10.0 / torch 2.13.0+cu130 on an RTX 3090):
+
+```bash
+git clone https://github.com/Bigkatoan/JAVIS.git
+cd JAVIS
+
+uv venv --python 3.11 .venv
+uv pip install --python .venv/bin/python -r requirements-sim.txt
+uv pip install --python .venv/bin/python -e . --no-deps   # registers the javis package + its mjlab task
+
+# pulls srl-rl from GitHub, not PyPI -- see pyproject.toml's `srl` extra
+uv pip install --python .venv/bin/python -e ".[srl]"
+```
+
+Equivalently `pip install -e '.[sim,srl]'` for unpinned versions instead of the two
+`uv pip install --python ... -r/-e` steps above. The editable install
+(`-e . --no-deps`) is what makes `javis` a real, importable package and, via the
+`mjlab.tasks` entry point below, what makes mjlab auto-discover
+`javis/tasks.py` and register `Javis-Payload-Rough` every time `mjlab` is imported --
+run it once after cloning, or whenever `pyproject.toml` changes.
 
 Task registration follows the pattern above directly -- JAVIS's `pyproject.toml`:
 
