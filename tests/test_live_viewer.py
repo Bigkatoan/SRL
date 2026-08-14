@@ -37,6 +37,16 @@ def test_visualize_flag_defaults_false_and_parses() -> None:
     assert args.visualize is True
 
 
+def test_visualize_backend_defaults_viser_and_parses_native() -> None:
+    args = _build_parser().parse_args(["--config", "cfg.yaml"])
+    assert args.visualize_backend == "viser"
+
+    args = _build_parser().parse_args(
+        ["--config", "cfg.yaml", "--visualize", "--visualize-backend", "native"]
+    )
+    assert args.visualize_backend == "native"
+
+
 class _FakeAgent:
     def __init__(self) -> None:
         self.device = torch.device("cpu")
@@ -76,6 +86,36 @@ def test_start_mjlab_visualizer_unknown_task_fails_gracefully_and_returns_none()
         remap_obs_fn=lambda obs: obs,
     )
     assert handle is None
+
+
+def test_start_mjlab_visualizer_native_backend_unknown_task_fails_gracefully() -> None:
+    """Same graceful-failure contract as the default viser backend --
+    backend="native" must not change how construction failures are handled,
+    only which viewer class gets constructed once the env exists."""
+    agent = _FakeAgent()
+    handle = start_mjlab_visualizer(
+        agent,
+        "Definitely-Not-A-Real-Mjlab-Task-xyz",
+        "cpu",
+        remap_obs_fn=lambda obs: obs,
+        backend="native",
+    )
+    assert handle is None
+
+
+def test_maybe_start_visualizer_passes_visualize_backend_through(monkeypatch) -> None:
+    captured = {}
+
+    def _fake_start_mjlab_visualizer(*args, **kwargs):
+        captured.update(kwargs)
+        return None
+
+    monkeypatch.setattr(live_viewer_module, "start_mjlab_visualizer", _fake_start_mjlab_visualizer)
+
+    args = _FakeArgs(visualize_backend="native")
+    train_module._maybe_start_visualizer(_FakeAgentWithModel(), args, "cuda")
+
+    assert captured["backend"] == "native"
 
 
 def test_start_gym_visualizer_env_construction_failure_returns_none() -> None:

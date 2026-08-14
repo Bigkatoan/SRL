@@ -222,6 +222,19 @@ Examples
             "open a render window. Not supported for isaaclab."
         ),
     )
+    p.add_argument(
+        "--visualize-backend",
+        choices=["viser", "native"],
+        default="viser",
+        help=(
+            "mjlab only: which of mjlab's own viewer classes '--visualize' uses. "
+            "'viser' (default) is browser-based and works headless/remote -- the "
+            "console prints a URL to open. 'native' opens a real desktop GLFW "
+            "window on the training machine (needs a display reachable from this "
+            "process). Ignored for flat/goal/racecar envs, which always open a "
+            "render window."
+        ),
+    )
     return p
 
 
@@ -829,7 +842,13 @@ def _maybe_start_visualizer(agent, args, device: str):
 
     if args.env_type == "mjlab" or args.env.startswith("mjlab:"):
         task_name = args.env.split(":", 1)[1]
-        handle = start_mjlab_visualizer(agent, task_name, device, remap_obs_fn=_remap)
+        handle = start_mjlab_visualizer(
+            agent,
+            task_name,
+            device,
+            remap_obs_fn=_remap,
+            backend=getattr(args, "visualize_backend", "viser"),
+        )
         if handle is not None and int(getattr(args, "eval_freq", 0)) > 0:
             # mjlab's env construction does a one-time CUDA graph capture
             # (mujoco_warp's Simulation.create_graph()). The visualizer
