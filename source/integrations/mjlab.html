@@ -611,16 +611,19 @@ against (mjlab 1.5.3 / mujoco 3.10.0 / torch 2.13.0+cu130 on an RTX 3090):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/Bigkatoan/JAVIS.git
 <span class="nb">cd</span><span class="w"> </span>JAVIS
 
-uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.11<span class="w"> </span>.venv
-uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--python<span class="w"> </span>.venv/bin/python<span class="w"> </span>-r<span class="w"> </span>requirements-sim.txt
-uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--python<span class="w"> </span>.venv/bin/python<span class="w"> </span>-e<span class="w"> </span>.<span class="w"> </span>--no-deps<span class="w">   </span><span class="c1"># registers the javis package + its mjlab task</span>
+python3.11<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv
+.venv/bin/pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements-sim.txt
+.venv/bin/pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.<span class="w"> </span>--no-deps<span class="w">   </span><span class="c1"># registers the javis package + its mjlab task</span>
 
 <span class="c1"># pulls srl-rl from GitHub, not PyPI -- see pyproject.toml&#39;s `srl` extra</span>
-uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--python<span class="w"> </span>.venv/bin/python<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[srl]&quot;</span>
+.venv/bin/pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[srl]&quot;</span>
 </pre></div>
 </div>
+<p>(No <code class="docutils literal notranslate"><span class="pre">python3.11</span></code> on <code class="docutils literal notranslate"><span class="pre">PATH</span></code>? <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">-m</span> <span class="pre">venv</span> <span class="pre">.venv</span></code> works too, as long as
+that’s Python 3.10 or 3.11 – <code class="docutils literal notranslate"><span class="pre">requirements-sim.txt</span></code> was frozen against 3.11
+specifically.)</p>
 <p>Equivalently <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">-e</span> <span class="pre">'.[sim,srl]'</span></code> for unpinned versions instead of the two
-<code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">pip</span> <span class="pre">install</span> <span class="pre">--python</span> <span class="pre">...</span> <span class="pre">-r/-e</span></code> steps above. The editable install
+<code class="docutils literal notranslate"><span class="pre">.venv/bin/pip</span> <span class="pre">install</span> <span class="pre">-r/-e</span></code> steps above. The editable install
 (<code class="docutils literal notranslate"><span class="pre">-e</span> <span class="pre">.</span> <span class="pre">--no-deps</span></code>) is what makes <code class="docutils literal notranslate"><span class="pre">javis</span></code> a real, importable package and, via the
 <code class="docutils literal notranslate"><span class="pre">mjlab.tasks</span></code> entry point below, what makes mjlab auto-discover
 <code class="docutils literal notranslate"><span class="pre">javis/tasks.py</span></code> and register <code class="docutils literal notranslate"><span class="pre">Javis-Payload-Rough</span></code> every time <code class="docutils literal notranslate"><span class="pre">mjlab</span></code> is imported –
