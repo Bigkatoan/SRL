@@ -268,6 +268,27 @@ def _normalize_env_name(env_name: str, env_type: str) -> str:
     return f"{prefix}{env_name}"
 
 
+def _resolve_env_action_dim(env) -> int:
+    """The per-env action dimensionality, fed to SAC/DDPG/TD3's config.
+
+    `env.act_space` is the BATCHED action space on isaaclab/mjlab envs
+    (shape (num_envs, action_dim), matching gymnasium's VectorEnv
+    convention) -- see IsaacLabWrapper's own docstring, which is exactly why
+    it also exposes `single_act_space` (falling back to `act_space` itself
+    for envs that don't distinguish the two, e.g. plain Gymnasium). Using
+    `act_space` directly here computed a wildly wrong `action_dim` on every
+    mjlab/isaaclab off-policy run (e.g. 128 instead of 2 at num_envs=64) --
+    confirmed by a real run collapsing SAC's target_entropy to -128 and
+    alpha to ~0 within a few thousand steps. DDPG/TD3 read the same
+    `action_dim` to size their exploration-noise generators, so they were
+    equally affected (wrong-shaped noise, not just SAC's entropy target).
+    """
+    import numpy as np
+
+    single_act_space = getattr(env, "single_act_space", None) or env.act_space
+    return int(np.prod(getattr(single_act_space, "shape", ()) or (1,)))
+
+
 def _resolve_env_spec(cli_env: str | None, raw_cfg: dict) -> tuple[str, str]:
     env_type = _resolve_env_type(raw_cfg)
     env_name = _resolve_env_name(cli_env, raw_cfg)
@@ -1037,7 +1058,7 @@ def main(argv: list[str] | None = None) -> int:
 
     import copy
 
-    action_dim = int(np.prod(getattr(env.act_space, "shape", ()) or (1,)))
+    action_dim = _resolve_env_action_dim(env)
 
     start_step = 0
     visualizer_handle = None
