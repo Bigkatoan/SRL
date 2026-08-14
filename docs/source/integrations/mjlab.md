@@ -130,16 +130,20 @@ against (mjlab 1.5.3 / mujoco 3.10.0 / torch 2.13.0+cu130 on an RTX 3090):
 git clone https://github.com/Bigkatoan/JAVIS.git
 cd JAVIS
 
-uv venv --python 3.11 .venv
-uv pip install --python .venv/bin/python -r requirements-sim.txt
-uv pip install --python .venv/bin/python -e . --no-deps   # registers the javis package + its mjlab task
+python3.11 -m venv .venv
+.venv/bin/pip install -r requirements-sim.txt
+.venv/bin/pip install -e . --no-deps   # registers the javis package + its mjlab task
 
 # pulls srl-rl from GitHub, not PyPI -- see pyproject.toml's `srl` extra
-uv pip install --python .venv/bin/python -e ".[srl]"
+.venv/bin/pip install -e ".[srl]"
 ```
 
+(No `python3.11` on `PATH`? `python3 -m venv .venv` works too, as long as
+that's Python 3.10 or 3.11 -- `requirements-sim.txt` was frozen against 3.11
+specifically.)
+
 Equivalently `pip install -e '.[sim,srl]'` for unpinned versions instead of the two
-`uv pip install --python ... -r/-e` steps above. The editable install
+`.venv/bin/pip install -r/-e` steps above. The editable install
 (`-e . --no-deps`) is what makes `javis` a real, importable package and, via the
 `mjlab.tasks` entry point below, what makes mjlab auto-discover
 `javis/tasks.py` and register `Javis-Payload-Rough` every time `mjlab` is imported --
