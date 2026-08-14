@@ -138,9 +138,21 @@ python3.11 -m venv .venv
 .venv/bin/pip install -e ".[srl]"
 ```
 
-(No `python3.11` on `PATH`? `python3 -m venv .venv` works too, as long as
-that's Python 3.10 or 3.11 -- `requirements-sim.txt` was frozen against 3.11
-specifically.)
+`python3.11 -m venv .venv` failing with an `ensurepip` error (`Command
+'[...python3.11", "-m", "ensurepip"...]' returned non-zero exit status 1`)?
+Debian/Ubuntu's `python3.11` package ships without `ensurepip` built in --
+install the missing piece with `sudo apt install python3.11-venv` and re-run
+the `venv` command above.
+
+No `python3.11` on `PATH` at all, or no `apt`/root access to fix the above?
+`python3 -m venv .venv` works too, as long as that `python3` is Python 3.10
+or 3.11 -- but `requirements-sim.txt`'s exact pins don't all ship Python
+3.10 wheels (e.g. `contourpy==1.3.3`), so on a 3.10 interpreter use
+`pip install -e '.[sim,srl]'` for unpinned versions instead of
+`-r requirements-sim.txt`. Last resort with no `apt` access and no other
+Python 3.11 available: `pip install --user virtualenv && python3.11 -m
+virtualenv .venv` creates the same `.venv/bin/` layout every command above
+assumes, without needing `ensurepip`.
 
 Equivalently `pip install -e '.[sim,srl]'` for unpinned versions instead of the two
 `.venv/bin/pip install -r/-e` steps above. The editable install
