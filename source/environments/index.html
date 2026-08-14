@@ -238,6 +238,7 @@
 <li class="toctree-l1"><a class="reference internal" href="robotics.html">Gymnasium-Robotics Environments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="racecar.html">racecar_gym Environments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="isaaclab.html">Isaac Lab Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mjlab.html">mjlab Environments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="m3bot.html">M3bot Environment</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">API Reference</span></p>
@@ -487,8 +488,11 @@
                   
   <section id="supported-environments">
 <h1>Supported Environments<a class="headerlink" href="#supported-environments" title="Link to this heading">#</a></h1>
-<p>SRL supports all <strong>continuous action space</strong> environments across four suites.</p>
-<p>If you are working with a separate Isaac Lab task repository such as <code class="docutils literal notranslate"><span class="pre">M3bot</span></code>, see the dedicated <a class="reference internal" href="m3bot.html"><span class="std std-doc">M3bot</span></a> page for the verified machine-specific setup and runtime notes.</p>
+<p>SRL supports all <strong>continuous action space</strong> environments across five suites:
+Gymnasium (classic control, Box2D, MuJoCo, robotics), racecar_gym, Isaac Lab,
+<a class="reference internal" href="mjlab.html"><span class="std std-doc">mjlab</span></a>, and any separate task repository (such as <code class="docutils literal notranslate"><span class="pre">M3bot</span></code>) built on top
+of Isaac Lab or mjlab.</p>
+<p>If you are working with a separate Isaac Lab task repository such as <code class="docutils literal notranslate"><span class="pre">M3bot</span></code>, see the dedicated <a class="reference internal" href="m3bot.html"><span class="std std-doc">M3bot</span></a> page for the verified machine-specific setup and runtime notes. If you are working with a project that registers its own <a class="reference internal" href="mjlab.html"><span class="std std-doc">mjlab</span></a> task (JAVIS is a real-world example), see that page instead.</p>
 <hr class="docutils" />
 <section id="summary-table">
 <h2>Summary table<a class="headerlink" href="#summary-table" title="Link to this heading">#</a></h2>
@@ -685,12 +689,23 @@
 <td><p>5</p></td>
 <td><p>not yet locally verified</p></td>
 </tr>
+<tr class="row-even"><td><p>Javis-Payload-Rough</p></td>
+<td><p><a class="reference internal" href="mjlab.html"><span class="std std-doc">mjlab</span></a> / <a class="reference external" href="https://github.com/Bigkatoan/JAVIS">JAVIS</a></p></td>
+<td><p>PPO / SAC</p></td>
+<td><p>384</p></td>
+<td><p>2</p></td>
+<td><p>real-robot task, actively trained</p></td>
+</tr>
 </tbody>
 </table>
 </div>
 <p>* Flat concatenation: <code class="docutils literal notranslate"><span class="pre">[observation</span> <span class="pre">|</span> <span class="pre">achieved_goal</span> <span class="pre">|</span> <span class="pre">desired_goal]</span></code><br />
 ** Exact flattened obs dimension may vary by racecar_gym build/config.
-*** Isaac Lab envs run thousands of parallel envs on GPU.</p>
+*** Isaac Lab and mjlab envs run thousands of parallel envs on GPU.</p>
+<p><code class="docutils literal notranslate"><span class="pre">Javis-Payload-Rough</span></code> is not a built-in SRL environment – SRL ships no example
+mjlab task configs of its own, since mjlab tasks are always registered by the
+consuming project (see <a class="reference internal" href="mjlab.html"><span class="std std-doc">mjlab Environments</span></a>). It’s listed here as the
+real-world reference for that suite.</p>
 </section>
 <hr class="docutils" />
 <section id="wrappers">
@@ -717,7 +732,7 @@
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">IsaacLabWrapper</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">srl/envs/isaac_lab_wrapper.py</span></code></p></td>
-<td><p>Isaac Lab GPU envs</p></td>
+<td><p>Isaac Lab and <a class="reference internal" href="mjlab.html"><span class="std std-doc">mjlab</span></a> GPU-batched envs (mjlab reuses this wrapper directly – see that page)</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SyncVectorEnv</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">srl/envs/sync_vector_env.py</span></code></p></td>

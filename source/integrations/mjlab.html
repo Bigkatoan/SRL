@@ -238,6 +238,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../environments/robotics.html">Gymnasium-Robotics Environments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../environments/racecar.html">racecar_gym Environments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../environments/isaaclab.html">Isaac Lab Environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../environments/mjlab.html">mjlab Environments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../environments/m3bot.html">M3bot Environment</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">API Reference</span></p>
@@ -476,7 +477,10 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#task-registration">Task registration</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage">Usage</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#watching-training-live-visualize">Watching training live: <code class="docutils literal notranslate"><span class="pre">--visualize</span></code></a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#real-world-example-javis">Real-world example: JAVIS</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#real-world-example-javis">Real-world example: JAVIS</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#environment-setup">Environment setup</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#why-a-single-encoder-or-explicit-input-name-both-work-now">Why a single encoder or explicit <code class="docutils literal notranslate"><span class="pre">input_name</span></code> both work now</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#troubleshooting">Troubleshooting</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
@@ -504,7 +508,7 @@ pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com
 <p>No app bootstrap, no <code class="docutils literal notranslate"><span class="pre">OMNI_KIT_ACCEPT_EULA</span></code>, no separate runtime interpreter – mjlab is a normal Python package.</p>
 </section>
 <section id="task-registration">
-<h2>Task registration<a class="headerlink" href="#task-registration" title="Link to this heading">#</a></h2>
+<span id="mjlab-task-registration"></span><h2>Task registration<a class="headerlink" href="#task-registration" title="Link to this heading">#</a></h2>
 <p>mjlab resolves tasks by string id through its own registry (<code class="docutils literal notranslate"><span class="pre">mjlab.tasks.registry</span></code>), populated by auto-importing every package registered under the <code class="docutils literal notranslate"><span class="pre">mjlab.tasks</span></code> entry-point group – the same mechanism <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">mjlab</span></code> itself runs at import time. Any project that registers its own tasks this way in its <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>:</p>
 <div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[project.entry-points.</span><span class="s2">&quot;mjlab.tasks&quot;</span><span class="k">]</span>
 <span class="n">your_pkg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;your_pkg.tasks&quot;</span>
@@ -513,7 +517,7 @@ pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com
 <p>is automatically discoverable here with no extra wiring, as long as it’s installed in the same environment as <code class="docutils literal notranslate"><span class="pre">mjlab</span></code>/<code class="docutils literal notranslate"><span class="pre">srl-rl</span></code>.</p>
 </section>
 <section id="usage">
-<h2>Usage<a class="headerlink" href="#usage" title="Link to this heading">#</a></h2>
+<span id="mjlab-usage"></span><h2>Usage<a class="headerlink" href="#usage" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">--env</span> <span class="pre">mjlab:&lt;task&gt;</span></code> (or <code class="docutils literal notranslate"><span class="pre">env_type:</span> <span class="pre">mjlab</span></code> in the YAML, which prefixes the id automatically – see <code class="docutils literal notranslate"><span class="pre">_normalize_env_name</span></code> in <code class="docutils literal notranslate"><span class="pre">srl/cli/train.py</span></code>):</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># configs/envs/mjlab_example_ppo.yaml</span>
 <span class="nt">env_id</span><span class="p">:</span><span class="w">   </span><span class="l l-Scalar l-Scalar-Plain">Your-Task-Id</span>
@@ -593,12 +597,34 @@ render context, so <code class="docutils literal notranslate"><span class="pre">
 including the other env types’ <code class="docutils literal notranslate"><span class="pre">--visualize</span></code> backends.</p>
 </section>
 <section id="real-world-example-javis">
-<h2>Real-world example: JAVIS<a class="headerlink" href="#real-world-example-javis" title="Link to this heading">#</a></h2>
+<span id="mjlab-javis-example"></span><h2>Real-world example: JAVIS<a class="headerlink" href="#real-world-example-javis" title="Link to this heading">#</a></h2>
 <p><a class="reference external" href="https://github.com/Bigkatoan/JAVIS">JAVIS</a> is a 2-wheel differential-drive rover
 (Onshape CAD → URDF → mjlab simulation, targeting a Jetson-based robot with an
 Intel RealSense D435 camera, an IMU, and ODrive wheel motor controllers) that trains
 through this exact backend. It’s a good reference for wiring your own robot’s mjlab
 task into SRL end to end.</p>
+<section id="environment-setup">
+<h3>Environment setup<a class="headerlink" href="#environment-setup" title="Link to this heading">#</a></h3>
+<p>Training runs on an x86_64 + CUDA workstation, not the Jetson the robot itself uses.
+JAVIS’s own <code class="docutils literal notranslate"><span class="pre">requirements-sim.txt</span></code> pins the exact versions this page was verified
+against (mjlab 1.5.3 / mujoco 3.10.0 / torch 2.13.0+cu130 on an RTX 3090):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/Bigkatoan/JAVIS.git
+<span class="nb">cd</span><span class="w"> </span>JAVIS
+
+uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.11<span class="w"> </span>.venv
+uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--python<span class="w"> </span>.venv/bin/python<span class="w"> </span>-r<span class="w"> </span>requirements-sim.txt
+uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--python<span class="w"> </span>.venv/bin/python<span class="w"> </span>-e<span class="w"> </span>.<span class="w"> </span>--no-deps<span class="w">   </span><span class="c1"># registers the javis package + its mjlab task</span>
+
+<span class="c1"># pulls srl-rl from GitHub, not PyPI -- see pyproject.toml&#39;s `srl` extra</span>
+uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--python<span class="w"> </span>.venv/bin/python<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[srl]&quot;</span>
+</pre></div>
+</div>
+<p>Equivalently <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">-e</span> <span class="pre">'.[sim,srl]'</span></code> for unpinned versions instead of the two
+<code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">pip</span> <span class="pre">install</span> <span class="pre">--python</span> <span class="pre">...</span> <span class="pre">-r/-e</span></code> steps above. The editable install
+(<code class="docutils literal notranslate"><span class="pre">-e</span> <span class="pre">.</span> <span class="pre">--no-deps</span></code>) is what makes <code class="docutils literal notranslate"><span class="pre">javis</span></code> a real, importable package and, via the
+<code class="docutils literal notranslate"><span class="pre">mjlab.tasks</span></code> entry point below, what makes mjlab auto-discover
+<code class="docutils literal notranslate"><span class="pre">javis/tasks.py</span></code> and register <code class="docutils literal notranslate"><span class="pre">Javis-Payload-Rough</span></code> every time <code class="docutils literal notranslate"><span class="pre">mjlab</span></code> is imported –
+run it once after cloning, or whenever <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> changes.</p>
 <p>Task registration follows the pattern above directly – JAVIS’s <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>:</p>
 <div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[project.entry-points.</span><span class="s2">&quot;mjlab.tasks&quot;</span><span class="k">]</span>
 <span class="n">javis</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;javis.tasks&quot;</span>
@@ -652,6 +678,7 @@ unchanged – every <code class="docutils literal notranslate"><span class="pre"
 documented here.) A <a class="reference external" href="https://github.com/Bigkatoan/JAVIS/blob/simulation/configs/srl/javis_mjlab_sac.yaml"><code class="docutils literal notranslate"><span class="pre">javis_mjlab_sac.yaml</span></code></a>
 off-policy variant exists alongside it, using the <code class="docutils literal notranslate"><span class="pre">squashed_gaussian</span></code>/<code class="docutils literal notranslate"><span class="pre">twin_q</span></code>
 pairing from <a class="reference internal" href="isaaclab.html#sac-async-gpu-buffer"><span class="std std-ref">the SAC section above</span></a>.</p>
+</section>
 </section>
 <section id="why-a-single-encoder-or-explicit-input-name-both-work-now">
 <h2>Why a single encoder or explicit <code class="docutils literal notranslate"><span class="pre">input_name</span></code> both work now<a class="headerlink" href="#why-a-single-encoder-or-explicit-input-name-both-work-now" title="Link to this heading">#</a></h2>
@@ -748,7 +775,10 @@ pairing from <a class="reference internal" href="isaaclab.html#sac-async-gpu-buf
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#task-registration">Task registration</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage">Usage</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#watching-training-live-visualize">Watching training live: <code class="docutils literal notranslate"><span class="pre">--visualize</span></code></a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#real-world-example-javis">Real-world example: JAVIS</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#real-world-example-javis">Real-world example: JAVIS</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#environment-setup">Environment setup</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#why-a-single-encoder-or-explicit-input-name-both-work-now">Why a single encoder or explicit <code class="docutils literal notranslate"><span class="pre">input_name</span></code> both work now</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#troubleshooting">Troubleshooting</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>

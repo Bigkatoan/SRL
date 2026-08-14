@@ -1,8 +1,11 @@
 # Supported Environments
 
-SRL supports all **continuous action space** environments across four suites.
+SRL supports all **continuous action space** environments across five suites:
+Gymnasium (classic control, Box2D, MuJoCo, robotics), racecar_gym, Isaac Lab,
+[mjlab](mjlab.md), and any separate task repository (such as `M3bot`) built on top
+of Isaac Lab or mjlab.
 
-If you are working with a separate Isaac Lab task repository such as `M3bot`, see the dedicated [M3bot](m3bot.md) page for the verified machine-specific setup and runtime notes.
+If you are working with a separate Isaac Lab task repository such as `M3bot`, see the dedicated [M3bot](m3bot.md) page for the verified machine-specific setup and runtime notes. If you are working with a project that registers its own [mjlab](mjlab.md) task (JAVIS is a real-world example), see that page instead.
 
 ---
 
@@ -36,10 +39,16 @@ If you are working with a separate Isaac Lab task repository such as `M3bot`, se
 | Isaac-M3-Lift-v0 | M3bot / Isaac Lab | PPO | 28 | 5 | not yet locally verified |
 | Isaac-M3-Push-v0 | M3bot / Isaac Lab | PPO | 22 | 4 | not yet locally verified |
 | Isaac-M3-PickPlace-v0 | M3bot / Isaac Lab | PPO | 27 | 5 | not yet locally verified |
+| Javis-Payload-Rough | [mjlab](mjlab.md) / [JAVIS](https://github.com/Bigkatoan/JAVIS) | PPO / SAC | 384 | 2 | real-robot task, actively trained |
 
 \* Flat concatenation: `[observation | achieved_goal | desired_goal]`  
 \** Exact flattened obs dimension may vary by racecar_gym build/config.
-\*** Isaac Lab envs run thousands of parallel envs on GPU.
+\*** Isaac Lab and mjlab envs run thousands of parallel envs on GPU.
+
+`Javis-Payload-Rough` is not a built-in SRL environment -- SRL ships no example
+mjlab task configs of its own, since mjlab tasks are always registered by the
+consuming project (see [mjlab Environments](mjlab.md)). It's listed here as the
+real-world reference for that suite.
 
 ---
 
@@ -50,7 +59,7 @@ If you are working with a separate Isaac Lab task repository such as `M3bot`, se
 | `GymnasiumWrapper` | `srl/envs/gymnasium_wrapper.py` | Any flat Box obs env |
 | `GoalEnvWrapper` | `srl/envs/goal_env_wrapper.py` | GoalEnv (Fetch, AntMaze) |
 | `RacecarWrapper` | `srl/envs/racecar_wrapper.py` | racecar_gym Dict obs/action envs |
-| `IsaacLabWrapper` | `srl/envs/isaac_lab_wrapper.py` | Isaac Lab GPU envs |
+| `IsaacLabWrapper` | `srl/envs/isaac_lab_wrapper.py` | Isaac Lab and [mjlab](mjlab.md) GPU-batched envs (mjlab reuses this wrapper directly -- see that page) |
 | `SyncVectorEnv` | `srl/envs/sync_vector_env.py` | Multiple envs, sequential |
 | `AsyncVectorEnv` | `srl/envs/async_vector_env.py` | Multiple envs, parallel |
 
