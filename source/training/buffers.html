@@ -568,19 +568,19 @@ reach the buffer, so the copy-free path today is a Python-API one.</p>
 
 <span class="n">buf</span> <span class="o">=</span> <span class="n">GPUReplayBuffer</span><span class="p">(</span>
     <span class="n">capacity</span><span class="o">=</span><span class="mi">1_000_000</span><span class="p">,</span>
-    <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">,</span>
+    <span class="n">device</span><span class="o">=</span><span class="s2">"cuda:0"</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="n">buf</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
-    <span class="n">obs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;pixels&quot;</span><span class="p">:</span> <span class="n">obs_tensor</span><span class="p">,</span> <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="n">state_tensor</span><span class="p">},</span>
+    <span class="n">obs</span><span class="o">=</span><span class="p">{</span><span class="s2">"pixels"</span><span class="p">:</span> <span class="n">obs_tensor</span><span class="p">,</span> <span class="s2">"state"</span><span class="p">:</span> <span class="n">state_tensor</span><span class="p">},</span>
     <span class="n">action</span><span class="o">=</span><span class="n">action_tensor</span><span class="p">,</span>
     <span class="n">reward</span><span class="o">=</span><span class="n">reward_tensor</span><span class="p">,</span>
     <span class="n">done</span><span class="o">=</span><span class="n">done_tensor</span><span class="p">,</span>
-    <span class="n">next_obs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;pixels&quot;</span><span class="p">:</span> <span class="n">next_pixels</span><span class="p">,</span> <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="n">next_state</span><span class="p">},</span>
+    <span class="n">next_obs</span><span class="o">=</span><span class="p">{</span><span class="s2">"pixels"</span><span class="p">:</span> <span class="n">next_pixels</span><span class="p">,</span> <span class="s2">"state"</span><span class="p">:</span> <span class="n">next_state</span><span class="p">},</span>
 <span class="p">)</span>
 
 <span class="n">batch</span> <span class="o">=</span> <span class="n">buf</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">256</span><span class="p">)</span>
-<span class="c1"># batch.obs[&quot;pixels&quot;]: (256, C, H, W) on cuda:0</span>
+<span class="c1"># batch.obs["pixels"]: (256, C, H, W) on cuda:0</span>
 <span class="c1"># batch.actions:       (256, action_dim) on cuda:0</span>
 </pre></div>
 </div>
@@ -658,13 +658,13 @@ different goal.</p>
 <h3>Enabling it from YAML<a class="headerlink" href="#enabling-it-from-yaml" title="Link to this heading">#</a></h3>
 <p>Set <code class="docutils literal notranslate"><span class="pre">use_her:</span> <span class="pre">true</span></code> in the <code class="docutils literal notranslate"><span class="pre">train:</span></code> block of a goal-conditioned config
 (<code class="docutils literal notranslate"><span class="pre">env_type:</span> <span class="pre">&quot;goal&quot;</span></code>). It is <strong>off by default</strong> everywhere:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">env_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;goal&quot;</span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">env_type</span><span class="p">:</span><span class="w"> </span><span class="s">"goal"</span>
 
 <span class="nt">train</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">use_her</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 <span class="w">  </span><span class="nt">her_ratio</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.8</span><span class="w">            </span><span class="c1"># fraction of each batch that gets relabelled</span>
-<span class="w">  </span><span class="nt">her_strategy</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;future&quot;</span><span class="w">    </span><span class="c1"># future | final | episode | random</span>
-<span class="w">  </span><span class="nt">her_max_episode_len</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span><span class="w">   </span><span class="c1"># must be &gt;= the env&#39;s episode length</span>
+<span class="w">  </span><span class="nt">her_strategy</span><span class="p">:</span><span class="w"> </span><span class="s">"future"</span><span class="w">    </span><span class="c1"># future | final | episode | random</span>
+<span class="w">  </span><span class="nt">her_max_episode_len</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span><span class="w">   </span><span class="c1"># must be &gt;= the env's episode length</span>
 </pre></div>
 </div>
 <p>Then train as usual:</p>
@@ -745,7 +745,7 @@ CLI collects them from one un-vectorized env.</p></li>
     <span class="n">goal_dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>       <span class="c1"># desired_goal</span>
     <span class="n">action_dim</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
     <span class="n">reward_fn</span><span class="o">=</span><span class="n">env</span><span class="o">.</span><span class="n">unwrapped</span><span class="o">.</span><span class="n">compute_reward</span><span class="p">,</span>
-    <span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;future&quot;</span><span class="p">,</span>
+    <span class="n">strategy</span><span class="o">=</span><span class="s2">"future"</span><span class="p">,</span>
     <span class="n">her_ratio</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
     <span class="n">max_episode_len</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
 <span class="p">)</span>
@@ -757,7 +757,7 @@ CLI collects them from one un-vectorized env.</p></li>
     <span class="n">truncated</span><span class="o">=</span><span class="n">truncated</span><span class="p">,</span>  <span class="c1"># closes the episode without faking a terminal</span>
 <span class="p">)</span>
 
-<span class="n">batch</span> <span class="o">=</span> <span class="n">buf</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">256</span><span class="p">)</span>   <span class="c1"># batch.obs[&quot;state&quot;] -&gt; (256, obs_dim + goal_dim)</span>
+<span class="n">batch</span> <span class="o">=</span> <span class="n">buf</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">256</span><span class="p">)</span>   <span class="c1"># batch.obs["state"] -&gt; (256, obs_dim + goal_dim)</span>
 </pre></div>
 </div>
 <p>Two details matter when driving it yourself:</p>
@@ -795,7 +795,7 @@ count over from the old buffer:</p>
     <span class="n">env</span><span class="o">=</span><span class="n">env</span><span class="p">,</span>
     <span class="n">total_steps</span><span class="o">=</span><span class="mi">1_000_000</span><span class="p">,</span>
     <span class="n">runner_cfg</span><span class="o">=</span><span class="n">AsyncRunnerConfig</span><span class="p">(</span><span class="n">use_async</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">use_gpu_buffer</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-    <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">,</span>
+    <span class="n">device</span><span class="o">=</span><span class="s2">"cuda:0"</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 </pre></div>

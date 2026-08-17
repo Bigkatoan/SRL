@@ -650,9 +650,9 @@ python3<span class="w"> </span>tools/validate_source.py
 <h2>IsaacLabWrapper<a class="headerlink" href="#isaaclabwrapper" title="Link to this heading">#</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.envs.isaac_lab_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabWrapper</span>
 
-<span class="n">env</span> <span class="o">=</span> <span class="n">IsaacLabWrapper</span><span class="p">(</span><span class="s2">&quot;Isaac-Cartpole-v0&quot;</span><span class="p">,</span> <span class="n">num_envs</span><span class="o">=</span><span class="mi">512</span><span class="p">)</span>
+<span class="n">env</span> <span class="o">=</span> <span class="n">IsaacLabWrapper</span><span class="p">(</span><span class="s2">"Isaac-Cartpole-v0"</span><span class="p">,</span> <span class="n">num_envs</span><span class="o">=</span><span class="mi">512</span><span class="p">)</span>
 <span class="n">obs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
-<span class="c1"># obs = {&quot;state&quot;: tensor(512, 4)}   ← GPU tensor converted to numpy</span>
+<span class="c1"># obs = {"state": tensor(512, 4)}   ← GPU tensor converted to numpy</span>
 
 <span class="n">action</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">act_space</span><span class="o">.</span><span class="n">sample</span><span class="p">()</span>
 <span class="n">obs</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">done</span><span class="p">,</span> <span class="n">truncated</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>

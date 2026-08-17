@@ -406,7 +406,7 @@
                 <article class="bd-article">
                   
   <h1>Source code for srl.utils.checkpoint</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;CheckpointManager — save and load model or agent checkpoints.&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""CheckpointManager — save and load model or agent checkpoints."""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
@@ -420,21 +420,21 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_capture_rng_state</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Snapshot every RNG SRL&#39;s training loops actually draw from.</span>
+<span class="w">    </span><span class="sd">"""Snapshot every RNG SRL's training loops actually draw from.</span>
 
 <span class="sd">    Without this, `--resume` restores model/optimizer/step state exactly but</span>
 <span class="sd">    silently continues with a *different* exploration-noise and</span>
 <span class="sd">    minibatch-shuffle sequence than an uninterrupted run would have had --</span>
 <span class="sd">    the optimizer state and step count line up, but nothing downstream of</span>
 <span class="sd">    them is actually reproducible across a resume.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">state</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;python_random&quot;</span><span class="p">:</span> <span class="n">random</span><span class="o">.</span><span class="n">getstate</span><span class="p">(),</span>
-        <span class="s2">&quot;numpy_random&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">get_state</span><span class="p">(),</span>
-        <span class="s2">&quot;torch_random&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">get_rng_state</span><span class="p">(),</span>
+        <span class="s2">"python_random"</span><span class="p">:</span> <span class="n">random</span><span class="o">.</span><span class="n">getstate</span><span class="p">(),</span>
+        <span class="s2">"numpy_random"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">get_state</span><span class="p">(),</span>
+        <span class="s2">"torch_random"</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">get_rng_state</span><span class="p">(),</span>
     <span class="p">}</span>
     <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
-        <span class="n">state</span><span class="p">[</span><span class="s2">&quot;torch_cuda_random&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">get_rng_state_all</span><span class="p">()</span>
+        <span class="n">state</span><span class="p">[</span><span class="s2">"torch_cuda_random"</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">get_rng_state_all</span><span class="p">()</span>
     <span class="k">return</span> <span class="n">state</span>
 
 
@@ -445,22 +445,22 @@
     <span class="c1"># which relocates every tensor in the payload (these included) onto that</span>
     <span class="c1"># device. On a CUDA resume, `.to(torch.uint8)` alone fixed the dtype but</span>
     <span class="c1"># left the tensor on cuda, and set_rng_state() rejected it outright</span>
-    <span class="c1"># (&quot;RNG state must be a torch.ByteTensor&quot;) -- --resume was unusable on</span>
+    <span class="c1"># ("RNG state must be a torch.ByteTensor") -- --resume was unusable on</span>
     <span class="c1"># GPU. `.cpu()` first, independent of map_location.</span>
-    <span class="k">if</span> <span class="s2">&quot;python_random&quot;</span> <span class="ow">in</span> <span class="n">state</span><span class="p">:</span>
-        <span class="n">random</span><span class="o">.</span><span class="n">setstate</span><span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;python_random&quot;</span><span class="p">])</span>
-    <span class="k">if</span> <span class="s2">&quot;numpy_random&quot;</span> <span class="ow">in</span> <span class="n">state</span><span class="p">:</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">set_state</span><span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;numpy_random&quot;</span><span class="p">])</span>
-    <span class="k">if</span> <span class="s2">&quot;torch_random&quot;</span> <span class="ow">in</span> <span class="n">state</span><span class="p">:</span>
-        <span class="n">torch</span><span class="o">.</span><span class="n">set_rng_state</span><span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;torch_random&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">uint8</span><span class="p">))</span>
-    <span class="k">if</span> <span class="s2">&quot;torch_cuda_random&quot;</span> <span class="ow">in</span> <span class="n">state</span> <span class="ow">and</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
-        <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">set_rng_state_all</span><span class="p">([</span><span class="n">t</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">state</span><span class="p">[</span><span class="s2">&quot;torch_cuda_random&quot;</span><span class="p">]])</span>
+    <span class="k">if</span> <span class="s2">"python_random"</span> <span class="ow">in</span> <span class="n">state</span><span class="p">:</span>
+        <span class="n">random</span><span class="o">.</span><span class="n">setstate</span><span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="s2">"python_random"</span><span class="p">])</span>
+    <span class="k">if</span> <span class="s2">"numpy_random"</span> <span class="ow">in</span> <span class="n">state</span><span class="p">:</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">set_state</span><span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="s2">"numpy_random"</span><span class="p">])</span>
+    <span class="k">if</span> <span class="s2">"torch_random"</span> <span class="ow">in</span> <span class="n">state</span><span class="p">:</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">set_rng_state</span><span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="s2">"torch_random"</span><span class="p">]</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">uint8</span><span class="p">))</span>
+    <span class="k">if</span> <span class="s2">"torch_cuda_random"</span> <span class="ow">in</span> <span class="n">state</span> <span class="ow">and</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">set_rng_state_all</span><span class="p">([</span><span class="n">t</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">state</span><span class="p">[</span><span class="s2">"torch_cuda_random"</span><span class="p">]])</span>
 
 
 <div class="viewcode-block" id="CheckpointManager">
 <a class="viewcode-back" href="../../../source/api/utils.html#srl.utils.checkpoint.CheckpointManager">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">CheckpointManager</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Save and load agent checkpoints.</span>
+<span class="w">    </span><span class="sd">"""Save and load agent checkpoints.</span>
 
 <span class="sd">    Uses ``safetensors`` when available, falls back to ``torch.save``.</span>
 
@@ -470,7 +470,7 @@
 <span class="sd">        Directory where checkpoints are stored.</span>
 <span class="sd">    max_keep:</span>
 <span class="sd">        Keep only the last *max_keep* checkpoints.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="CheckpointManager.__init__">
 <a class="viewcode-back" href="../../../source/api/utils.html#srl.utils.checkpoint.CheckpointManager.__init__">[docs]</a>
@@ -491,19 +491,19 @@
         <span class="n">optimizer</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">step</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
         <span class="n">metrics</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">tag</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;ckpt&quot;</span><span class="p">,</span>
+        <span class="n">tag</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"ckpt"</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-        <span class="n">ckpt_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">tag</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">step</span><span class="si">:</span><span class="s2">010d</span><span class="si">}</span><span class="s2">.pt&quot;</span>
+        <span class="n">ckpt_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">tag</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">step</span><span class="si">:</span><span class="s2">010d</span><span class="si">}</span><span class="s2">.pt"</span>
         <span class="n">payload</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_payload</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> <span class="n">optimizer</span><span class="o">=</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">metrics</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_can_use_safetensors</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">):</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="kn">from</span><span class="w"> </span><span class="nn">safetensors.torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">save_file</span> <span class="k">as</span> <span class="n">st_save</span>
 
-                <span class="n">st_path</span> <span class="o">=</span> <span class="n">ckpt_path</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="s2">&quot;.safetensors&quot;</span><span class="p">)</span>
-                <span class="n">st_save</span><span class="p">(</span><span class="n">payload</span><span class="p">[</span><span class="s2">&quot;model_state&quot;</span><span class="p">],</span> <span class="nb">str</span><span class="p">(</span><span class="n">st_path</span><span class="p">))</span>
-                <span class="n">meta_path</span> <span class="o">=</span> <span class="n">ckpt_path</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="s2">&quot;.meta.pt&quot;</span><span class="p">)</span>
-                <span class="n">meta_payload</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">payload</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">&quot;model_state&quot;</span><span class="p">}</span>
+                <span class="n">st_path</span> <span class="o">=</span> <span class="n">ckpt_path</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="s2">".safetensors"</span><span class="p">)</span>
+                <span class="n">st_save</span><span class="p">(</span><span class="n">payload</span><span class="p">[</span><span class="s2">"model_state"</span><span class="p">],</span> <span class="nb">str</span><span class="p">(</span><span class="n">st_path</span><span class="p">))</span>
+                <span class="n">meta_path</span> <span class="o">=</span> <span class="n">ckpt_path</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="s2">".meta.pt"</span><span class="p">)</span>
+                <span class="n">meta_payload</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">payload</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">"model_state"</span><span class="p">}</span>
                 <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">meta_payload</span><span class="p">,</span> <span class="n">meta_path</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_record</span><span class="p">(</span><span class="n">st_path</span><span class="p">)</span>
                 <span class="k">return</span> <span class="n">st_path</span>
@@ -523,19 +523,19 @@
         <span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
         <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
         <span class="n">optimizer</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="s2">"cpu"</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">suffix</span> <span class="o">==</span> <span class="s2">&quot;.safetensors&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">suffix</span> <span class="o">==</span> <span class="s2">".safetensors"</span><span class="p">:</span>
             <span class="kn">from</span><span class="w"> </span><span class="nn">safetensors.torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_file</span> <span class="k">as</span> <span class="n">st_load</span>
 
             <span class="n">state</span> <span class="o">=</span> <span class="n">st_load</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">device</span><span class="p">))</span>
 
-            <span class="n">meta_path</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="s2">&quot;.meta.pt&quot;</span><span class="p">)</span>
+            <span class="n">meta_path</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="s2">".meta.pt"</span><span class="p">)</span>
             <span class="n">meta</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="k">if</span> <span class="n">meta_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
                 <span class="n">meta</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">meta_path</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-            <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;model_state&quot;</span><span class="p">:</span> <span class="n">state</span><span class="p">,</span> <span class="o">**</span><span class="n">meta</span><span class="p">}</span>
+            <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"model_state"</span><span class="p">:</span> <span class="n">state</span><span class="p">,</span> <span class="o">**</span><span class="n">meta</span><span class="p">}</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_load_payload</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> <span class="n">payload</span><span class="o">=</span><span class="n">payload</span><span class="p">,</span> <span class="n">optimizer</span><span class="o">=</span><span class="n">optimizer</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">payload</span>
         <span class="k">else</span><span class="p">:</span>
@@ -546,12 +546,12 @@
 <div class="viewcode-block" id="CheckpointManager.latest">
 <a class="viewcode-back" href="../../../source/api/utils.html#srl.utils.checkpoint.CheckpointManager.latest">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">latest</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the most recently saved checkpoint path.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Return the most recently saved checkpoint path."""</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_saved</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_saved</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
         <span class="c1"># Scan directory</span>
-        <span class="n">candidates</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;ckpt_*.pt&quot;</span><span class="p">))</span> <span class="o">+</span> <span class="nb">sorted</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;ckpt_*.safetensors&quot;</span><span class="p">)</span>
+        <span class="n">candidates</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">"ckpt_*.pt"</span><span class="p">))</span> <span class="o">+</span> <span class="nb">sorted</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">"ckpt_*.safetensors"</span><span class="p">)</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">candidates</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">candidates</span> <span class="k">else</span> <span class="kc">None</span></div>
 
@@ -567,7 +567,7 @@
             <span class="k">if</span> <span class="n">old</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
                 <span class="n">old</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="c1"># Remove companion meta file if present</span>
-            <span class="n">meta</span> <span class="o">=</span> <span class="n">old</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="s2">&quot;.meta.pt&quot;</span><span class="p">)</span>
+            <span class="n">meta</span> <span class="o">=</span> <span class="n">old</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="s2">".meta.pt"</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">meta</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
                 <span class="n">meta</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
@@ -579,20 +579,20 @@
         <span class="n">step</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">metrics</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="s2">&quot;checkpoint_payload&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="s2">"checkpoint_payload"</span><span class="p">):</span>
             <span class="n">payload</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">checkpoint_payload</span><span class="p">())</span>
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-            <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;model_state&quot;</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()}</span>
+            <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"model_state"</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()}</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="s2">&quot;CheckpointManager.save expects an nn.Module or object with checkpoint_payload().&quot;</span>
+                <span class="s2">"CheckpointManager.save expects an nn.Module or object with checkpoint_payload()."</span>
             <span class="p">)</span>
 
-        <span class="n">payload</span><span class="p">[</span><span class="s2">&quot;step&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">step</span>
-        <span class="n">payload</span><span class="p">[</span><span class="s2">&quot;metrics&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">metrics</span> <span class="ow">or</span> <span class="p">{}</span>
-        <span class="n">payload</span><span class="p">[</span><span class="s2">&quot;rng_state&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_capture_rng_state</span><span class="p">()</span>
+        <span class="n">payload</span><span class="p">[</span><span class="s2">"step"</span><span class="p">]</span> <span class="o">=</span> <span class="n">step</span>
+        <span class="n">payload</span><span class="p">[</span><span class="s2">"metrics"</span><span class="p">]</span> <span class="o">=</span> <span class="n">metrics</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">payload</span><span class="p">[</span><span class="s2">"rng_state"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_capture_rng_state</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">optimizer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">payload</span><span class="p">[</span><span class="s2">&quot;optimizer_state&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+            <span class="n">payload</span><span class="p">[</span><span class="s2">"optimizer_state"</span><span class="p">]</span> <span class="o">=</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">payload</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_load_payload</span><span class="p">(</span>
@@ -603,20 +603,20 @@
         <span class="n">optimizer</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="c1"># Checkpoints saved before RNG state was tracked have no such key --</span>
-        <span class="c1"># nothing to restore, resume just won&#39;t be bit-exact for those.</span>
-        <span class="k">if</span> <span class="s2">&quot;rng_state&quot;</span> <span class="ow">in</span> <span class="n">payload</span><span class="p">:</span>
-            <span class="n">_restore_rng_state</span><span class="p">(</span><span class="n">payload</span><span class="p">[</span><span class="s2">&quot;rng_state&quot;</span><span class="p">])</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="s2">&quot;load_checkpoint_payload&quot;</span><span class="p">):</span>
+        <span class="c1"># nothing to restore, resume just won't be bit-exact for those.</span>
+        <span class="k">if</span> <span class="s2">"rng_state"</span> <span class="ow">in</span> <span class="n">payload</span><span class="p">:</span>
+            <span class="n">_restore_rng_state</span><span class="p">(</span><span class="n">payload</span><span class="p">[</span><span class="s2">"rng_state"</span><span class="p">])</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="s2">"load_checkpoint_payload"</span><span class="p">):</span>
             <span class="n">model</span><span class="o">.</span><span class="n">load_checkpoint_payload</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
             <span class="k">return</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="s2">&quot;CheckpointManager.load expects an nn.Module or object &quot;</span>
-                <span class="s2">&quot;with load_checkpoint_payload().&quot;</span>
+                <span class="s2">"CheckpointManager.load expects an nn.Module or object "</span>
+                <span class="s2">"with load_checkpoint_payload()."</span>
             <span class="p">)</span>
-        <span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">payload</span><span class="p">[</span><span class="s2">&quot;model_state&quot;</span><span class="p">])</span>
-        <span class="k">if</span> <span class="n">optimizer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s2">&quot;optimizer_state&quot;</span> <span class="ow">in</span> <span class="n">payload</span><span class="p">:</span>
-            <span class="n">optimizer</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">payload</span><span class="p">[</span><span class="s2">&quot;optimizer_state&quot;</span><span class="p">])</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">payload</span><span class="p">[</span><span class="s2">"model_state"</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">optimizer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s2">"optimizer_state"</span> <span class="ow">in</span> <span class="n">payload</span><span class="p">:</span>
+            <span class="n">optimizer</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">payload</span><span class="p">[</span><span class="s2">"optimizer_state"</span><span class="p">])</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_can_use_safetensors</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">payload</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">optimizer</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span> <span class="o">|</span> <span class="kc">None</span>
@@ -624,7 +624,7 @@
         <span class="k">return</span> <span class="p">(</span>
             <span class="nb">isinstance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">)</span>
             <span class="ow">and</span> <span class="n">optimizer</span> <span class="ow">is</span> <span class="kc">None</span>
-            <span class="ow">and</span> <span class="nb">set</span><span class="p">(</span><span class="n">payload</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">&lt;=</span> <span class="p">{</span><span class="s2">&quot;model_state&quot;</span><span class="p">,</span> <span class="s2">&quot;step&quot;</span><span class="p">,</span> <span class="s2">&quot;metrics&quot;</span><span class="p">,</span> <span class="s2">&quot;rng_state&quot;</span><span class="p">}</span>
+            <span class="ow">and</span> <span class="nb">set</span><span class="p">(</span><span class="n">payload</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">&lt;=</span> <span class="p">{</span><span class="s2">"model_state"</span><span class="p">,</span> <span class="s2">"step"</span><span class="p">,</span> <span class="s2">"metrics"</span><span class="p">,</span> <span class="s2">"rng_state"</span><span class="p">}</span>
         <span class="p">)</span></div>
 
 </pre></div>

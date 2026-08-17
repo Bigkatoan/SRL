@@ -606,10 +606,10 @@ encoder (instead of only the auxiliary loss).</p></li>
 <h2>7. Wiring into actor/critic (<code class="docutils literal notranslate"><span class="pre">flows</span></code>)<a class="headerlink" href="#wiring-into-actor-critic-flows" title="Link to this heading">#</a></h2>
 <p>Declare <code class="docutils literal notranslate"><span class="pre">flows</span></code> explicitly so the actor/critic receive the right encoder:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">flows</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;image_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;image_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"image_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor"</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor"</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"image_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic"</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic"</span>
 </pre></div>
 </div>
 <p>If the actor and critic need different representations, use separate encoders

@@ -406,7 +406,7 @@
                 <article class="bd-article">
                   
   <h1>Source code for srl.envs.sync_vector_env</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Synchronous vectorised environment (single-process, low-overhead).&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""Synchronous vectorised environment (single-process, low-overhead)."""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
@@ -419,7 +419,7 @@
 <div class="viewcode-block" id="SyncVectorEnv">
 <a class="viewcode-back" href="../../../source/api/envs.html#srl.envs.sync_vector_env.SyncVectorEnv">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">SyncVectorEnv</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run *n* copies of an environment sequentially in one process.</span>
+<span class="w">    </span><span class="sd">"""Run *n* copies of an environment sequentially in one process.</span>
 
 <span class="sd">    Compatible with the SRL wrapper interface:</span>
 <span class="sd">    ``reset() → (dict_obs, infos)``</span>
@@ -429,7 +429,7 @@
 <span class="sd">    ----------</span>
 <span class="sd">    env_fns:</span>
 <span class="sd">        List of callables that each return a (wrapped) gymnasium environment.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="SyncVectorEnv.__init__">
 <a class="viewcode-back" href="../../../source/api/envs.html#srl.envs.sync_vector_env.SyncVectorEnv.__init__">[docs]</a>
@@ -481,9 +481,9 @@
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_reset_kwargs_for_env</span><span class="p">(</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
     <span class="n">env_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
-    <span class="n">seed</span> <span class="o">=</span> <span class="n">env_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;seed&quot;</span><span class="p">)</span>
+    <span class="n">seed</span> <span class="o">=</span> <span class="n">env_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"seed"</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">seed</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
-        <span class="n">env_kwargs</span><span class="p">[</span><span class="s2">&quot;seed&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">seed</span> <span class="o">+</span> <span class="n">index</span>
+        <span class="n">env_kwargs</span><span class="p">[</span><span class="s2">"seed"</span><span class="p">]</span> <span class="o">=</span> <span class="n">seed</span> <span class="o">+</span> <span class="n">index</span>
     <span class="k">return</span> <span class="n">env_kwargs</span>
 </pre></div>
 

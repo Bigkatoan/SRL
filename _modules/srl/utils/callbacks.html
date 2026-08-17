@@ -406,7 +406,7 @@
                 <article class="bd-article">
                   
   <h1>Source code for srl.utils.callbacks</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Training callbacks for logging, early stopping, and evaluation.&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""Training callbacks for logging, early stopping, and evaluation."""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
@@ -414,7 +414,7 @@
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">BaseCallback</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract callback interface.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Abstract callback interface."""</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">on_step_end</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">step</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">info</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">pass</span>
@@ -429,7 +429,7 @@
 <div class="viewcode-block" id="LogCallback">
 <a class="viewcode-back" href="../../../source/api/utils.html#srl.utils.callbacks.LogCallback">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">LogCallback</span><span class="p">(</span><span class="n">BaseCallback</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Log metrics via an SRL Logger every *log_interval* steps.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Log metrics via an SRL Logger every *log_interval* steps."""</span>
 
 <div class="viewcode-block" id="LogCallback.__init__">
 <a class="viewcode-back" href="../../../source/api/utils.html#srl.utils.callbacks.LogCallback.__init__">[docs]</a>
@@ -440,7 +440,7 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">on_step_end</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">step</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">info</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">step</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_interval</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="p">,</span> <span class="s2">&quot;record_metrics&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="p">,</span> <span class="s2">"record_metrics"</span><span class="p">):</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">record_metrics</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">log_dict</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span><span class="p">)</span></div>
@@ -450,7 +450,7 @@
 <div class="viewcode-block" id="CheckpointCallback">
 <a class="viewcode-back" href="../../../source/api/utils.html#srl.utils.callbacks.CheckpointCallback">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">CheckpointCallback</span><span class="p">(</span><span class="n">BaseCallback</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Save a checkpoint every *save_interval* steps.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Save a checkpoint every *save_interval* steps."""</span>
 
 <div class="viewcode-block" id="CheckpointCallback.__init__">
 <a class="viewcode-back" href="../../../source/api/utils.html#srl.utils.callbacks.CheckpointCallback.__init__">[docs]</a>
@@ -474,20 +474,20 @@
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">EarlyStopping</span><span class="p">(</span><span class="n">BaseCallback</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Stop training when a monitor metric has not improved for *patience* evaluations.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Stop training when a monitor metric has not improved for *patience* evaluations."""</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">monitor</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;eval/mean_reward&quot;</span><span class="p">,</span>
+        <span class="n">monitor</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"eval/mean_reward"</span><span class="p">,</span>
         <span class="n">patience</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
         <span class="n">min_delta</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
-        <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;max&quot;</span><span class="p">,</span>
+        <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"max"</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">monitor</span> <span class="o">=</span> <span class="n">monitor</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">patience</span> <span class="o">=</span> <span class="n">patience</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">min_delta</span> <span class="o">=</span> <span class="n">min_delta</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">mode</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_best</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;max&quot;</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_best</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"-inf"</span><span class="p">)</span> <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">"max"</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"inf"</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_waits</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">should_stop</span> <span class="o">=</span> <span class="kc">False</span>
 
@@ -497,7 +497,7 @@
             <span class="k">return</span>
         <span class="n">improved</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">value</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_best</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_delta</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;max&quot;</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">"max"</span>
             <span class="k">else</span> <span class="n">value</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_best</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_delta</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="n">improved</span><span class="p">:</span>

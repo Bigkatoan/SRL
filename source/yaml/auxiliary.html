@@ -582,9 +582,9 @@ momentum copy, and return no loss at all if it is missing.</p>
 
 <span class="n">cfg</span> <span class="o">=</span> <span class="n">VisualSACConfig</span><span class="p">(</span>
     <span class="n">action_dim</span>                   <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
-    <span class="n">aux_loss_type</span>                <span class="o">=</span> <span class="s2">&quot;curl&quot;</span><span class="p">,</span>   <span class="c1"># none|ae|vae|curl|byol|drq|spr|barlow</span>
+    <span class="n">aux_loss_type</span>                <span class="o">=</span> <span class="s2">"curl"</span><span class="p">,</span>   <span class="c1"># none|ae|vae|curl|byol|drq|spr|barlow</span>
     <span class="n">aux_weight</span>                   <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
-    <span class="n">augmentation_mode</span>            <span class="o">=</span> <span class="s2">&quot;curl&quot;</span><span class="p">,</span>   <span class="c1"># drq | curl | aggressive</span>
+    <span class="n">augmentation_mode</span>            <span class="o">=</span> <span class="s2">"curl"</span><span class="p">,</span>   <span class="c1"># drq | curl | aggressive</span>
     <span class="n">momentum_tau</span>                 <span class="o">=</span> <span class="mf">0.99</span><span class="p">,</span>
     <span class="n">encoder_lr</span>                   <span class="o">=</span> <span class="mf">1e-4</span><span class="p">,</span>
     <span class="n">encoder_update_freq</span>          <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
@@ -697,7 +697,7 @@ returns <code class="docutils literal notranslate"><span class="pre">None</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_channels</span><span class="p">:</span><span class="w"> </span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="nt"> kernel</span><span class="p">:</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="nt"> stride</span><span class="p">:</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="nt"> padding</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">}</span>
 </pre></div>
 </div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cfg</span> <span class="o">=</span> <span class="n">VisualSACConfig</span><span class="p">(</span><span class="n">action_dim</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">aux_loss_type</span><span class="o">=</span><span class="s2">&quot;ae&quot;</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cfg</span> <span class="o">=</span> <span class="n">VisualSACConfig</span><span class="p">(</span><span class="n">action_dim</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">aux_loss_type</span><span class="o">=</span><span class="s2">"ae"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -719,7 +719,7 @@ returns <code class="docutils literal notranslate"><span class="pre">None</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_channels</span><span class="p">:</span><span class="w"> </span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="nt"> kernel</span><span class="p">:</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="nt"> stride</span><span class="p">:</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="nt"> padding</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">}</span>
 </pre></div>
 </div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cfg</span> <span class="o">=</span> <span class="n">VisualSACConfig</span><span class="p">(</span><span class="n">action_dim</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">aux_loss_type</span><span class="o">=</span><span class="s2">&quot;curl&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">128</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cfg</span> <span class="o">=</span> <span class="n">VisualSACConfig</span><span class="p">(</span><span class="n">action_dim</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">aux_loss_type</span><span class="o">=</span><span class="s2">"curl"</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">128</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -737,7 +737,7 @@ returns <code class="docutils literal notranslate"><span class="pre">None</span>
 <span class="w">    </span><span class="nt">momentum_tau</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.995</span>
 </pre></div>
 </div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cfg</span> <span class="o">=</span> <span class="n">VisualSACConfig</span><span class="p">(</span><span class="n">action_dim</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">aux_loss_type</span><span class="o">=</span><span class="s2">&quot;byol&quot;</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cfg</span> <span class="o">=</span> <span class="n">VisualSACConfig</span><span class="p">(</span><span class="n">action_dim</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">aux_loss_type</span><span class="o">=</span><span class="s2">"byol"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -745,7 +745,7 @@ returns <code class="docutils literal notranslate"><span class="pre">None</span>
 <h3><code class="docutils literal notranslate"><span class="pre">drq</span></code> — Data-regularized Q<a class="headerlink" href="#drq-data-regularized-q" title="Link to this heading">#</a></h3>
 <p>Applies random augmentation and enforces Q-value consistency across views. It needs no
 auxiliary module at all.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cfg</span> <span class="o">=</span> <span class="n">VisualSACConfig</span><span class="p">(</span><span class="n">action_dim</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">aux_loss_type</span><span class="o">=</span><span class="s2">&quot;drq&quot;</span><span class="p">,</span> <span class="n">encoder_update_freq</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cfg</span> <span class="o">=</span> <span class="n">VisualSACConfig</span><span class="p">(</span><span class="n">action_dim</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">aux_loss_type</span><span class="o">=</span><span class="s2">"drq"</span><span class="p">,</span> <span class="n">encoder_update_freq</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>

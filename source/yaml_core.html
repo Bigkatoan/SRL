@@ -544,8 +544,8 @@
 <section id="top-level-structure">
 <h2>Top-level structure<a class="headerlink" href="#top-level-structure" title="Link to this heading">#</a></h2>
 <p>At a high level, a model config is organized like this:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">env_id</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;HalfCheetah-v5&quot;</span>
-<span class="nt">env_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;flat&quot;</span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">env_id</span><span class="p">:</span><span class="w"> </span><span class="s">"HalfCheetah-v5"</span>
+<span class="nt">env_type</span><span class="p">:</span><span class="w"> </span><span class="s">"flat"</span>
 
 <span class="nt">algo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sac</span>
 
@@ -558,8 +558,8 @@
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">layer_norm</span><span class="p p-Indicator">}</span>
 
 <span class="nt">flows</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;actor_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;critic_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"actor_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor"</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"critic_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic"</span>
 
 <span class="nt">actor</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor</span>
@@ -715,10 +715,10 @@
 <p>The <code class="docutils literal notranslate"><span class="pre">flows</span></code> list is the core of model composition.</p>
 <p>Each item is a directed edge written as:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">flows</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;visual_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;visual_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"visual_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor"</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor"</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"visual_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic"</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic"</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">FlowGraph</span></code> interprets these strings as a DAG.</p>

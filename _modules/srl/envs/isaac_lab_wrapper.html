@@ -406,7 +406,7 @@
                 <article class="bd-article">
                   
   <h1>Source code for srl.envs.isaac_lab_wrapper</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Isaac Lab environment wrapper for SRL.&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""Isaac Lab environment wrapper for SRL."""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
@@ -420,7 +420,7 @@
 <div class="viewcode-block" id="IsaacLabWrapper">
 <a class="viewcode-back" href="../../../source/api/envs.html#srl.envs.isaac_lab_wrapper.IsaacLabWrapper">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">IsaacLabWrapper</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Wrap an Isaac Lab ``ManagerBasedRLEnv`` to match the SRL interface.</span>
+<span class="w">    </span><span class="sd">"""Wrap an Isaac Lab ``ManagerBasedRLEnv`` to match the SRL interface.</span>
 
 <span class="sd">    Isaac Lab envs return torch tensors on GPU; this wrapper converts them</span>
 <span class="sd">    to numpy arrays (CPU) for the SRL buffers.</span>
@@ -428,18 +428,18 @@
 <span class="sd">    Observation dict routing</span>
 <span class="sd">    ------------------------</span>
 <span class="sd">    Isaac Lab groups observations by *obs group* names (defined in the env</span>
-<span class="sd">    config).  Common group names are ``&quot;policy&quot;`` and ``&quot;critic&quot;``.</span>
+<span class="sd">    config).  Common group names are ``"policy"`` and ``"critic"``.</span>
 <span class="sd">    The wrapper preserves these group names as dict keys:</span>
 
 <span class="sd">    * **Image-only env** (e.g. Cartpole-RGB)::</span>
 
-<span class="sd">        obs = {&quot;policy&quot;: &lt;(N, 3, H, W) float32&gt;}   # after HWC→CHW</span>
+<span class="sd">        obs = {"policy": &lt;(N, 3, H, W) float32&gt;}   # after HWC→CHW</span>
 
 <span class="sd">    * **Multi-modal env** (image + privileged state)::</span>
 
 <span class="sd">        obs = {</span>
-<span class="sd">            &quot;policy&quot;:  &lt;(N, 3, H, W) float32&gt;,   # camera image</span>
-<span class="sd">            &quot;critic&quot;:  &lt;(N, D) float32&gt;,           # state vector</span>
+<span class="sd">            "policy":  &lt;(N, 3, H, W) float32&gt;,   # camera image</span>
+<span class="sd">            "critic":  &lt;(N, D) float32&gt;,           # state vector</span>
 <span class="sd">        }</span>
 
 <span class="sd">    To wire them into the model, **name the YAML encoders to match the obs</span>
@@ -453,32 +453,32 @@
 <span class="sd">        A ``ManagerBasedRLEnv`` or ``DirectRLEnv`` instance from Isaac Lab.</span>
 <span class="sd">    obs_key:</span>
 <span class="sd">        Fallback key used when the env returns a bare tensor (not a dict).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="IsaacLabWrapper.__init__">
 <a class="viewcode-back" href="../../../source/api/envs.html#srl.envs.isaac_lab_wrapper.IsaacLabWrapper.__init__">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">obs_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;state&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">obs_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"state"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">env</span> <span class="o">=</span> <span class="n">env</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">obs_key</span> <span class="o">=</span> <span class="n">obs_key</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">num_envs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="s2">&quot;num_envs&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">obs_space</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="s2">&quot;observation_space&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_envs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="s2">"num_envs"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">obs_space</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="s2">"observation_space"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="c1"># `action_space` on Isaac Lab/mjlab envs is the BATCHED space (shape</span>
-        <span class="c1"># (num_envs, action_dim), matching gymnasium&#39;s VectorEnv convention),</span>
-        <span class="c1"># not one env&#39;s space -- callers that need to sample a single action</span>
+        <span class="c1"># (num_envs, action_dim), matching gymnasium's VectorEnv convention),</span>
+        <span class="c1"># not one env's space -- callers that need to sample a single action</span>
         <span class="c1"># per env (e.g. off-policy random-action warmup) want</span>
         <span class="c1"># `single_act_space` instead. Falls back to `act_space` itself for</span>
-        <span class="c1"># envs that don&#39;t distinguish the two (already a single-env space).</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">act_space</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="s2">&quot;action_space&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">single_act_space</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="s2">&quot;single_action_space&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">act_space</span></div>
+        <span class="c1"># envs that don't distinguish the two (already a single-env space).</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">act_space</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="s2">"action_space"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">single_act_space</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="s2">"single_action_space"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">act_space</span></div>
 
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">device</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="p">,</span> <span class="s2">&quot;device&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="p">,</span> <span class="s2">"device"</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">device</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="p">,</span> <span class="s2">&quot;unwrapped&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">unwrapped</span><span class="p">,</span> <span class="s2">&quot;device&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="p">,</span> <span class="s2">"unwrapped"</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">unwrapped</span><span class="p">,</span> <span class="s2">"device"</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">unwrapped</span><span class="o">.</span><span class="n">device</span>
-        <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s2">&quot;Isaac Lab environment does not expose a device attribute&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s2">"Isaac Lab environment does not expose a device attribute"</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>

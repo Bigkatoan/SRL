@@ -526,7 +526,7 @@ all.</p>
 <p><code class="docutils literal notranslate"><span class="pre">AsyncOffPolicyRunner</span></code> splits collection and training across two threads:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Main thread (collector)            Daemon thread (trainer)
 ────────────────────────           ─────────────────────────
-env.step()                    →    trainer thread&#39;s agent.update()
+env.step()                    →    trainer thread's agent.update()
 buf.add(transition)           ←    signals via threading.Condition
 </pre></div>
 </div>
@@ -547,7 +547,7 @@ stepping instead of contending with it.</p></li>
     <span class="n">env</span><span class="o">=</span><span class="n">env</span><span class="p">,</span>
     <span class="n">total_steps</span><span class="o">=</span><span class="mi">1_000_000</span><span class="p">,</span>
     <span class="n">runner_cfg</span><span class="o">=</span><span class="n">AsyncRunnerConfig</span><span class="p">(</span><span class="n">use_async</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">use_gpu_buffer</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-    <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">,</span>
+    <span class="n">device</span><span class="o">=</span><span class="s2">"cuda:0"</span><span class="p">,</span>
     <span class="n">random_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>        <span class="c1"># random-action warmup before updates start</span>
     <span class="n">update_after</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
     <span class="n">update_every</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>

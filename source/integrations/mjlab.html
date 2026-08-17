@@ -510,8 +510,8 @@ pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com
 <section id="task-registration">
 <span id="mjlab-task-registration"></span><h2>Task registration<a class="headerlink" href="#task-registration" title="Link to this heading">#</a></h2>
 <p>mjlab resolves tasks by string id through its own registry (<code class="docutils literal notranslate"><span class="pre">mjlab.tasks.registry</span></code>), populated by auto-importing every package registered under the <code class="docutils literal notranslate"><span class="pre">mjlab.tasks</span></code> entry-point group – the same mechanism <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">mjlab</span></code> itself runs at import time. Any project that registers its own tasks this way in its <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>:</p>
-<div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[project.entry-points.</span><span class="s2">&quot;mjlab.tasks&quot;</span><span class="k">]</span>
-<span class="n">your_pkg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;your_pkg.tasks&quot;</span>
+<div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[project.entry-points.</span><span class="s2">"mjlab.tasks"</span><span class="k">]</span>
+<span class="n">your_pkg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"your_pkg.tasks"</span>
 </pre></div>
 </div>
 <p>is automatically discoverable here with no extra wiring, as long as it’s installed in the same environment as <code class="docutils literal notranslate"><span class="pre">mjlab</span></code>/<code class="docutils literal notranslate"><span class="pre">srl-rl</span></code>.</p>
@@ -527,9 +527,9 @@ pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com
 <span class="nt">encoders</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor_state_enc</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mlp</span>
-<span class="w">    </span><span class="nt">input_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor</span><span class="w">   </span><span class="c1"># mjlab&#39;s obs group name -- check with the task&#39;s</span>
+<span class="w">    </span><span class="nt">input_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor</span><span class="w">   </span><span class="c1"># mjlab's obs group name -- check with the task's</span>
 <span class="w">                         </span><span class="c1"># own ObservationManager printout at env build time,</span>
-<span class="w">                         </span><span class="c1"># or your task&#39;s observation config (&quot;actor&quot;/&quot;critic&quot;</span>
+<span class="w">                         </span><span class="c1"># or your task's observation config ("actor"/"critic"</span>
 <span class="w">                         </span><span class="c1"># are common, but not guaranteed)</span>
 <span class="w">    </span><span class="nt">input_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;your obs dim&gt;</span>
 <span class="w">    </span><span class="nt">latent_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
@@ -546,8 +546,8 @@ pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">elu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">none</span><span class="p p-Indicator">}</span>
 
 <span class="nt">flows</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;actor_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;critic_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"actor_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor"</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"critic_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic"</span>
 
 <span class="nt">actor</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">actor</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">gaussian</span><span class="p p-Indicator">,</span><span class="nt"> action_dim</span><span class="p">:</span><span class="w"> </span><span class="nv">&lt;your action dim&gt;</span><span class="p p-Indicator">,</span><span class="nt"> log_std_init</span><span class="p">:</span><span class="w"> </span><span class="nv">-1.0</span><span class="p p-Indicator">}</span>
 <span class="nt">critic</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">critic</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">value</span><span class="p p-Indicator">}</span>
@@ -615,8 +615,8 @@ python3.11<span class="w"> </span>-m<span class="w"> </span>venv<span class="w">
 .venv/bin/pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements-sim.txt
 .venv/bin/pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.<span class="w"> </span>--no-deps<span class="w">   </span><span class="c1"># registers the javis package + its mjlab task</span>
 
-<span class="c1"># pulls srl-rl from GitHub, not PyPI -- see pyproject.toml&#39;s `srl` extra</span>
-.venv/bin/pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[srl]&quot;</span>
+<span class="c1"># pulls srl-rl from GitHub, not PyPI -- see pyproject.toml's `srl` extra</span>
+.venv/bin/pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[srl]"</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">python3.11</span> <span class="pre">-m</span> <span class="pre">venv</span> <span class="pre">.venv</span></code> failing with an <code class="docutils literal notranslate"><span class="pre">ensurepip</span></code> error (<code class="docutils literal notranslate"><span class="pre">Command</span> <span class="pre">'[...python3.11&quot;,</span> <span class="pre">&quot;-m&quot;,</span> <span class="pre">&quot;ensurepip&quot;...]'</span> <span class="pre">returned</span> <span class="pre">non-zero</span> <span class="pre">exit</span> <span class="pre">status</span> <span class="pre">1</span></code>)?
@@ -638,8 +638,8 @@ assumes, without needing <code class="docutils literal notranslate"><span class=
 <code class="docutils literal notranslate"><span class="pre">javis/tasks.py</span></code> and register <code class="docutils literal notranslate"><span class="pre">Javis-Payload-Rough</span></code> every time <code class="docutils literal notranslate"><span class="pre">mjlab</span></code> is imported –
 run it once after cloning, or whenever <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> changes.</p>
 <p>Task registration follows the pattern above directly – JAVIS’s <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>:</p>
-<div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[project.entry-points.</span><span class="s2">&quot;mjlab.tasks&quot;</span><span class="k">]</span>
-<span class="n">javis</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;javis.tasks&quot;</span>
+<div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[project.entry-points.</span><span class="s2">"mjlab.tasks"</span><span class="k">]</span>
+<span class="n">javis</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"javis.tasks"</span>
 </pre></div>
 </div>
 <p>registers <code class="docutils literal notranslate"><span class="pre">Javis-Payload-Rough</span></code> (balance under a randomized payload/CoM offset, on
@@ -650,8 +650,8 @@ at all.</p>
 shows the “two encoders reading the same obs group via <code class="docutils literal notranslate"><span class="pre">input_name</span></code>” pattern from
 above with real numbers (384-dim <code class="docutils literal notranslate"><span class="pre">actor</span></code> observation group, 2-dim wheel-velocity
 action):</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">env_id</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Javis-Payload-Rough&quot;</span>
-<span class="nt">env_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;mjlab&quot;</span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">env_id</span><span class="p">:</span><span class="w"> </span><span class="s">"Javis-Payload-Rough"</span>
+<span class="nt">env_type</span><span class="p">:</span><span class="w"> </span><span class="s">"mjlab"</span>
 <span class="nt">algo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ppo</span>
 
 <span class="nt">encoders</span><span class="p">:</span>
@@ -673,8 +673,8 @@ action):</p>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">elu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">none</span><span class="p p-Indicator">}</span>
 
 <span class="nt">flows</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;actor_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;critic_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"actor_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor"</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"critic_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic"</span>
 
 <span class="nt">actor</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">actor</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">gaussian</span><span class="p p-Indicator">,</span><span class="nt"> action_dim</span><span class="p">:</span><span class="w"> </span><span class="nv">2</span><span class="p p-Indicator">,</span><span class="nt"> log_std_init</span><span class="p">:</span><span class="w"> </span><span class="nv">-1.0</span><span class="p p-Indicator">}</span>
 <span class="nt">critic</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">critic</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">value</span><span class="p p-Indicator">}</span>

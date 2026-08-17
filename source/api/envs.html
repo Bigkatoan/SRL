@@ -672,14 +672,14 @@ config).  Common group names are <code class="docutils literal notranslate"><spa
 The wrapper preserves these group names as dict keys:</p>
 <ul>
 <li><p><strong>Image-only env</strong> (e.g. Cartpole-RGB):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">obs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;policy&quot;</span><span class="p">:</span> <span class="o">&lt;</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">)</span> <span class="n">float32</span><span class="o">&gt;</span><span class="p">}</span>   <span class="c1"># after HWC→CHW</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">obs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"policy"</span><span class="p">:</span> <span class="o">&lt;</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">)</span> <span class="n">float32</span><span class="o">&gt;</span><span class="p">}</span>   <span class="c1"># after HWC→CHW</span>
 </pre></div>
 </div>
 </li>
 <li><p><strong>Multi-modal env</strong> (image + privileged state):</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">obs</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;policy&quot;</span><span class="p">:</span>  <span class="o">&lt;</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">)</span> <span class="n">float32</span><span class="o">&gt;</span><span class="p">,</span>   <span class="c1"># camera image</span>
-    <span class="s2">&quot;critic&quot;</span><span class="p">:</span>  <span class="o">&lt;</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">D</span><span class="p">)</span> <span class="n">float32</span><span class="o">&gt;</span><span class="p">,</span>           <span class="c1"># state vector</span>
+    <span class="s2">"policy"</span><span class="p">:</span>  <span class="o">&lt;</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">)</span> <span class="n">float32</span><span class="o">&gt;</span><span class="p">,</span>   <span class="c1"># camera image</span>
+    <span class="s2">"critic"</span><span class="p">:</span>  <span class="o">&lt;</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">D</span><span class="p">)</span> <span class="n">float32</span><span class="o">&gt;</span><span class="p">,</span>           <span class="c1"># state vector</span>
 <span class="p">}</span>
 </pre></div>
 </div>

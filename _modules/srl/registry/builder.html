@@ -406,7 +406,7 @@
                 <article class="bd-article">
                   
   <h1>Source code for srl.registry.builder</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;ModelBuilder — assembles an AgentModel from a YAML or dict config.&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""ModelBuilder — assembles an AgentModel from a YAML or dict config."""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
@@ -420,36 +420,36 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">srl.registry.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">EncoderRegistry</span><span class="p">,</span> <span class="n">HeadRegistry</span>
 
 <span class="c1"># Built-in types special-cased in _build_encoder/_build_head below, so they</span>
-<span class="c1"># never go through EncoderRegistry/HeadRegistry.register(...) -- a typo&#39;d</span>
-<span class="c1"># type name (e.g. &quot;mlpp&quot;) used to hit the registry&#39;s generic error message,</span>
-<span class="c1"># which reports &quot;Registered: []&quot; even though mlp/cnn/lstm/text are all valid,</span>
+<span class="c1"># never go through EncoderRegistry/HeadRegistry.register(...) -- a typo'd</span>
+<span class="c1"># type name (e.g. "mlpp") used to hit the registry's generic error message,</span>
+<span class="c1"># which reports "Registered: []" even though mlp/cnn/lstm/text are all valid,</span>
 <span class="c1"># because the registry genuinely has nothing in it unless a project also</span>
 <span class="c1"># registers its own custom types.</span>
-<span class="n">_BUILTIN_ENCODER_TYPES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;mlp&quot;</span><span class="p">,</span> <span class="s2">&quot;cnn&quot;</span><span class="p">,</span> <span class="s2">&quot;lstm&quot;</span><span class="p">,</span> <span class="s2">&quot;text&quot;</span><span class="p">)</span>
+<span class="n">_BUILTIN_ENCODER_TYPES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"mlp"</span><span class="p">,</span> <span class="s2">"cnn"</span><span class="p">,</span> <span class="s2">"lstm"</span><span class="p">,</span> <span class="s2">"text"</span><span class="p">)</span>
 <span class="n">_BUILTIN_HEAD_TYPES</span> <span class="o">=</span> <span class="p">(</span>
-    <span class="s2">&quot;gaussian&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;squashed_gaussian&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;deterministic&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;value&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;twin_q&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;q&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;q_function&quot;</span><span class="p">,</span>
+    <span class="s2">"gaussian"</span><span class="p">,</span>
+    <span class="s2">"squashed_gaussian"</span><span class="p">,</span>
+    <span class="s2">"deterministic"</span><span class="p">,</span>
+    <span class="s2">"value"</span><span class="p">,</span>
+    <span class="s2">"twin_q"</span><span class="p">,</span>
+    <span class="s2">"q"</span><span class="p">,</span>
+    <span class="s2">"q_function"</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">_ACTION_DIM_REQUIRED_HEAD_TYPES</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;gaussian&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;squashed_gaussian&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;deterministic&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;twin_q&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;q&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;q_function&quot;</span><span class="p">,</span>
+    <span class="s2">"gaussian"</span><span class="p">,</span>
+    <span class="s2">"squashed_gaussian"</span><span class="p">,</span>
+    <span class="s2">"deterministic"</span><span class="p">,</span>
+    <span class="s2">"twin_q"</span><span class="p">,</span>
+    <span class="s2">"q"</span><span class="p">,</span>
+    <span class="s2">"q_function"</span><span class="p">,</span>
 <span class="p">}</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_validate_config</span><span class="p">(</span><span class="n">cfg</span><span class="p">:</span> <span class="n">AgentModelConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Fail fast with an actionable message instead of a cryptic torch error</span>
-<span class="sd">    (e.g. &quot;mat1 and mat2 shapes cannot be multiplied&quot;, or a bare TypeError</span>
+<span class="w">    </span><span class="sd">"""Fail fast with an actionable message instead of a cryptic torch error</span>
+<span class="sd">    (e.g. "mat1 and mat2 shapes cannot be multiplied", or a bare TypeError</span>
 <span class="sd">    from nn.Linear(None, ...)) deep inside the first forward pass.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">seen_encoders</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">EncoderConfig</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">for</span> <span class="n">enc_cfg</span> <span class="ow">in</span> <span class="n">cfg</span><span class="o">.</span><span class="n">encoders</span><span class="p">:</span>
         <span class="n">prior</span> <span class="o">=</span> <span class="n">seen_encoders</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
@@ -460,50 +460,50 @@
             <span class="ow">or</span> <span class="n">prior</span><span class="o">.</span><span class="n">input_shape</span> <span class="o">!=</span> <span class="n">enc_cfg</span><span class="o">.</span><span class="n">input_shape</span>
         <span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Encoder &#39;</span><span class="si">{</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; is declared more than once with different &quot;</span>
-                <span class="s2">&quot;configs. ModelBuilder builds only the first declaration and silently &quot;</span>
-                <span class="s2">&quot;ignores later ones with the same name -- this is almost certainly a &quot;</span>
-                <span class="s2">&quot;copy-paste bug. Give the duplicate a distinct name if it&#39;s meant to &quot;</span>
-                <span class="s2">&quot;be a second, separate encoder.&quot;</span>
+                <span class="sa">f</span><span class="s2">"Encoder '</span><span class="si">{</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">' is declared more than once with different "</span>
+                <span class="s2">"configs. ModelBuilder builds only the first declaration and silently "</span>
+                <span class="s2">"ignores later ones with the same name -- this is almost certainly a "</span>
+                <span class="s2">"copy-paste bug. Give the duplicate a distinct name if it's meant to "</span>
+                <span class="s2">"be a second, separate encoder."</span>
             <span class="p">)</span>
         <span class="n">seen_encoders</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">enc_cfg</span><span class="p">)</span>
 
         <span class="n">enc_type</span> <span class="o">=</span> <span class="n">enc_cfg</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">enc_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;mlp&quot;</span><span class="p">,</span> <span class="s2">&quot;lstm&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">enc_cfg</span><span class="o">.</span><span class="n">input_dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">enc_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"mlp"</span><span class="p">,</span> <span class="s2">"lstm"</span><span class="p">)</span> <span class="ow">and</span> <span class="n">enc_cfg</span><span class="o">.</span><span class="n">input_dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Encoder &#39;</span><span class="si">{</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; (type=&#39;</span><span class="si">{</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">&#39;) requires &#39;input_dim&#39; to be set.&quot;</span>
+                <span class="sa">f</span><span class="s2">"Encoder '</span><span class="si">{</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">' (type='</span><span class="si">{</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">') requires 'input_dim' to be set."</span>
             <span class="p">)</span>
-        <span class="k">if</span> <span class="n">enc_type</span> <span class="o">==</span> <span class="s2">&quot;cnn&quot;</span> <span class="ow">and</span> <span class="n">enc_cfg</span><span class="o">.</span><span class="n">input_shape</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">enc_type</span> <span class="o">==</span> <span class="s2">"cnn"</span> <span class="ow">and</span> <span class="n">enc_cfg</span><span class="o">.</span><span class="n">input_shape</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Encoder &#39;</span><span class="si">{</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; (type=&#39;cnn&#39;) requires &#39;input_shape&#39; &quot;</span>
-                <span class="s2">&quot;([C, H, W]) to be set.&quot;</span>
+                <span class="sa">f</span><span class="s2">"Encoder '</span><span class="si">{</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">' (type='cnn') requires 'input_shape' "</span>
+                <span class="s2">"([C, H, W]) to be set."</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="n">enc_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_BUILTIN_ENCODER_TYPES</span> <span class="ow">and</span> <span class="n">enc_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">EncoderRegistry</span><span class="p">:</span>
             <span class="n">available</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">_BUILTIN_ENCODER_TYPES</span><span class="p">)</span> <span class="o">|</span> <span class="nb">set</span><span class="p">(</span><span class="n">EncoderRegistry</span><span class="o">.</span><span class="n">available</span><span class="p">()))</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Encoder &#39;</span><span class="si">{</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; has unknown type &#39;</span><span class="si">{</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">&#39;. &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;Available: </span><span class="si">{</span><span class="n">available</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">"Encoder '</span><span class="si">{</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">' has unknown type '</span><span class="si">{</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">'. "</span>
+                <span class="sa">f</span><span class="s2">"Available: </span><span class="si">{</span><span class="n">available</span><span class="si">}</span><span class="s2">"</span>
             <span class="p">)</span>
 
-    <span class="k">for</span> <span class="n">role</span><span class="p">,</span> <span class="n">head_cfg</span> <span class="ow">in</span> <span class="p">((</span><span class="s2">&quot;actor&quot;</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">actor</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;critic&quot;</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">critic</span><span class="p">)):</span>
+    <span class="k">for</span> <span class="n">role</span><span class="p">,</span> <span class="n">head_cfg</span> <span class="ow">in</span> <span class="p">((</span><span class="s2">"actor"</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">actor</span><span class="p">),</span> <span class="p">(</span><span class="s2">"critic"</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">critic</span><span class="p">)):</span>
         <span class="k">if</span> <span class="n">head_cfg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">continue</span>
         <span class="n">head_type</span> <span class="o">=</span> <span class="n">head_cfg</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">head_type</span> <span class="ow">in</span> <span class="n">_ACTION_DIM_REQUIRED_HEAD_TYPES</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">head_cfg</span><span class="o">.</span><span class="n">action_dim</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">role</span><span class="si">}</span><span class="s2">.action_dim is required for </span><span class="si">{</span><span class="n">role</span><span class="si">}</span><span class="s2"> type &#39;</span><span class="si">{</span><span class="n">head_cfg</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">&#39; &quot;</span>
-                <span class="s2">&quot;but is missing (or 0).&quot;</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">role</span><span class="si">}</span><span class="s2">.action_dim is required for </span><span class="si">{</span><span class="n">role</span><span class="si">}</span><span class="s2"> type '</span><span class="si">{</span><span class="n">head_cfg</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">' "</span>
+                <span class="s2">"but is missing (or 0)."</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="n">head_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_BUILTIN_HEAD_TYPES</span> <span class="ow">and</span> <span class="n">head_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">HeadRegistry</span><span class="p">:</span>
             <span class="n">available</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">_BUILTIN_HEAD_TYPES</span><span class="p">)</span> <span class="o">|</span> <span class="nb">set</span><span class="p">(</span><span class="n">HeadRegistry</span><span class="o">.</span><span class="n">available</span><span class="p">()))</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">role</span><span class="si">}</span><span class="s2"> has unknown type &#39;</span><span class="si">{</span><span class="n">head_cfg</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">&#39;. Available: </span><span class="si">{</span><span class="n">available</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">role</span><span class="si">}</span><span class="s2"> has unknown type '</span><span class="si">{</span><span class="n">head_cfg</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">'. Available: </span><span class="si">{</span><span class="n">available</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_build_encoder</span><span class="p">(</span><span class="n">cfg</span><span class="p">:</span> <span class="n">EncoderConfig</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Instantiate a single encoder from its config.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Instantiate a single encoder from its config."""</span>
     <span class="n">enc_type</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
 
-    <span class="k">if</span> <span class="n">enc_type</span> <span class="o">==</span> <span class="s2">&quot;mlp&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">enc_type</span> <span class="o">==</span> <span class="s2">"mlp"</span><span class="p">:</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">srl.networks.encoders.mlp_encoder</span><span class="w"> </span><span class="kn">import</span> <span class="n">MLPEncoder</span>
 
         <span class="n">enc</span> <span class="o">=</span> <span class="n">MLPEncoder</span><span class="p">(</span>
@@ -511,7 +511,7 @@
             <span class="n">layer_configs</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">layers</span><span class="p">,</span>
             <span class="n">latent_dim</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">latent_dim</span><span class="p">,</span>
         <span class="p">)</span>
-    <span class="k">elif</span> <span class="n">enc_type</span> <span class="o">==</span> <span class="s2">&quot;cnn&quot;</span><span class="p">:</span>
+    <span class="k">elif</span> <span class="n">enc_type</span> <span class="o">==</span> <span class="s2">"cnn"</span><span class="p">:</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">srl.networks.encoders.cnn_encoder</span><span class="w"> </span><span class="kn">import</span> <span class="n">CNNEncoder</span>
 
         <span class="n">enc</span> <span class="o">=</span> <span class="n">CNNEncoder</span><span class="p">(</span>
@@ -519,7 +519,7 @@
             <span class="n">layer_configs</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">layers</span><span class="p">,</span>
             <span class="n">latent_dim</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">latent_dim</span><span class="p">,</span>
         <span class="p">)</span>
-    <span class="k">elif</span> <span class="n">enc_type</span> <span class="o">==</span> <span class="s2">&quot;lstm&quot;</span><span class="p">:</span>
+    <span class="k">elif</span> <span class="n">enc_type</span> <span class="o">==</span> <span class="s2">"lstm"</span><span class="p">:</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">srl.networks.encoders.mlp_encoder</span><span class="w"> </span><span class="kn">import</span> <span class="n">MLPEncoder</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">srl.networks.encoders.recurrent</span><span class="w"> </span><span class="kn">import</span> <span class="n">LSTMEncoder</span>
 
@@ -529,7 +529,7 @@
             <span class="n">latent_dim</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">latent_dim</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">enc</span> <span class="o">=</span> <span class="n">LSTMEncoder</span><span class="p">(</span><span class="n">base_encoder</span><span class="o">=</span><span class="n">base</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">lstm_hidden</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">enc_type</span> <span class="o">==</span> <span class="s2">&quot;text&quot;</span><span class="p">:</span>
+    <span class="k">elif</span> <span class="n">enc_type</span> <span class="o">==</span> <span class="s2">"text"</span><span class="p">:</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">srl.networks.encoders.text_encoder</span><span class="w"> </span><span class="kn">import</span> <span class="n">CharCNNTextEncoder</span>
 
         <span class="n">enc</span> <span class="o">=</span> <span class="n">CharCNNTextEncoder</span><span class="p">(</span><span class="n">latent_dim</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">latent_dim</span><span class="p">)</span>
@@ -545,7 +545,7 @@
         <span class="n">enc</span> <span class="o">=</span> <span class="n">MomentumEncoder</span><span class="p">(</span><span class="n">encoder</span><span class="o">=</span><span class="n">enc</span><span class="p">,</span> <span class="n">tau</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">momentum_tau</span><span class="p">)</span>
 
     <span class="c1"># Optional: wrap with recurrent if requested separately (e.g. for CNN)</span>
-    <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">recurrent</span> <span class="ow">and</span> <span class="n">enc_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;lstm&quot;</span><span class="p">,):</span>
+    <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">recurrent</span> <span class="ow">and</span> <span class="n">enc_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"lstm"</span><span class="p">,):</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">srl.networks.encoders.recurrent</span><span class="w"> </span><span class="kn">import</span> <span class="n">LSTMEncoder</span>
 
         <span class="n">enc</span> <span class="o">=</span> <span class="n">LSTMEncoder</span><span class="p">(</span><span class="n">base_encoder</span><span class="o">=</span><span class="n">enc</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">lstm_hidden</span><span class="p">)</span>
@@ -554,17 +554,17 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_get_encoder_latent_dim</span><span class="p">(</span><span class="n">cfg</span><span class="p">:</span> <span class="n">EncoderConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the output latent dimension of an encoder config.&quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">recurrent</span> <span class="ow">or</span> <span class="n">cfg</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;lstm&quot;</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return the output latent dimension of an encoder config."""</span>
+    <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">recurrent</span> <span class="ow">or</span> <span class="n">cfg</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">"lstm"</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">cfg</span><span class="o">.</span><span class="n">lstm_hidden</span>
     <span class="k">return</span> <span class="n">cfg</span><span class="o">.</span><span class="n">latent_dim</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_build_head</span><span class="p">(</span><span class="n">cfg</span><span class="p">:</span> <span class="n">HeadConfig</span><span class="p">,</span> <span class="n">input_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Instantiate an actor or critic head from its config.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Instantiate an actor or critic head from its config."""</span>
     <span class="n">head_type</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
 
-    <span class="k">if</span> <span class="n">head_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;gaussian&quot;</span><span class="p">,</span> <span class="s2">&quot;squashed_gaussian&quot;</span><span class="p">,</span> <span class="s2">&quot;deterministic&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">head_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"gaussian"</span><span class="p">,</span> <span class="s2">"squashed_gaussian"</span><span class="p">,</span> <span class="s2">"deterministic"</span><span class="p">):</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">srl.networks.heads.actor_head</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_actor_head</span>
 
         <span class="k">return</span> <span class="n">build_actor_head</span><span class="p">(</span>
@@ -576,7 +576,7 @@
             <span class="n">log_std_min</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">log_std_min</span><span class="p">,</span>
             <span class="n">log_std_max</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">log_std_max</span><span class="p">,</span>
         <span class="p">)</span>
-    <span class="k">elif</span> <span class="n">head_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;value&quot;</span><span class="p">,</span> <span class="s2">&quot;twin_q&quot;</span><span class="p">,</span> <span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="s2">&quot;q_function&quot;</span><span class="p">):</span>
+    <span class="k">elif</span> <span class="n">head_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"value"</span><span class="p">,</span> <span class="s2">"twin_q"</span><span class="p">,</span> <span class="s2">"q"</span><span class="p">,</span> <span class="s2">"q_function"</span><span class="p">):</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">srl.networks.heads.critic_head</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_critic_head</span>
 
         <span class="k">return</span> <span class="n">build_critic_head</span><span class="p">(</span>
@@ -598,14 +598,14 @@
 <div class="viewcode-block" id="ModelBuilder">
 <a class="viewcode-back" href="../../../source/api/networks.html#srl.registry.builder.ModelBuilder">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ModelBuilder</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build an :class:`~srl.networks.agent_model.AgentModel` from config.</span>
+<span class="w">    </span><span class="sd">"""Build an :class:`~srl.networks.agent_model.AgentModel` from config.</span>
 
 <span class="sd">    Usage::</span>
 
-<span class="sd">        model = ModelBuilder.from_yaml(&quot;configs/visual_ppo.yaml&quot;)</span>
+<span class="sd">        model = ModelBuilder.from_yaml("configs/visual_ppo.yaml")</span>
 <span class="sd">        # or</span>
 <span class="sd">        model = ModelBuilder.from_dict(cfg_dict)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">from_yaml</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>  <span class="c1"># returns AgentModel</span>
@@ -666,20 +666,20 @@
         <span class="n">aux_encoders</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">enc_cfg</span> <span class="ow">in</span> <span class="n">cfg</span><span class="o">.</span><span class="n">encoders</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">enc_cfg</span><span class="o">.</span><span class="n">aux_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">enc_cfg</span><span class="o">.</span><span class="n">aux_type</span> <span class="o">==</span> <span class="s2">&quot;autoencoder&quot;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">enc_cfg</span><span class="o">.</span><span class="n">aux_type</span> <span class="o">==</span> <span class="s2">"autoencoder"</span><span class="p">:</span>
                     <span class="kn">from</span><span class="w"> </span><span class="nn">srl.networks.heads.aux_head</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConvDecoderHead</span>
 
                     <span class="k">if</span> <span class="n">enc_cfg</span><span class="o">.</span><span class="n">input_shape</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                         <span class="c1"># Reconstruct the same (C, H, W) the encoder read in --</span>
-                        <span class="c1"># ConvDecoderHead&#39;s job is to decode back to it.</span>
-                        <span class="n">aux_encoders</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_aux&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ConvDecoderHead</span><span class="p">(</span>
+                        <span class="c1"># ConvDecoderHead's job is to decode back to it.</span>
+                        <span class="n">aux_encoders</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_aux"</span><span class="p">]</span> <span class="o">=</span> <span class="n">ConvDecoderHead</span><span class="p">(</span>
                             <span class="n">latent_dim</span><span class="o">=</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">latent_dim</span><span class="p">,</span>
                             <span class="n">output_shape</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">input_shape</span><span class="p">),</span>
                         <span class="p">)</span>
-                <span class="k">elif</span> <span class="n">enc_cfg</span><span class="o">.</span><span class="n">aux_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;contrastive&quot;</span><span class="p">,</span> <span class="s2">&quot;byol&quot;</span><span class="p">):</span>
+                <span class="k">elif</span> <span class="n">enc_cfg</span><span class="o">.</span><span class="n">aux_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"contrastive"</span><span class="p">,</span> <span class="s2">"byol"</span><span class="p">):</span>
                     <span class="kn">from</span><span class="w"> </span><span class="nn">srl.networks.heads.aux_head</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProjectionHead</span>
 
-                    <span class="n">aux_encoders</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_aux&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ProjectionHead</span><span class="p">(</span>
+                    <span class="n">aux_encoders</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_aux"</span><span class="p">]</span> <span class="o">=</span> <span class="n">ProjectionHead</span><span class="p">(</span>
                         <span class="n">input_dim</span><span class="o">=</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">latent_dim</span><span class="p">,</span>
                         <span class="n">proj_dim</span><span class="o">=</span><span class="n">enc_cfg</span><span class="o">.</span><span class="n">aux_latent_dim</span><span class="p">,</span>
                     <span class="p">)</span>

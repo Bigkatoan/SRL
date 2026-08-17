@@ -406,7 +406,7 @@
                 <article class="bd-article">
                   
   <h1>Source code for srl.envs.async_vector_env</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Asynchronous vectorised environment using Python multiprocessing.&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""Asynchronous vectorised environment using Python multiprocessing."""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
@@ -421,15 +421,15 @@
     <span class="n">env</span> <span class="o">=</span> <span class="n">env_fn</span><span class="p">()</span>
     <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
         <span class="n">cmd</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">cmd</span> <span class="o">==</span> <span class="s2">&quot;reset&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">cmd</span> <span class="o">==</span> <span class="s2">"reset"</span><span class="p">:</span>
             <span class="n">obs</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="o">**</span><span class="p">(</span><span class="n">data</span> <span class="ow">or</span> <span class="p">{}))</span>
             <span class="n">conn</span><span class="o">.</span><span class="n">send</span><span class="p">((</span><span class="n">obs</span><span class="p">,</span> <span class="n">info</span><span class="p">))</span>
-        <span class="k">elif</span> <span class="n">cmd</span> <span class="o">==</span> <span class="s2">&quot;step&quot;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">cmd</span> <span class="o">==</span> <span class="s2">"step"</span><span class="p">:</span>
             <span class="n">obs</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">done</span><span class="p">,</span> <span class="n">trunc</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">done</span> <span class="ow">or</span> <span class="n">trunc</span><span class="p">:</span>
                 <span class="n">obs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
             <span class="n">conn</span><span class="o">.</span><span class="n">send</span><span class="p">((</span><span class="n">obs</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">done</span><span class="p">,</span> <span class="n">trunc</span><span class="p">,</span> <span class="n">info</span><span class="p">))</span>
-        <span class="k">elif</span> <span class="n">cmd</span> <span class="o">==</span> <span class="s2">&quot;close&quot;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">cmd</span> <span class="o">==</span> <span class="s2">"close"</span><span class="p">:</span>
             <span class="n">env</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
             <span class="n">conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
             <span class="k">break</span>
@@ -438,7 +438,7 @@
 <div class="viewcode-block" id="AsyncVectorEnv">
 <a class="viewcode-back" href="../../../source/api/envs.html#srl.envs.async_vector_env.AsyncVectorEnv">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">AsyncVectorEnv</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run *n* copies of an environment in separate worker processes.</span>
+<span class="w">    </span><span class="sd">"""Run *n* copies of an environment in separate worker processes.</span>
 
 <span class="sd">    Preferred for computationally heavy environments (physics simulation).</span>
 
@@ -446,13 +446,13 @@
 <span class="sd">    ----------</span>
 <span class="sd">    env_fns:</span>
 <span class="sd">        List of callables that each return a (wrapped) environment.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="AsyncVectorEnv.__init__">
 <a class="viewcode-back" href="../../../source/api/envs.html#srl.envs.async_vector_env.AsyncVectorEnv.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env_fns</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">num_envs</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">env_fns</span><span class="p">)</span>
-        <span class="n">ctx</span> <span class="o">=</span> <span class="n">mp</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="s2">&quot;fork&quot;</span><span class="p">)</span>
+        <span class="n">ctx</span> <span class="o">=</span> <span class="n">mp</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="s2">"fork"</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_parent_conns</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">mp</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">Connection</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_processes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">mp</span><span class="o">.</span><span class="n">Process</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 
@@ -472,7 +472,7 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]]:</span>
         <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">conn</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_parent_conns</span><span class="p">):</span>
-            <span class="n">conn</span><span class="o">.</span><span class="n">send</span><span class="p">((</span><span class="s2">&quot;reset&quot;</span><span class="p">,</span> <span class="n">_reset_kwargs_for_env</span><span class="p">(</span><span class="n">kwargs</span><span class="p">,</span> <span class="n">index</span><span class="p">)))</span>
+            <span class="n">conn</span><span class="o">.</span><span class="n">send</span><span class="p">((</span><span class="s2">"reset"</span><span class="p">,</span> <span class="n">_reset_kwargs_for_env</span><span class="p">(</span><span class="n">kwargs</span><span class="p">,</span> <span class="n">index</span><span class="p">)))</span>
         <span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="n">conn</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span> <span class="k">for</span> <span class="n">conn</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parent_conns</span><span class="p">]</span>
         <span class="n">obs_list</span><span class="p">,</span> <span class="n">info_list</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">results</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">_stack_obs</span><span class="p">(</span><span class="n">obs_list</span><span class="p">),</span> <span class="nb">list</span><span class="p">(</span><span class="n">info_list</span><span class="p">)</span>
@@ -481,7 +481,7 @@
         <span class="bp">self</span><span class="p">,</span> <span class="n">actions</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">list</span><span class="p">]:</span>
         <span class="k">for</span> <span class="n">conn</span><span class="p">,</span> <span class="n">action</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_parent_conns</span><span class="p">,</span> <span class="n">actions</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-            <span class="n">conn</span><span class="o">.</span><span class="n">send</span><span class="p">((</span><span class="s2">&quot;step&quot;</span><span class="p">,</span> <span class="n">action</span><span class="p">))</span>
+            <span class="n">conn</span><span class="o">.</span><span class="n">send</span><span class="p">((</span><span class="s2">"step"</span><span class="p">,</span> <span class="n">action</span><span class="p">))</span>
         <span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="n">conn</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span> <span class="k">for</span> <span class="n">conn</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parent_conns</span><span class="p">]</span>
         <span class="n">obs_list</span><span class="p">,</span> <span class="n">rews</span><span class="p">,</span> <span class="n">dones</span><span class="p">,</span> <span class="n">truncs</span><span class="p">,</span> <span class="n">infos</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">results</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">(</span>
@@ -494,7 +494,7 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">for</span> <span class="n">conn</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parent_conns</span><span class="p">:</span>
-            <span class="n">conn</span><span class="o">.</span><span class="n">send</span><span class="p">((</span><span class="s2">&quot;close&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+            <span class="n">conn</span><span class="o">.</span><span class="n">send</span><span class="p">((</span><span class="s2">"close"</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
         <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_processes</span><span class="p">:</span>
             <span class="n">p</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span></div>
 
@@ -507,9 +507,9 @@
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_reset_kwargs_for_env</span><span class="p">(</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
     <span class="n">env_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
-    <span class="n">seed</span> <span class="o">=</span> <span class="n">env_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;seed&quot;</span><span class="p">)</span>
+    <span class="n">seed</span> <span class="o">=</span> <span class="n">env_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"seed"</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">seed</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
-        <span class="n">env_kwargs</span><span class="p">[</span><span class="s2">&quot;seed&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">seed</span> <span class="o">+</span> <span class="n">index</span>
+        <span class="n">env_kwargs</span><span class="p">[</span><span class="s2">"seed"</span><span class="p">]</span> <span class="o">=</span> <span class="n">seed</span> <span class="o">+</span> <span class="n">index</span>
     <span class="k">return</span> <span class="n">env_kwargs</span>
 </pre></div>
 

@@ -406,13 +406,13 @@
                 <article class="bd-article">
                   
   <h1>Source code for srl.envs.goal_env_wrapper</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;GoalEnv wrapper for gymnasium-robotics environments (Fetch, AntMaze, etc.).</span>
+<span></span><span class="sd">"""GoalEnv wrapper for gymnasium-robotics environments (Fetch, AntMaze, etc.).</span>
 
-<span class="sd">Flattens the ``{&#39;observation&#39;, &#39;achieved_goal&#39;, &#39;desired_goal&#39;}`` dict into a</span>
-<span class="sd">single concatenated vector keyed as ``&quot;state&quot;`` for compatibility with SRL&#39;s</span>
+<span class="sd">Flattens the ``{'observation', 'achieved_goal', 'desired_goal'}`` dict into a</span>
+<span class="sd">single concatenated vector keyed as ``"state"`` for compatibility with SRL's</span>
 <span class="sd">MLP encoders.  The original goal dict is preserved in ``info`` so HER buffers</span>
 <span class="sd">can use ``achieved_goal`` / ``desired_goal`` directly.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
@@ -423,7 +423,7 @@
 <div class="viewcode-block" id="GoalEnvWrapper">
 <a class="viewcode-back" href="../../../source/api/envs.html#srl.envs.goal_env_wrapper.GoalEnvWrapper">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">GoalEnvWrapper</span><span class="p">(</span><span class="n">gym</span><span class="o">.</span><span class="n">Wrapper</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Wraps a GoalEnv (dictionary-obs) into a flat Box observation.</span>
+<span class="w">    </span><span class="sd">"""Wraps a GoalEnv (dictionary-obs) into a flat Box observation.</span>
 
 <span class="sd">    The flat observation is ``[observation || achieved_goal || desired_goal]``.</span>
 
@@ -431,21 +431,21 @@
 <span class="sd">    ----------</span>
 <span class="sd">    env:</span>
 <span class="sd">        A ``gymnasium`` GoalEnv whose ``observation_space`` is a ``Dict``</span>
-<span class="sd">        with keys ``&#39;observation&#39;``, ``&#39;achieved_goal&#39;``, ``&#39;desired_goal&#39;``.</span>
+<span class="sd">        with keys ``'observation'``, ``'achieved_goal'``, ``'desired_goal'``.</span>
 <span class="sd">    obs_key:</span>
 <span class="sd">        Name used as the dict key returned by ``reset`` / ``step``.</span>
-<span class="sd">        Defaults to ``&quot;state&quot;`` (matching SRL MLP encoder input).</span>
+<span class="sd">        Defaults to ``"state"`` (matching SRL MLP encoder input).</span>
 <span class="sd">    include_goal:</span>
 <span class="sd">        Whether to concatenate goal vectors into the flat obs.</span>
 <span class="sd">        Set to ``False`` to return only the raw observation part.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="GoalEnvWrapper.__init__">
 <a class="viewcode-back" href="../../../source/api/envs.html#srl.envs.goal_env_wrapper.GoalEnvWrapper.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">env</span><span class="p">:</span> <span class="n">gym</span><span class="o">.</span><span class="n">Env</span><span class="p">,</span>
-        <span class="n">obs_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;state&quot;</span><span class="p">,</span>
+        <span class="n">obs_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"state"</span><span class="p">,</span>
         <span class="n">include_goal</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
@@ -454,9 +454,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">num_envs</span> <span class="o">=</span> <span class="mi">1</span>
 
         <span class="n">obs_space</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">observation_space</span>
-        <span class="n">obs_dim</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">obs_space</span><span class="p">[</span><span class="s2">&quot;observation&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
-        <span class="n">ag_dim</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">obs_space</span><span class="p">[</span><span class="s2">&quot;achieved_goal&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
-        <span class="n">dg_dim</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">obs_space</span><span class="p">[</span><span class="s2">&quot;desired_goal&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+        <span class="n">obs_dim</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">obs_space</span><span class="p">[</span><span class="s2">"observation"</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+        <span class="n">ag_dim</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">obs_space</span><span class="p">[</span><span class="s2">"achieved_goal"</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+        <span class="n">dg_dim</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">obs_space</span><span class="p">[</span><span class="s2">"desired_goal"</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
 
         <span class="k">if</span> <span class="n">include_goal</span><span class="p">:</span>
             <span class="n">total_dim</span> <span class="o">=</span> <span class="n">obs_dim</span> <span class="o">+</span> <span class="n">ag_dim</span> <span class="o">+</span> <span class="n">dg_dim</span>
@@ -473,10 +473,10 @@
     <span class="c1"># ------------------------------------------------------------------</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_flatten</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">goal_obs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="n">obs</span> <span class="o">=</span> <span class="n">goal_obs</span><span class="p">[</span><span class="s2">&quot;observation&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="n">obs</span> <span class="o">=</span> <span class="n">goal_obs</span><span class="p">[</span><span class="s2">"observation"</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">include_goal</span><span class="p">:</span>
-            <span class="n">ag</span> <span class="o">=</span> <span class="n">goal_obs</span><span class="p">[</span><span class="s2">&quot;achieved_goal&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
-            <span class="n">dg</span> <span class="o">=</span> <span class="n">goal_obs</span><span class="p">[</span><span class="s2">&quot;desired_goal&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+            <span class="n">ag</span> <span class="o">=</span> <span class="n">goal_obs</span><span class="p">[</span><span class="s2">"achieved_goal"</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+            <span class="n">dg</span> <span class="o">=</span> <span class="n">goal_obs</span><span class="p">[</span><span class="s2">"desired_goal"</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">obs</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">ag</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">dg</span><span class="o">.</span><span class="n">ravel</span><span class="p">()])</span>
         <span class="k">return</span> <span class="n">obs</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
 
@@ -494,7 +494,7 @@
 <a class="viewcode-back" href="../../../source/api/envs.html#srl.envs.goal_env_wrapper.GoalEnvWrapper.reset">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="nb">dict</span><span class="p">]:</span>
         <span class="n">raw_obs</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;goal_obs&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">raw_obs</span>  <span class="c1"># preserve for HER</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">"goal_obs"</span><span class="p">]</span> <span class="o">=</span> <span class="n">raw_obs</span>  <span class="c1"># preserve for HER</span>
         <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">obs_key</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_flatten</span><span class="p">(</span><span class="n">raw_obs</span><span class="p">)},</span> <span class="n">info</span></div>
 
 
@@ -502,8 +502,8 @@
 <a class="viewcode-back" href="../../../source/api/envs.html#srl.envs.goal_env_wrapper.GoalEnvWrapper.step">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
         <span class="n">raw_obs</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">terminated</span><span class="p">,</span> <span class="n">truncated</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
-        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;goal_obs&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">raw_obs</span>  <span class="c1"># preserve for HER</span>
-        <span class="c1"># Return `terminated` as-is -- see gymnasium_wrapper.py&#39;s step() for why</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">"goal_obs"</span><span class="p">]</span> <span class="o">=</span> <span class="n">raw_obs</span>  <span class="c1"># preserve for HER</span>
+        <span class="c1"># Return `terminated` as-is -- see gymnasium_wrapper.py's step() for why</span>
         <span class="c1"># collapsing truncation into it biases off-policy bootstrap targets.</span>
         <span class="n">flat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_flatten</span><span class="p">(</span><span class="n">raw_obs</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">obs_key</span><span class="p">:</span> <span class="n">flat</span><span class="p">},</span> <span class="nb">float</span><span class="p">(</span><span class="n">reward</span><span class="p">),</span> <span class="n">terminated</span><span class="p">,</span> <span class="n">truncated</span><span class="p">,</span> <span class="n">info</span></div>

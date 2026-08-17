@@ -406,7 +406,7 @@
                 <article class="bd-article">
                   
   <h1>Source code for srl.envs.gymnasium_wrapper</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Gymnasium single-env wrapper that normalises the SRL obs/action interface.&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""Gymnasium single-env wrapper that normalises the SRL obs/action interface."""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
@@ -419,21 +419,21 @@
 <div class="viewcode-block" id="GymnasiumWrapper">
 <a class="viewcode-back" href="../../../source/api/envs.html#srl.envs.gymnasium_wrapper.GymnasiumWrapper">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">GymnasiumWrapper</span><span class="p">(</span><span class="n">gym</span><span class="o">.</span><span class="n">Wrapper</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Thin wrapper around any Gymnasium environment.</span>
+<span class="w">    </span><span class="sd">"""Thin wrapper around any Gymnasium environment.</span>
 
-<span class="sd">    * Converts ``obs`` to ``dict`` form (key = ``&quot;state&quot;`` or ``&quot;pixels&quot;``).</span>
-<span class="sd">    * Transposes HWC pixel observations to CHW for SRL&#39;s CNNEncoder (see</span>
-<span class="sd">      ``_image_obs.maybe_hwc_to_chw`` -- Gymnasium&#39;s native pixel envs, e.g.</span>
+<span class="sd">    * Converts ``obs`` to ``dict`` form (key = ``"state"`` or ``"pixels"``).</span>
+<span class="sd">    * Transposes HWC pixel observations to CHW for SRL's CNNEncoder (see</span>
+<span class="sd">      ``_image_obs.maybe_hwc_to_chw`` -- Gymnasium's native pixel envs, e.g.</span>
 <span class="sd">      CarRacing, hand back (H, W, C); a plain ``np.asarray`` here previously</span>
 <span class="sd">      passed that straight through, so any config with a CNN encoder crashed</span>
 <span class="sd">      on the very first real observation with a channel-count mismatch).</span>
 <span class="sd">    * Exposes ``obs_space``, ``act_space`` helpers.</span>
 <span class="sd">    * Stores ``num_envs = 1`` for API uniformity with vector envs.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="GymnasiumWrapper.__init__">
 <a class="viewcode-back" href="../../../source/api/envs.html#srl.envs.gymnasium_wrapper.GymnasiumWrapper.__init__">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">:</span> <span class="n">gym</span><span class="o">.</span><span class="n">Env</span><span class="p">,</span> <span class="n">obs_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;state&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">:</span> <span class="n">gym</span><span class="o">.</span><span class="n">Env</span><span class="p">,</span> <span class="n">obs_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"state"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">obs_key</span> <span class="o">=</span> <span class="n">obs_key</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">num_envs</span> <span class="o">=</span> <span class="mi">1</span></div>
@@ -463,8 +463,8 @@
         <span class="c1"># true termination only. Collapsing truncation into `dones` here zeroed</span>
         <span class="c1"># the bootstrap on every time-limit cutoff, biasing Q-values low on</span>
         <span class="c1"># every task with an episode time limit (i.e. nearly everything).</span>
-        <span class="c1"># Callers that want &quot;episode ended for any reason&quot; already OR these</span>
-        <span class="c1"># two themselves (see srl/cli/train.py&#39;s reset/logging call sites).</span>
+        <span class="c1"># Callers that want "episode ended for any reason" already OR these</span>
+        <span class="c1"># two themselves (see srl/cli/train.py's reset/logging call sites).</span>
         <span class="k">return</span> <span class="p">(</span>
             <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">obs_key</span><span class="p">:</span> <span class="n">maybe_hwc_to_chw</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">obs</span><span class="p">))},</span>
             <span class="nb">float</span><span class="p">(</span><span class="n">reward</span><span class="p">),</span>

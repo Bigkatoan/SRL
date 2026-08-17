@@ -497,8 +497,8 @@
 <h2>1. Install<a class="headerlink" href="#install" title="Link to this heading">#</a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/Bigkatoan/SRL.git
 <span class="nb">cd</span><span class="w"> </span>SRL
-pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[mujoco]&quot;</span>
-pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;srl-rl[mujoco] @ git+https://github.com/Bigkatoan/SRL.git&quot;</span>
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[mujoco]"</span>
+pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"srl-rl[mujoco] @ git+https://github.com/Bigkatoan/SRL.git"</span>
 </pre></div>
 </div>
 <p>This walkthrough uses <code class="docutils literal notranslate"><span class="pre">configs/envs/halfcheetah_sac.yaml</span></code>, one of the example
@@ -522,8 +522,8 @@ you only need the Python package.</p>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">layer_norm</span><span class="p p-Indicator">}</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">relu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">layer_norm</span><span class="p p-Indicator">}</span>
 <span class="nt">flows</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor"</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic"</span>
 <span class="nt">actor</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor</span>
 <span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">squashed_gaussian</span>
@@ -561,15 +561,15 @@ you only need the Python package.</p>
 <span class="kn">from</span><span class="w"> </span><span class="nn">srl.envs.gymnasium_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">GymnasiumWrapper</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">srl.registry.builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelBuilder</span>
 
-<span class="n">DEVICE</span> <span class="o">=</span> <span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span>
-<span class="n">model</span>  <span class="o">=</span> <span class="n">ModelBuilder</span><span class="o">.</span><span class="n">from_yaml</span><span class="p">(</span><span class="s2">&quot;configs/envs/halfcheetah_sac.yaml&quot;</span><span class="p">)</span>
-<span class="n">target</span> <span class="o">=</span> <span class="n">ModelBuilder</span><span class="o">.</span><span class="n">from_yaml</span><span class="p">(</span><span class="s2">&quot;configs/envs/halfcheetah_sac.yaml&quot;</span><span class="p">)</span>
+<span class="n">DEVICE</span> <span class="o">=</span> <span class="s2">"cuda"</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">"cpu"</span>
+<span class="n">model</span>  <span class="o">=</span> <span class="n">ModelBuilder</span><span class="o">.</span><span class="n">from_yaml</span><span class="p">(</span><span class="s2">"configs/envs/halfcheetah_sac.yaml"</span><span class="p">)</span>
+<span class="n">target</span> <span class="o">=</span> <span class="n">ModelBuilder</span><span class="o">.</span><span class="n">from_yaml</span><span class="p">(</span><span class="s2">"configs/envs/halfcheetah_sac.yaml"</span><span class="p">)</span>
 
 <span class="n">cfg</span> <span class="o">=</span> <span class="n">SACConfig</span><span class="p">(</span><span class="n">action_dim</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">buffer_size</span><span class="o">=</span><span class="mi">1_000_000</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span>
                 <span class="n">learning_starts</span><span class="o">=</span><span class="mi">10_000</span><span class="p">)</span>
 <span class="n">agent</span> <span class="o">=</span> <span class="n">SAC</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">cfg</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">DEVICE</span><span class="p">)</span>
 
-<span class="n">env</span> <span class="o">=</span> <span class="n">GymnasiumWrapper</span><span class="p">(</span><span class="n">gym</span><span class="o">.</span><span class="n">make</span><span class="p">(</span><span class="s2">&quot;HalfCheetah-v5&quot;</span><span class="p">))</span>
+<span class="n">env</span> <span class="o">=</span> <span class="n">GymnasiumWrapper</span><span class="p">(</span><span class="n">gym</span><span class="o">.</span><span class="n">make</span><span class="p">(</span><span class="s2">"HalfCheetah-v5"</span><span class="p">))</span>
 <span class="n">obs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
 
 <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1_000_000</span><span class="p">):</span>
@@ -597,8 +597,8 @@ you only need the Python package.</p>
 <section id="load-a-checkpoint">
 <h2>5. Load a checkpoint<a class="headerlink" href="#load-a-checkpoint" title="Link to this heading">#</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.utils.checkpoint</span><span class="w"> </span><span class="kn">import</span> <span class="n">CheckpointManager</span>
-<span class="n">cm</span> <span class="o">=</span> <span class="n">CheckpointManager</span><span class="p">(</span><span class="s2">&quot;checkpoints/sac_halfcheetah_v5&quot;</span><span class="p">)</span>
-<span class="n">cm</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="s2">&quot;latest&quot;</span><span class="p">)</span>
+<span class="n">cm</span> <span class="o">=</span> <span class="n">CheckpointManager</span><span class="p">(</span><span class="s2">"checkpoints/sac_halfcheetah_v5"</span><span class="p">)</span>
+<span class="n">cm</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="s2">"latest"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>

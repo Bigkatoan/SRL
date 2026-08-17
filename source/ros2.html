@@ -515,16 +515,16 @@
 
 <span class="n">rclpy</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
 
-<span class="n">model</span> <span class="o">=</span> <span class="n">ModelBuilder</span><span class="o">.</span><span class="n">from_yaml</span><span class="p">(</span><span class="s2">&quot;configs/envs/halfcheetah_sac.yaml&quot;</span><span class="p">)</span>
-<span class="n">checkpoint</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;checkpoint.pt&quot;</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">[</span><span class="s2">&quot;model_state&quot;</span><span class="p">])</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">ModelBuilder</span><span class="o">.</span><span class="n">from_yaml</span><span class="p">(</span><span class="s2">"configs/envs/halfcheetah_sac.yaml"</span><span class="p">)</span>
+<span class="n">checkpoint</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"checkpoint.pt"</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="s2">"cpu"</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">[</span><span class="s2">"model_state"</span><span class="p">])</span>
 
 <span class="n">node</span> <span class="o">=</span> <span class="n">RLInferenceNode</span><span class="p">(</span>
     <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
-    <span class="n">obs_topics</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;state_enc&quot;</span><span class="p">:</span> <span class="s2">&quot;/robot/state&quot;</span><span class="p">},</span>
-    <span class="n">action_topic</span><span class="o">=</span><span class="s2">&quot;/robot/cmd&quot;</span><span class="p">,</span>
+    <span class="n">obs_topics</span><span class="o">=</span><span class="p">{</span><span class="s2">"state_enc"</span><span class="p">:</span> <span class="s2">"/robot/state"</span><span class="p">},</span>
+    <span class="n">action_topic</span><span class="o">=</span><span class="s2">"/robot/cmd"</span><span class="p">,</span>
     <span class="n">hz</span><span class="o">=</span><span class="mf">50.0</span><span class="p">,</span>
-    <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+    <span class="n">device</span><span class="o">=</span><span class="s2">"cpu"</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="n">rclpy</span><span class="o">.</span><span class="n">spin</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
@@ -623,7 +623,7 @@
 <h2>Dependency model<a class="headerlink" href="#dependency-model" title="Link to this heading">#</a></h2>
 <p>SRL does not install ROS 2 Python packages for you. Use the Python environment provided by your ROS 2 installation, for example:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>/opt/ros/humble/setup.bash
-python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import rclpy&quot;</span>
+python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import rclpy"</span>
 </pre></div>
 </div>
 <p>If <code class="docutils literal notranslate"><span class="pre">rclpy</span></code> is unavailable, the ROS 2 API remains optional and the rest of SRL still works.</p>

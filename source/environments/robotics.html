@@ -498,9 +498,9 @@
 <h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
 <p>All Fetch tasks use a <strong>GoalEnv</strong> interface — the observation is a dict:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-    <span class="s2">&quot;observation&quot;</span><span class="p">:</span>    <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,)</span> <span class="ow">or</span> <span class="p">(</span><span class="mi">25</span><span class="p">,)),</span>  <span class="c1"># robot state</span>
-    <span class="s2">&quot;achieved_goal&quot;</span><span class="p">:</span>  <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,)),</span>             <span class="c1"># current EE/object pos</span>
-    <span class="s2">&quot;desired_goal&quot;</span><span class="p">:</span>   <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,)),</span>             <span class="c1"># target pos</span>
+    <span class="s2">"observation"</span><span class="p">:</span>    <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,)</span> <span class="ow">or</span> <span class="p">(</span><span class="mi">25</span><span class="p">,)),</span>  <span class="c1"># robot state</span>
+    <span class="s2">"achieved_goal"</span><span class="p">:</span>  <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,)),</span>             <span class="c1"># current EE/object pos</span>
+    <span class="s2">"desired_goal"</span><span class="p">:</span>   <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,)),</span>             <span class="c1"># target pos</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -567,15 +567,15 @@ python<span class="w"> </span>examples/envs/train_robotics.py<span class="w"> </
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">srl.envs.goal_env_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">GoalEnvWrapper</span>
 
-<span class="n">env</span> <span class="o">=</span> <span class="n">GoalEnvWrapper</span><span class="p">(</span><span class="n">gym</span><span class="o">.</span><span class="n">make</span><span class="p">(</span><span class="s2">&quot;FetchReach-v4&quot;</span><span class="p">))</span>
+<span class="n">env</span> <span class="o">=</span> <span class="n">GoalEnvWrapper</span><span class="p">(</span><span class="n">gym</span><span class="o">.</span><span class="n">make</span><span class="p">(</span><span class="s2">"FetchReach-v4"</span><span class="p">))</span>
 <span class="n">obs</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
 
-<span class="c1"># obs = {&quot;state&quot;: array(16,)}  ← flattened [obs(10) | ag(3) | dg(3)]</span>
-<span class="c1"># info[&quot;goal_obs&quot;] = {&quot;observation&quot;: ..., &quot;achieved_goal&quot;: ..., &quot;desired_goal&quot;: ...}</span>
+<span class="c1"># obs = {"state": array(16,)}  ← flattened [obs(10) | ag(3) | dg(3)]</span>
+<span class="c1"># info["goal_obs"] = {"observation": ..., "achieved_goal": ..., "desired_goal": ...}</span>
 
 <span class="n">action</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">act_space</span><span class="o">.</span><span class="n">sample</span><span class="p">()</span>
 <span class="n">obs</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">done</span><span class="p">,</span> <span class="n">truncated</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;success:&quot;</span><span class="p">,</span> <span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;is_success&quot;</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"success:"</span><span class="p">,</span> <span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"is_success"</span><span class="p">))</span>
 </pre></div>
 </div>
 </section>

@@ -588,8 +588,8 @@ building anything.</p>
 <h2>Flows — the routing graph<a class="headerlink" href="#flows-the-routing-graph" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">flows</span></code> declares the data path from encoders to heads as a list of directed edges.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">flows</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;encoder_name</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;encoder_name</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"encoder_name</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor"</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"encoder_name</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic"</span>
 </pre></div>
 </div>
 <section id="important-properties">
@@ -614,8 +614,8 @@ head.</p>
 <section id="example-symmetric">
 <h3>Example: symmetric<a class="headerlink" href="#example-symmetric" title="Link to this heading">#</a></h3>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">flows</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor"</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic"</span>
 </pre></div>
 </div>
 </section>
@@ -623,19 +623,19 @@ head.</p>
 <h3>Example: asymmetric multi-modal<a class="headerlink" href="#example-asymmetric-multi-modal" title="Link to this heading">#</a></h3>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Actor sees image + state; critic sees state only</span>
 <span class="nt">flows</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;image_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"image_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor"</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor"</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic"</span>
 </pre></div>
 </div>
 </section>
 <section id="example-full-multi-modal-symmetric">
 <h3>Example: full multi-modal, symmetric<a class="headerlink" href="#example-full-multi-modal-symmetric" title="Link to this heading">#</a></h3>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">flows</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;image_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;image_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"image_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor"</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor"</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"image_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic"</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic"</span>
 </pre></div>
 </div>
 </section>

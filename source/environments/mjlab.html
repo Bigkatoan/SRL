@@ -590,12 +590,12 @@ behavior.</p>
 <p>There isn’t one – mjlab reuses <code class="docutils literal notranslate"><span class="pre">IsaacLabWrapper</span></code> directly:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.envs.isaac_lab_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabWrapper</span>
 
-<span class="c1"># construction goes through srl.cli.train&#39;s mjlab branch in practice</span>
+<span class="c1"># construction goes through srl.cli.train's mjlab branch in practice</span>
 <span class="c1"># (mjlab.tasks.registry.load_env_cfg + ManagerBasedRlEnv), shown here</span>
 <span class="c1"># conceptually:</span>
 <span class="n">env</span> <span class="o">=</span> <span class="n">IsaacLabWrapper</span><span class="p">(</span><span class="n">mjlab_env</span><span class="p">)</span>
 <span class="n">obs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
-<span class="c1"># obs = {&quot;actor&quot;: tensor(4096, 384), ...}   ← per-obs-group dict, GPU tensors</span>
+<span class="c1"># obs = {"actor": tensor(4096, 384), ...}   ← per-obs-group dict, GPU tensors</span>
 <span class="c1">#                                              converted to numpy</span>
 
 <span class="n">action</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">single_act_space</span><span class="o">.</span><span class="n">sample</span><span class="p">()</span>

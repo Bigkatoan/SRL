@@ -649,7 +649,7 @@ learning-rate that caused distribution shift in earlier versions.</p>
 <span class="n">cfg</span> <span class="o">=</span> <span class="n">VisualSACConfig</span><span class="p">(</span>
     <span class="n">encoder_update_freq</span>        <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>      <span class="c1"># step encoder every 2 critic updates</span>
     <span class="n">encoder_optimize_with_critic</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="c1"># False → encoder only trains via aux loss</span>
-    <span class="n">aux_loss_type</span>              <span class="o">=</span> <span class="s2">&quot;curl&quot;</span><span class="p">,</span> <span class="c1"># none | ae | vae | curl | byol | drq | spr | barlow</span>
+    <span class="n">aux_loss_type</span>              <span class="o">=</span> <span class="s2">"curl"</span><span class="p">,</span> <span class="c1"># none | ae | vae | curl | byol | drq | spr | barlow</span>
     <span class="n">encoder_lr</span>                 <span class="o">=</span> <span class="mf">1e-4</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
@@ -727,7 +727,7 @@ hyperparameters.</p>
     <span class="n">gamma</span>        <span class="o">=</span> <span class="mf">0.99</span><span class="p">,</span>
     <span class="n">tau</span>          <span class="o">=</span> <span class="mf">0.005</span><span class="p">,</span>
     <span class="n">action_dim</span>   <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
-    <span class="n">action_noise</span> <span class="o">=</span> <span class="s2">&quot;gaussian&quot;</span><span class="p">,</span>
+    <span class="n">action_noise</span> <span class="o">=</span> <span class="s2">"gaussian"</span><span class="p">,</span>
     <span class="n">noise_sigma</span>  <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
     <span class="n">encoder_update_freq</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
 <span class="p">)</span>

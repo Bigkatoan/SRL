@@ -525,7 +525,7 @@ conda<span class="w"> </span>activate<span class="w"> </span>isaaclab
 pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/Bigkatoan/SRL.git
 
 <span class="c1"># Verify</span>
-python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import isaaclab; import srl; print(&#39;OK&#39;)&quot;</span>
+python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import isaaclab; import srl; print('OK')"</span>
 </pre></div>
 </div>
 <div class="warning admonition">
@@ -588,8 +588,8 @@ the task.</p>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">out_features</span><span class="p">:</span><span class="w"> </span><span class="nv">128</span><span class="p p-Indicator">,</span><span class="nt"> activation</span><span class="p">:</span><span class="w"> </span><span class="nv">elu</span><span class="p p-Indicator">,</span><span class="nt"> norm</span><span class="p">:</span><span class="w"> </span><span class="nv">none</span><span class="p p-Indicator">}</span>
 
 <span class="nt">flows</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;actor_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor&quot;</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;critic_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"actor_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">actor"</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"critic_state_enc</span><span class="nv"> </span><span class="s">-&gt;</span><span class="nv"> </span><span class="s">critic"</span>
 
 <span class="nt">actor</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actor</span>
@@ -638,7 +638,7 @@ own CUDA stream. Pair it with <code class="docutils literal notranslate"><span c
     <span class="n">env</span><span class="o">=</span><span class="n">isaac_env</span><span class="p">,</span>
     <span class="n">total_steps</span><span class="o">=</span><span class="mi">1_000_000</span><span class="p">,</span>
     <span class="n">runner_cfg</span><span class="o">=</span><span class="n">AsyncRunnerConfig</span><span class="p">(</span><span class="n">use_async</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">use_gpu_buffer</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-    <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">,</span>
+    <span class="n">device</span><span class="o">=</span><span class="s2">"cuda:0"</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 </pre></div>
