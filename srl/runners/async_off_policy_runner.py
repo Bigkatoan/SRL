@@ -51,6 +51,7 @@ import threading
 import time
 from collections.abc import Callable
 
+import numpy as np
 import torch
 
 from srl.core.base_agent import BaseAgent
@@ -136,6 +137,15 @@ class AsyncOffPolicyRunner:
                 num_envs=getattr(old_buf, "n_envs", getattr(old_buf, "num_envs", 1)),
             )
 
+        # `GPUReplayBuffer.add()` accepts a full `(num_envs, ...)` batch of
+        # CUDA tensors directly and splits it into per-env rows internally
+        # (see its own `add()`). The default `ReplayBuffer` has no such
+        # logic -- its storage is plain numpy, so it expects exactly one
+        # already-split, numpy-backed transition per call. `_add_transitions`
+        # below uses this flag to decide whether to hand the buffer a raw
+        # batch or split+convert it first.
+        self._buffer_accepts_batched_tensors = bool(self.cfg.use_gpu_buffer)
+
         # ------------------------------------------------------------------
         # Async inter-thread signalling
         # ------------------------------------------------------------------
@@ -167,6 +177,8 @@ class AsyncOffPolicyRunner:
 
     def _run_sync(self) -> None:
         obs, _ = self.env.reset()
+        num_envs = self._num_envs()
+        vectorized = num_envs > 1
         step = 0
         since_last_update = 0
         t_start = time.perf_counter()
@@ -174,6 +186,8 @@ class AsyncOffPolicyRunner:
 
         while step < self.total_steps:
             obs_t = self._obs_to_tensor(obs, self.device)
+            remaining = max(self.total_steps - step, 0)
+            active_envs = min(num_envs, remaining) if vectorized else 1
 
             if step < self.random_steps:
                 # `.act_space`, not `.action_space`: IsaacLabWrapper is a
@@ -182,7 +196,9 @@ class AsyncOffPolicyRunner:
                 # gymnasium's own Wrapper property, so this works either
                 # way. sample_action_space() falls back to a plain uniform
                 # draw when the space has no `.sample()` (isaaclab/mjlab's
-                # lightweight space dataclass doesn't).
+                # lightweight space dataclass doesn't). On isaaclab/mjlab,
+                # `act_space` is already the BATCHED `(num_envs, action_dim)`
+                # space, so a single draw is already the right shape.
                 action = sample_action_space(self.env.act_space)
                 action_t = torch.as_tensor(action, dtype=torch.float32, device=self.device)
             else:
@@ -195,35 +211,33 @@ class AsyncOffPolicyRunner:
             )
             done = terminated
 
-            # Add to buffer — GPU buffer accepts CUDA tensors directly.
-            # Keyword args, not positional: ReplayBuffer.add()'s positional
-            # order is (obs, action, reward, next_obs, done, ...) while
-            # GPUReplayBuffer.add()'s is (obs, action, reward, done,
-            # next_obs, ...) -- genuinely different between the two classes,
-            # so positional calls silently swap next_obs/done on whichever
-            # one doesn't match. `done` is true termination only, never OR'd
-            # with `truncated` -- see replay_buffer.py's ReplayBatch
-            # docstring for why SAC/DDPG/TD3's bootstrap target needs that.
-            self.agent.buffer.add(
-                obs=obs_t,
-                action=action_t,
-                reward=reward,
-                next_obs=self._obs_to_tensor(next_obs, self.device),
-                done=done,
-                truncated=truncated,
+            # `done` is true termination only, never OR'd with `truncated`
+            # -- see replay_buffer.py's ReplayBatch docstring for why
+            # SAC/DDPG/TD3's bootstrap target needs that.
+            self._add_transitions(
+                obs_t, action_t, reward, done, self._obs_to_tensor(next_obs, self.device), truncated
             )
 
             obs = next_obs
-            if (
-                isinstance(terminated, (bool,))
-                and terminated
-                or (hasattr(terminated, "any") and terminated.any())
-            ):
-                obs, _ = self.env.reset()
+            if not vectorized:
+                is_done = (
+                    bool(terminated)
+                    if isinstance(terminated, bool)
+                    else bool(np.asarray(terminated).any())
+                )
+                if is_done:
+                    obs, _ = self.env.reset()
+            # Vectorised envs (isaaclab/mjlab) auto-reset individual
+            # sub-envs inside `env.step()` itself -- calling `env.reset()`
+            # here on `terminated.any()` would wipe every parallel env's
+            # in-progress episode just because one of them terminated. See
+            # `srl/cli/train.py`'s `_run_off_policy`, which has the same
+            # `not vectorized_env` guard around its own reset call for the
+            # same reason.
 
-            step += 1
-            since_last_update += 1
-            collect_steps += 1
+            step += active_envs
+            since_last_update += active_envs
+            collect_steps += active_envs
 
             # Update
             if step >= self.update_after and since_last_update >= self.update_every:
@@ -250,14 +264,20 @@ class AsyncOffPolicyRunner:
         trainer_thread.start()
 
         obs, _ = self.env.reset()
+        num_envs = self._num_envs()
+        vectorized = num_envs > 1
         step = 0
         since_last_update = 0
         t_start = time.perf_counter()
         collect_steps = 0
+        log_interval = max(self.update_every, 1000)
+        next_log_step = log_interval
 
         try:
             while step < self.total_steps:
                 obs_t = self._obs_to_tensor(obs, self.device)
+                remaining = max(self.total_steps - step, 0)
+                active_envs = min(num_envs, remaining) if vectorized else 1
 
                 if step < self.random_steps:
                     # See _run_sync's comment on the same line.
@@ -275,28 +295,34 @@ class AsyncOffPolicyRunner:
                 )
                 done = terminated
 
-                # Keyword args -- see _run_sync's comment on the same call
-                # for why (ReplayBuffer/GPUReplayBuffer positional orders
-                # differ, and `done` must stay true-termination-only).
-                self.agent.buffer.add(
-                    obs=obs_t,
-                    action=action_t,
-                    reward=reward,
-                    next_obs=self._obs_to_tensor(next_obs, self.device),
-                    done=done,
-                    truncated=truncated,
+                # `done` stays true-termination-only -- see _run_sync's
+                # comment on the equivalent call for why.
+                self._add_transitions(
+                    obs_t,
+                    action_t,
+                    reward,
+                    done,
+                    self._obs_to_tensor(next_obs, self.device),
+                    truncated,
                 )
 
                 obs = next_obs
-                is_done = (
-                    bool(terminated) if isinstance(terminated, bool) else bool(terminated.any())
-                )
-                if is_done:
-                    obs, _ = self.env.reset()
+                if not vectorized:
+                    is_done = (
+                        bool(terminated)
+                        if isinstance(terminated, bool)
+                        else bool(np.asarray(terminated).any())
+                    )
+                    if is_done:
+                        obs, _ = self.env.reset()
+                # See _run_sync's comment on the same guard: vectorised envs
+                # auto-reset individual sub-envs internally, so a full
+                # `env.reset()` here on any single termination would wipe
+                # every parallel env's progress.
 
-                step += 1
-                since_last_update += 1
-                collect_steps += 1
+                step += active_envs
+                since_last_update += active_envs
+                collect_steps += active_envs
 
                 # Signal trainer when update conditions met
                 if step >= self.update_after and since_last_update >= self.update_every:
@@ -305,8 +331,12 @@ class AsyncOffPolicyRunner:
                         self._train_cond.notify()
                     since_last_update = 0
 
-                # Logging
-                if self.log_fn is not None and step % max(self.update_every, 1000) == 0:
+                # Logging. `step` no longer advances by exactly 1 each
+                # iteration once `active_envs` can be > 1, so an exact `%`
+                # trigger could stride past every multiple of
+                # `log_interval` and never fire -- use a monotonic
+                # threshold instead.
+                if self.log_fn is not None and step >= next_log_step:
                     elapsed = time.perf_counter() - t_start
                     with self._metrics_lock:
                         m = dict(self._latest_metrics)
@@ -314,6 +344,7 @@ class AsyncOffPolicyRunner:
                     self.log_fn(step, m)
                     collect_steps = 0
                     t_start = time.perf_counter()
+                    next_log_step = step + log_interval
 
         finally:
             self._stop_event.set()
@@ -349,6 +380,104 @@ class AsyncOffPolicyRunner:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    def _num_envs(self) -> int:
+        return int(getattr(self.env, "num_envs", 1))
+
+    def _add_transitions(
+        self,
+        obs_t,
+        action_t: torch.Tensor,
+        reward,
+        done,
+        next_obs_t,
+        truncated,
+    ) -> None:
+        """Write one ``env.step()``'s worth of transitions into the buffer.
+
+        Vectorised envs (``num_envs > 1``) must be split into ``num_envs``
+        separate per-env transitions before reaching the default numpy
+        :class:`~srl.core.replay_buffer.ReplayBuffer` -- unlike
+        :class:`~srl.core.gpu_replay_buffer.GPUReplayBuffer` (which splits a
+        batched ``(num_envs, ...)`` tensor into per-env rows internally, see
+        its own ``add()``), the plain buffer has no such logic: a bare
+        batched call would raise ``TypeError`` the moment ``obs_t`` lives on
+        CUDA (numpy can't ingest a CUDA tensor), and even on CPU would
+        silently collapse all ``num_envs`` transitions into a single buffer
+        slot -- mean-reduced reward, any()-reduced done, one buffer slot
+        spent per ``env.step()`` call instead of ``num_envs``.
+        """
+        n = self._num_envs()
+        if n <= 1:
+            self._write_one(obs_t, action_t, reward, done, next_obs_t, truncated, env_idx=0)
+            return
+
+        reward_t = reward if isinstance(reward, torch.Tensor) else torch.as_tensor(reward)
+        done_t = done if isinstance(done, torch.Tensor) else torch.as_tensor(done)
+        trunc_t = truncated if isinstance(truncated, torch.Tensor) else torch.as_tensor(truncated)
+        for i in range(n):
+            obs_i = {k: v[i] for k, v in obs_t.items()} if isinstance(obs_t, dict) else obs_t[i]
+            next_obs_i = (
+                {k: v[i] for k, v in next_obs_t.items()}
+                if isinstance(next_obs_t, dict)
+                else next_obs_t[i]
+            )
+            self._write_one(
+                obs_i,
+                action_t[i],
+                reward_t[i],
+                done_t[i],
+                next_obs_i,
+                trunc_t[i],
+                env_idx=i,
+            )
+
+    def _write_one(
+        self,
+        obs_i,
+        action_i,
+        reward_i,
+        done_i,
+        next_obs_i,
+        truncated_i,
+        *,
+        env_idx: int,
+    ) -> None:
+        if self._buffer_accepts_batched_tensors:
+            # GPUReplayBuffer: zero-copy, stays on `self.device`.
+            self.agent.buffer.add(
+                obs=obs_i,
+                action=action_i,
+                reward=reward_i,
+                next_obs=next_obs_i,
+                done=done_i,
+                truncated=truncated_i,
+            )
+            return
+
+        # Default ReplayBuffer: numpy-backed, needs plain CPU data -- and a
+        # single already-split transition, not a batch. `env_idx` selects
+        # the right per-env n-step accumulator when `n_step > 1`.
+        def _to_np(t):
+            return t.detach().cpu().numpy() if isinstance(t, torch.Tensor) else t
+
+        obs_np = (
+            {k: _to_np(v) for k, v in obs_i.items()} if isinstance(obs_i, dict) else _to_np(obs_i)
+        )
+        next_obs_np = (
+            {k: _to_np(v) for k, v in next_obs_i.items()}
+            if isinstance(next_obs_i, dict)
+            else _to_np(next_obs_i)
+        )
+        self.agent.buffer.add(
+            obs=obs_np,
+            action=_to_np(action_i),
+            reward=np.array([float(reward_i)], dtype=np.float32),
+            done=np.array([bool(done_i)], dtype=bool),
+            truncated=np.array([bool(truncated_i)], dtype=bool),
+            next_obs=next_obs_np,
+            env_idx=env_idx,
+        )
 
     def _default_obs_to_tensor(
         self,

@@ -309,3 +309,131 @@ def test_resolve_env_action_dim_falls_back_when_no_single_act_space() -> None:
         act_space = _FakeActionSpace((3,))
 
     assert train_module._resolve_env_action_dim(_PlainEnv()) == 3
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# AsyncOffPolicyRunner activation (`train:` block's `use_async` /
+# `use_gpu_buffer`) — regression tests for a bug where these keys were
+# silently inert: `_run_off_policy` gated activation on
+# `getattr(args, "algo_config", {})`, but nothing ever set `args.algo_config`
+# from the loaded YAML `train:` dict, so the async fast path was unreachable
+# through `srl-train` no matter what a config declared. The only way to
+# actually construct `AsyncOffPolicyRunner` was to do it directly in Python,
+# bypassing the CLI entirely.
+# ──────────────────────────────────────────────────────────────────────────
+
+
+def test_async_runner_activates_when_config_sets_use_async(monkeypatch, tmp_path) -> None:
+    """`train: {use_async: true}` in the YAML must actually construct and
+    run `AsyncOffPolicyRunner` -- not silently fall through to the sync
+    `_run_off_policy` loop as if the key were never set."""
+    import srl.runners as runners_module
+
+    monkeypatch.setattr(train_module, "_make_cli_env", _fake_make_cli_env)
+
+    calls: dict = {"constructed": False, "ran": False, "runner_cfg": None}
+    real_runner_cls = runners_module.AsyncOffPolicyRunner
+
+    class _SpyRunner(real_runner_cls):
+        def __init__(self, *args, **kwargs):
+            calls["constructed"] = True
+            calls["runner_cfg"] = kwargs.get("runner_cfg")
+            super().__init__(*args, **kwargs)
+
+        def run(self):
+            calls["ran"] = True
+            super().run()
+
+    monkeypatch.setattr(runners_module, "AsyncOffPolicyRunner", _SpyRunner)
+
+    config_dict = {**SAC_CONFIG, "train": {**SAC_CONFIG["train"], "use_async": True}}
+    config_path = _write_config(tmp_path, "sac_async.yaml", config_dict)
+    total_steps = config_dict["train"]["total_steps"]
+
+    exit_code = train_module.main(
+        [
+            "--config",
+            config_path,
+            "--logdir",
+            str(tmp_path / "runs"),
+            "--ckptdir",
+            str(tmp_path / "checkpoints"),
+            "--eval-freq",
+            "0",
+            "--no-plots",
+            "--seed",
+            "0",
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls["constructed"], (
+        "AsyncOffPolicyRunner was never constructed -- `train: {use_async: true}` "
+        "in the YAML config did not activate the async fast path"
+    )
+    assert calls["ran"]
+    assert calls["runner_cfg"] is not None and calls["runner_cfg"].use_async is True
+    assert total_steps > 0  # sanity: config actually has steps to run
+
+
+@pytest.mark.parametrize("use_gpu_buffer", [False, True], ids=["cpu_buffer", "gpu_buffer"])
+def test_srl_train_main_runs_full_loop_with_async_runner_on_fake_mjlab_env(
+    monkeypatch, tmp_path, use_gpu_buffer
+) -> None:
+    """End-to-end regression test for `AsyncOffPolicyRunner` against a
+    vectorised (num_envs=4), dict-obs, mjlab-shaped env -- the exact
+    combination (real mjlab wrapper contract + async collection + optional
+    on-device replay buffer, all three together) that was never exercised
+    before. Covers, in one real run through `srl-train`:
+
+    * `use_async`/`use_gpu_buffer` actually reaching `AsyncOffPolicyRunner`
+      (see `test_async_runner_activates_when_config_sets_use_async`).
+    * Vectorised step counting: `total_steps` must mean the same thing
+      (total env-transitions across all parallel envs) as the sync path,
+      not "number of `env.step()` calls" -- getting this wrong makes a
+      vectorised run take `num_envs`x longer (in `env.step()` calls, i.e.
+      wall clock) to reach the same nominal `--steps`.
+    * Not calling a full `env.reset()` just because one of several parallel
+      envs terminated (mjlab/isaaclab auto-reset sub-envs internally).
+    * Splitting a batched `(num_envs, ...)` transition into `num_envs`
+      separate buffer writes rather than handing the whole batch to
+      `agent.buffer.add()` in one call -- the default numpy `ReplayBuffer`
+      has no batch-splitting logic of its own (only `GPUReplayBuffer`
+      does), so a bare batched call silently collapses `num_envs`
+      transitions into a single buffer slot (mean-reduced reward,
+      any()-reduced done) and would outright crash with a CUDA obs tensor.
+    """
+    monkeypatch.setattr(train_module, "_make_cli_env", _fake_make_cli_env)
+
+    config_dict = {
+        **SAC_CONFIG,
+        "train": {
+            **SAC_CONFIG["train"],
+            "use_async": True,
+            "use_gpu_buffer": use_gpu_buffer,
+        },
+    }
+    config_path = _write_config(tmp_path, "sac_async_e2e.yaml", config_dict)
+    total_steps = config_dict["train"]["total_steps"]
+
+    exit_code = train_module.main(
+        [
+            "--config",
+            config_path,
+            "--logdir",
+            str(tmp_path / "runs"),
+            "--ckptdir",
+            str(tmp_path / "checkpoints"),
+            "--eval-freq",
+            str(total_steps // 2),
+            "--eval-episodes",
+            "1",
+            "--no-plots",
+            "--seed",
+            "0",
+        ]
+    )
+
+    assert exit_code == 0
+    checkpoint_dir = tmp_path / "checkpoints"
+    assert any(checkpoint_dir.rglob("*.pt")), "expected at least one checkpoint to be written"

@@ -951,6 +951,21 @@ def main(argv: list[str] | None = None) -> int:
     )
     args.n_envs = args.n_envs if args.n_envs is not None else int(train_cfg.get("n_envs", 1))
     args.env, args.env_type = _resolve_env_spec(args.env, raw_cfg)
+    # `_run_off_policy`'s async/GPU-buffer fast path reads `args.algo_config`
+    # to decide whether to activate `AsyncOffPolicyRunner` (`use_async: true`
+    # / `use_gpu_buffer: true` under a config's `train:` block). Nothing
+    # previously set this attribute -- `getattr(args, "algo_config", {})`
+    # always fell back to `{}`, so those YAML keys were silently inert no
+    # matter what a config declared; the only way to actually reach
+    # `AsyncOffPolicyRunner` was to construct it directly in Python,
+    # bypassing `srl-train` entirely. `train_cfg` (this function's own `raw`
+    # dict for the `train:` block) already carries whatever the config
+    # author wrote, unfiltered -- assign it directly rather than routing
+    # through `_build_algo_config`, which drops any key that isn't a
+    # declared field on the algorithm's own config dataclass (`use_async`/
+    # `use_gpu_buffer` live on the separate `AsyncRunnerConfig`, not on
+    # `SACConfig`/`DDPGConfig`/`TD3Config`, so they'd be dropped there too).
+    args.algo_config = train_cfg
 
     compatibility_error = _validate_algo_model_compatibility(raw_cfg, algo_name, args.config)
     if compatibility_error is not None:

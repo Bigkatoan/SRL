@@ -125,11 +125,20 @@ class GPUReplayBuffer:
         self._action_buf = torch.zeros(
             (self.capacity, act_dim), dtype=self._storage_dtype, device=self.device
         )
-        self._reward_buf = torch.zeros((self.capacity, 1), dtype=torch.float32, device=self.device)
-        self._done_buf = torch.zeros((self.capacity, 1), dtype=torch.float32, device=self.device)
-        self._truncated_buf = torch.zeros(
-            (self.capacity, 1), dtype=torch.float32, device=self.device
-        )
+        # Shape (capacity,), not (capacity, 1) -- must match ReplayBuffer's
+        # own convention (srl/core/replay_buffer.py: `self._rewards =
+        # np.zeros((self.capacity,), ...)`). SAC/DDPG/TD3's bootstrap target
+        # (e.g. `rewards + gamma * (1 - dones) * next_q`) is written against
+        # that (B,) contract; a stray trailing singleton dim on `rewards`/
+        # `dones` from this buffer broadcasts against a (B,)-shaped `next_q`
+        # into an unintended (B, B) target instead of (B,) -- silently wrong
+        # bootstrap math, not a crash (confirmed via a real SAC run: `(1 -
+        # dones) * (...)` at (B,1) times (B,) broadcasts outer-product-style
+        # to (B,B), then `F.mse_loss(q1, target_q)` warns about the size
+        # mismatch and trains against mostly cross-sample noise).
+        self._reward_buf = torch.zeros((self.capacity,), dtype=torch.float32, device=self.device)
+        self._done_buf = torch.zeros((self.capacity,), dtype=torch.float32, device=self.device)
+        self._truncated_buf = torch.zeros((self.capacity,), dtype=torch.float32, device=self.device)
 
         if isinstance(obs, dict):
             self._obs_buf = {}
@@ -217,9 +226,24 @@ class GPUReplayBuffer:
                 torch.as_tensor(next_obs) if not isinstance(next_obs, torch.Tensor) else next_obs
             )
 
-        # Handle batched vectorised-env input: iterate per-env row
+        # Handle batched vectorised-env input.
         batch_size = action.shape[0] if action.dim() > 1 else 1
         if batch_size > 1:
+            if self.n_step <= 1:
+                # Vectorised path: one fancy-indexed scatter write per tensor
+                # instead of `batch_size` separate Python-level add() calls.
+                # A GPU-batched sim (mjlab/Isaac Lab) can run thousands of
+                # parallel envs, and the old per-row loop paid for that many
+                # dict-comprehension row slices, re-entrant add() calls, lock
+                # acquisitions, and individual .copy_() kernel launches on
+                # *every single env step* -- exactly the host-side overhead
+                # this buffer's "zero-copy" design is supposed to avoid.
+                # n-step accumulation (below) is inherently per-env
+                # sequential state, so it keeps the per-row loop.
+                with self._lock:
+                    self._ensure_allocated(obs, action)
+                    self._write_batch(obs, action, reward, done, next_obs, truncated)
+                return
             for i in range(batch_size):
                 _obs_i = {k: v[i] for k, v in obs.items()} if isinstance(obs, dict) else obs[i]
                 _nobs_i = (
@@ -272,11 +296,79 @@ class GPUReplayBuffer:
             action.float() if action.is_floating_point() else action.to(dtype=self._storage_dtype)
         )
         self._action_buf[idx].copy_(act.view(-1))
-        self._reward_buf[idx, 0] = float(reward)
-        self._done_buf[idx, 0] = float(done)
-        self._truncated_buf[idx, 0] = float(truncated)
+        self._reward_buf[idx] = float(reward)
+        self._done_buf[idx] = float(done)
+        self._truncated_buf[idx] = float(truncated)
         self._ptr = (self._ptr + 1) % self.capacity
         self._size = min(self._size + 1, self.capacity)
+
+    def _write_batch(
+        self,
+        obs: dict[str, torch.Tensor] | torch.Tensor,
+        action: torch.Tensor,
+        reward: torch.Tensor,
+        done: torch.Tensor,
+        next_obs: dict[str, torch.Tensor] | torch.Tensor,
+        truncated: torch.Tensor,
+    ) -> None:
+        """Vectorised write for a whole batch of parallel-env transitions.
+
+        Writes all `batch_size` rows with a single fancy-indexed scatter per
+        tensor (``buf[idx] = src``) instead of `batch_size` individual
+        ``.copy_()`` calls. Index wraparound (when `ptr + batch_size` crosses
+        `capacity`) is handled automatically by the modulo below -- fancy
+        indexing scatters to arbitrary (non-contiguous) positions correctly,
+        no need to special-case the wrap.
+
+        Note: if `batch_size > capacity` (replay buffer smaller than the
+        number of parallel envs -- not a sane configuration in practice),
+        `idx` contains duplicate slots and which write wins is undefined;
+        callers are expected to size the buffer well above `num_envs`.
+        """
+        batch_size = action.shape[0]
+        idx = (self._ptr + torch.arange(batch_size, device=self.device)) % self.capacity
+
+        self._write_obs_batch(self._obs_buf, idx, obs)
+        self._write_obs_batch(self._next_obs_buf, idx, next_obs)
+
+        act = self._to_device(
+            action.float() if action.is_floating_point() else action.to(dtype=self._storage_dtype)
+        )
+        self._action_buf[idx] = act.reshape(batch_size, -1)
+        self._reward_buf[idx] = self._as_flat(reward, batch_size)
+        self._done_buf[idx] = self._as_flat(done, batch_size)
+        self._truncated_buf[idx] = self._as_flat(truncated, batch_size)
+
+        self._ptr = int((self._ptr + batch_size) % self.capacity)
+        self._size = min(self._size + batch_size, self.capacity)
+
+    def _write_obs_batch(
+        self,
+        buf: dict[str, torch.Tensor] | torch.Tensor,
+        idx: torch.Tensor,
+        obs: dict[str, torch.Tensor] | torch.Tensor,
+    ) -> None:
+        if isinstance(buf, dict):
+            for k in buf:
+                src = self._to_device(obs[k] if isinstance(obs, dict) else obs)
+                buf[k][idx] = src
+        else:
+            src = self._to_device(
+                obs if isinstance(obs, torch.Tensor) else next(iter(obs.values()))
+            )
+            buf[idx] = src
+
+    def _as_flat(self, x: torch.Tensor, batch_size: int) -> torch.Tensor:
+        """Move *x* to the buffer device as float32 and flatten to (N,).
+
+        Reward/done/truncated storage is always float32 (see
+        `_ensure_allocated`) regardless of `use_fp16`, so this intentionally
+        does not route through `_to_device`'s storage-dtype cast. Shape
+        (N,), not (N, 1) -- see `_ensure_allocated`'s comment on why a
+        trailing singleton dim here silently corrupts SAC/DDPG/TD3's
+        bootstrap target via broadcasting.
+        """
+        return x.to(device=self.device, dtype=torch.float32).reshape(batch_size)
 
     def sample(self, batch_size: int) -> ReplayBatch:
         """Sample a random minibatch.  All tensors already on ``self.device``."""

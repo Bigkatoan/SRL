@@ -163,8 +163,13 @@ def test_gpu_replay_buffer_add_sample_round_trip_on_cpu() -> None:
 
     batch = buf.sample(4)
     assert batch.observations["state"].shape == (4, OBS_DIM)
-    assert batch.dones.shape == (4, 1)
-    assert batch.truncated.shape == (4, 1)
+    # (4,), not (4, 1) -- must match ReplayBuffer's own contract (see
+    # gpu_replay_buffer.py's `_ensure_allocated` comment): SAC/DDPG/TD3's
+    # bootstrap target broadcasts `rewards`/`dones` against a (B,)-shaped
+    # `next_q`, and a stray trailing singleton dim there silently produces
+    # a (B, B) target instead of (B,).
+    assert batch.dones.shape == (4,)
+    assert batch.truncated.shape == (4,)
 
 
 def test_gpu_replay_buffer_add_batched_vectorized_input() -> None:
@@ -181,7 +186,75 @@ def test_gpu_replay_buffer_add_batched_vectorized_input() -> None:
         truncated=torch.tensor([False, False, False, True]),
     )
     assert len(buf) == num_envs
-    assert buf._truncated_buf[:num_envs, 0].tolist() == [0.0, 0.0, 0.0, 1.0]
+    assert buf._truncated_buf[:num_envs].tolist() == [0.0, 0.0, 0.0, 1.0]
+
+
+def test_gpu_replay_buffer_batched_add_matches_per_row_add_and_handles_wraparound() -> None:
+    """The batched `add()` path writes with a single vectorised scatter per
+    tensor instead of looping `add()` once per env row (see gpu_replay_buffer.py).
+    Lock in that it produces byte-identical buffer contents to the row-by-row
+    semantics it replaces -- including when a batch straddles the circular
+    buffer's wraparound point, where a naive contiguous-slice write would be
+    wrong but per-index fancy indexing is not.
+    """
+    from srl.core.gpu_replay_buffer import GPUReplayBuffer
+
+    def add_row_by_row(buf, obs, action, reward, done, next_obs, truncated) -> None:
+        for i in range(action.shape[0]):
+            buf.add(
+                {k: v[i] for k, v in obs.items()},
+                action[i],
+                reward[i],
+                done[i],
+                {k: v[i] for k, v in next_obs.items()},
+                truncated[i],
+            )
+
+    capacity = 16
+    num_envs = 6
+    # Distinct per-env values so a row mixup (wrong index math) would be caught.
+    obs = {
+        "state": torch.arange(num_envs * OBS_DIM, dtype=torch.float32).reshape(num_envs, OBS_DIM)
+    }
+    next_obs = {"state": obs["state"] + 100.0}
+    action = (
+        torch.arange(num_envs * ACTION_DIM, dtype=torch.float32).reshape(num_envs, ACTION_DIM)
+        + 1000.0
+    )
+    reward = torch.arange(num_envs, dtype=torch.float32) + 2000.0
+    done = torch.tensor([False, True, False, False, True, False])
+    truncated = torch.tensor([False, False, True, False, False, True])
+
+    # Pre-fill both buffers to the same near-full pointer position so the
+    # batch add below straddles the wraparound (ptr=13, capacity=16, batch=6).
+    prefill_n = 13
+    prefill = dict(
+        obs={"state": torch.zeros(prefill_n, OBS_DIM)},
+        action=torch.zeros(prefill_n, ACTION_DIM),
+        reward=torch.zeros(prefill_n),
+        done=torch.zeros(prefill_n, dtype=torch.bool),
+        next_obs={"state": torch.ones(prefill_n, OBS_DIM)},
+        truncated=torch.zeros(prefill_n, dtype=torch.bool),
+    )
+
+    buf_vectorized = GPUReplayBuffer(capacity=capacity, device="cpu")
+    buf_vectorized.add(**prefill)
+    buf_vectorized.add(
+        obs=obs, action=action, reward=reward, done=done, next_obs=next_obs, truncated=truncated
+    )
+
+    buf_reference = GPUReplayBuffer(capacity=capacity, device="cpu")
+    add_row_by_row(buf_reference, **prefill)
+    add_row_by_row(buf_reference, obs, action, reward, done, next_obs, truncated)
+
+    assert buf_vectorized._ptr == buf_reference._ptr == (prefill_n + num_envs) % capacity
+    assert buf_vectorized._size == buf_reference._size == capacity
+    assert torch.equal(buf_vectorized._obs_buf["state"], buf_reference._obs_buf["state"])
+    assert torch.equal(buf_vectorized._next_obs_buf["state"], buf_reference._next_obs_buf["state"])
+    assert torch.equal(buf_vectorized._action_buf, buf_reference._action_buf)
+    assert torch.equal(buf_vectorized._reward_buf, buf_reference._reward_buf)
+    assert torch.equal(buf_vectorized._done_buf, buf_reference._done_buf)
+    assert torch.equal(buf_vectorized._truncated_buf, buf_reference._truncated_buf)
 
 
 def test_gpu_replay_buffer_checkpoint_round_trip() -> None:
@@ -198,7 +271,7 @@ def test_gpu_replay_buffer_checkpoint_round_trip() -> None:
     )
     restored = GPUReplayBuffer(capacity=8, device="cpu")
     restored.load_state_dict(buf.state_dict())
-    assert restored._truncated_buf[0, 0].item() == 1.0
+    assert restored._truncated_buf[0].item() == 1.0
 
 
 def test_rollout_buffer_add_get_batches_round_trip() -> None:
