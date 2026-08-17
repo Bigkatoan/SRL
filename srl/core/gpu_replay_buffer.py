@@ -125,11 +125,20 @@ class GPUReplayBuffer:
         self._action_buf = torch.zeros(
             (self.capacity, act_dim), dtype=self._storage_dtype, device=self.device
         )
-        self._reward_buf = torch.zeros((self.capacity, 1), dtype=torch.float32, device=self.device)
-        self._done_buf = torch.zeros((self.capacity, 1), dtype=torch.float32, device=self.device)
-        self._truncated_buf = torch.zeros(
-            (self.capacity, 1), dtype=torch.float32, device=self.device
-        )
+        # Shape (capacity,), not (capacity, 1) -- must match ReplayBuffer's
+        # own convention (srl/core/replay_buffer.py: `self._rewards =
+        # np.zeros((self.capacity,), ...)`). SAC/DDPG/TD3's bootstrap target
+        # (e.g. `rewards + gamma * (1 - dones) * next_q`) is written against
+        # that (B,) contract; a stray trailing singleton dim on `rewards`/
+        # `dones` from this buffer broadcasts against a (B,)-shaped `next_q`
+        # into an unintended (B, B) target instead of (B,) -- silently wrong
+        # bootstrap math, not a crash (confirmed via a real SAC run: `(1 -
+        # dones) * (...)` at (B,1) times (B,) broadcasts outer-product-style
+        # to (B,B), then `F.mse_loss(q1, target_q)` warns about the size
+        # mismatch and trains against mostly cross-sample noise).
+        self._reward_buf = torch.zeros((self.capacity,), dtype=torch.float32, device=self.device)
+        self._done_buf = torch.zeros((self.capacity,), dtype=torch.float32, device=self.device)
+        self._truncated_buf = torch.zeros((self.capacity,), dtype=torch.float32, device=self.device)
 
         if isinstance(obs, dict):
             self._obs_buf = {}
@@ -287,9 +296,9 @@ class GPUReplayBuffer:
             action.float() if action.is_floating_point() else action.to(dtype=self._storage_dtype)
         )
         self._action_buf[idx].copy_(act.view(-1))
-        self._reward_buf[idx, 0] = float(reward)
-        self._done_buf[idx, 0] = float(done)
-        self._truncated_buf[idx, 0] = float(truncated)
+        self._reward_buf[idx] = float(reward)
+        self._done_buf[idx] = float(done)
+        self._truncated_buf[idx] = float(truncated)
         self._ptr = (self._ptr + 1) % self.capacity
         self._size = min(self._size + 1, self.capacity)
 
@@ -326,9 +335,9 @@ class GPUReplayBuffer:
             action.float() if action.is_floating_point() else action.to(dtype=self._storage_dtype)
         )
         self._action_buf[idx] = act.reshape(batch_size, -1)
-        self._reward_buf[idx] = self._as_column(reward, batch_size)
-        self._done_buf[idx] = self._as_column(done, batch_size)
-        self._truncated_buf[idx] = self._as_column(truncated, batch_size)
+        self._reward_buf[idx] = self._as_flat(reward, batch_size)
+        self._done_buf[idx] = self._as_flat(done, batch_size)
+        self._truncated_buf[idx] = self._as_flat(truncated, batch_size)
 
         self._ptr = int((self._ptr + batch_size) % self.capacity)
         self._size = min(self._size + batch_size, self.capacity)
@@ -349,14 +358,17 @@ class GPUReplayBuffer:
             )
             buf[idx] = src
 
-    def _as_column(self, x: torch.Tensor, batch_size: int) -> torch.Tensor:
-        """Move *x* to the buffer device as float32 and reshape to (N, 1).
+    def _as_flat(self, x: torch.Tensor, batch_size: int) -> torch.Tensor:
+        """Move *x* to the buffer device as float32 and flatten to (N,).
 
         Reward/done/truncated storage is always float32 (see
         `_ensure_allocated`) regardless of `use_fp16`, so this intentionally
-        does not route through `_to_device`'s storage-dtype cast.
+        does not route through `_to_device`'s storage-dtype cast. Shape
+        (N,), not (N, 1) -- see `_ensure_allocated`'s comment on why a
+        trailing singleton dim here silently corrupts SAC/DDPG/TD3's
+        bootstrap target via broadcasting.
         """
-        return x.to(device=self.device, dtype=torch.float32).reshape(batch_size, 1)
+        return x.to(device=self.device, dtype=torch.float32).reshape(batch_size)
 
     def sample(self, batch_size: int) -> ReplayBatch:
         """Sample a random minibatch.  All tensors already on ``self.device``."""
