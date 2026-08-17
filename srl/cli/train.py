@@ -1525,6 +1525,39 @@ def _run_off_policy(
             for cb in callbacks:
                 cb.on_step_end(step, metrics)
 
+        # `AsyncOffPolicyRunner` has no notion of `--eval-freq`/mjlab env
+        # construction -- it just calls `eval_fn(step)` every collector-loop
+        # iteration and leaves scheduling/eval-env lifetime entirely to the
+        # caller (see its docstring). Reuse the exact same
+        # `_next_eval_step`/`_maybe_run_evaluation` helpers the classic sync
+        # off-policy loop below already uses, via a small mutable closure --
+        # this is what actually makes `--eval-freq` do anything for this
+        # path; before this, `runner.run()` returning early (see the
+        # `return` a few lines down) skipped every bit of eval machinery
+        # further down in this function, silently.
+        _eval_state = {
+            "next_eval_step": _next_eval_step(start_step, int(getattr(args, "eval_freq", 0))),
+            "eval_env": None,
+            "last_eval_step": None,
+        }
+
+        def _eval_fn(step: int) -> None:
+            next_eval_step, eval_env, last_eval_step = _maybe_run_evaluation(
+                agent,
+                args,
+                logger,
+                device=device,
+                step=step,
+                next_eval_step=_eval_state["next_eval_step"],
+                eval_env=_eval_state["eval_env"],
+                last_eval_step=_eval_state["last_eval_step"],
+            )
+            _eval_state["next_eval_step"] = next_eval_step
+            _eval_state["eval_env"] = eval_env
+            _eval_state["last_eval_step"] = last_eval_step
+
+        _eval_freq = int(getattr(args, "eval_freq", 0))
+
         runner = AsyncOffPolicyRunner(
             agent=agent,
             env=env,
@@ -1536,8 +1569,36 @@ def _run_off_policy(
             update_after=int(_update_after),
             update_every=int(_update_every),
             gradient_steps=_gradient_steps,
+            eval_fn=_eval_fn if _eval_freq > 0 else None,
         )
-        runner.run()
+        try:
+            runner.run()
+        finally:
+            # Force a final eval at the nominal last step if periodic eval
+            # didn't already land exactly there -- mirrors the duplicate-eval
+            # guard the classic sync off-policy loop uses further down
+            # (`last_eval_step != env_step`, see PR #11's fix for why the
+            # guard matters), then close the eval env exactly once. Runs in
+            # `finally` so a mid-run exception/KeyboardInterrupt still closes
+            # whatever eval env got built instead of leaking the mjlab
+            # instance.
+            if (
+                _eval_state["next_eval_step"] is not None
+                and _eval_state["last_eval_step"] != args.steps
+            ):
+                _, _eval_env, _ = _maybe_run_evaluation(
+                    agent,
+                    args,
+                    logger,
+                    device=device,
+                    step=args.steps,
+                    next_eval_step=args.steps,
+                    eval_env=_eval_state["eval_env"],
+                    last_eval_step=_eval_state["last_eval_step"],
+                )
+                _eval_state["eval_env"] = _eval_env
+            if _eval_state["eval_env"] is not None:
+                _eval_state["eval_env"].close()
         return
 
     random_steps = getattr(agent.cfg, "start_steps", None)

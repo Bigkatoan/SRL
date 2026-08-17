@@ -346,3 +346,116 @@ def test_run_fully_drains_backlog_before_returning_even_when_trainer_falls_behin
     # caller can safely checkpoint/close the env/exit immediately after.
     trainer_threads = [t for t in threading.enumerate() if t.name == "srl-trainer"]
     assert not any(t.is_alive() for t in trainer_threads)
+
+
+@pytest.mark.parametrize("use_async", [False, True], ids=["sync", "async"])
+def test_eval_fn_called_every_iteration_with_current_step(use_async) -> None:
+    """`eval_fn(step)` must be invoked once per collector-loop iteration for
+    both sync and async modes.
+
+    Regression test: before `eval_fn` existed, `AsyncOffPolicyRunner` had no
+    hook at all for periodic evaluation. `srl.cli.train._run_off_policy`
+    hands off to this runner and `return`s as soon as `run()` completes --
+    entirely skipping the `--eval-freq`/`--eval-episodes` machinery further
+    down in that same function. Net effect on a real run: `--eval-freq` is
+    silently inert (zero `eval/score_mean` entries ever logged) any time
+    `use_async` or `use_gpu_buffer` is set, i.e. exactly the configuration
+    this runner exists for.
+    """
+    num_envs = 4
+    n_iters = 5
+    total_steps = num_envs * n_iters
+    env = _FakeVecEnv(num_envs)
+    agent = _FakeAgent()
+    calls: list[int] = []
+
+    runner = AsyncOffPolicyRunner(
+        agent=agent,
+        env=env,
+        total_steps=total_steps,
+        runner_cfg=AsyncRunnerConfig(use_async=use_async),
+        obs_to_tensor_fn=_obs_to_tensor,
+        device="cpu",
+        random_steps=0,
+        update_after=0,
+        update_every=num_envs,
+        gradient_steps=1,
+        eval_fn=calls.append,
+    )
+    runner.run()
+
+    assert calls == [num_envs * i for i in range(1, n_iters + 1)], (
+        "expected eval_fn to be called once per collector-loop iteration "
+        f"with the running step count, got {calls}"
+    )
+
+
+def test_eval_fn_not_called_when_absent() -> None:
+    """`eval_fn=None` (the default) must not change collection behavior at
+    all -- a plain smoke test that the new parameter is truly optional."""
+    num_envs = 4
+    total_steps = num_envs * 5
+    env = _FakeVecEnv(num_envs)
+    agent = _FakeAgent()
+
+    runner = AsyncOffPolicyRunner(
+        agent=agent,
+        env=env,
+        total_steps=total_steps,
+        runner_cfg=AsyncRunnerConfig(use_async=True),
+        obs_to_tensor_fn=_obs_to_tensor,
+        device="cpu",
+        random_steps=0,
+        update_after=0,
+        update_every=num_envs,
+        gradient_steps=1,
+    )
+    runner.run()  # must not raise
+
+    assert env.step_calls == total_steps // num_envs
+
+
+def test_eval_fn_called_from_collector_thread_not_trainer_thread() -> None:
+    """`eval_fn` must run on the collector (main) thread, never the
+    background trainer thread.
+
+    Calling it from the trainer thread would let eval-env construction/
+    stepping race the trainer's concurrent CUDA work on `_train_stream` --
+    the same category of bug already documented and fixed once in this
+    codebase for `--visualize` (`srl.cli.train._make_visualizer`: building a
+    new mjlab env concurrently with another thread's ongoing GPU work
+    corrupts mjlab's one-time CUDA graph capture, confirmed repro was a hard
+    SIGABRT). The caller (`srl.cli.train._run_off_policy`) is expected to
+    build its eval env before starting this runner's trainer thread and
+    reuse it thereafter; this test only guards the runner's half of that
+    contract -- that it never invokes the callback from `_trainer_loop`.
+    """
+    num_envs = 4
+    total_steps = num_envs * 5
+    env = _FakeVecEnv(num_envs)
+    agent = _FakeAgent()
+    thread_names: list[str] = []
+
+    def _eval_fn(step: int) -> None:
+        thread_names.append(threading.current_thread().name)
+
+    runner = AsyncOffPolicyRunner(
+        agent=agent,
+        env=env,
+        total_steps=total_steps,
+        runner_cfg=AsyncRunnerConfig(use_async=True),
+        obs_to_tensor_fn=_obs_to_tensor,
+        device="cpu",
+        random_steps=0,
+        update_after=0,
+        update_every=num_envs,
+        gradient_steps=1,
+        eval_fn=_eval_fn,
+    )
+    runner.run()
+
+    assert thread_names, "eval_fn was never called"
+    assert all(name != "srl-trainer" for name in thread_names), (
+        f"eval_fn was called from thread(s) {set(thread_names)} -- must "
+        "only ever run on the collector thread"
+    )

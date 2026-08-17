@@ -17,6 +17,8 @@ unnamed encoders) depend on.
 
 from __future__ import annotations
 
+import json
+
 import numpy as np
 import pytest
 import yaml
@@ -437,3 +439,71 @@ def test_srl_train_main_runs_full_loop_with_async_runner_on_fake_mjlab_env(
     assert exit_code == 0
     checkpoint_dir = tmp_path / "checkpoints"
     assert any(checkpoint_dir.rglob("*.pt")), "expected at least one checkpoint to be written"
+
+
+@pytest.mark.parametrize("use_gpu_buffer", [False, True], ids=["cpu_buffer", "gpu_buffer"])
+def test_async_runner_eval_freq_actually_produces_eval_metrics(
+    monkeypatch, tmp_path, use_gpu_buffer
+) -> None:
+    """Regression test: `--eval-freq`/`--eval-episodes` must actually run
+    evaluation and log `eval/score_mean` when `AsyncOffPolicyRunner` is
+    active (`use_async`/`use_gpu_buffer`), not just exit cleanly.
+
+    `test_srl_train_main_runs_full_loop_with_async_runner_on_fake_mjlab_env`
+    (above) passes `--eval-freq` through this exact path and only checks
+    `exit_code == 0` plus "a checkpoint got written" -- both true whether or
+    not eval ever actually ran, since `_run_off_policy`'s async branch used
+    to hand off to `AsyncOffPolicyRunner.run()` and `return` immediately
+    after, skipping every line of the `--eval-freq`/`_maybe_run_evaluation`
+    machinery written further down in that same function. Confirmed on a
+    real GPU run against `Javis-Payload-Rough`: a `use_async: true, \
+    use_gpu_buffer: true` SAC config with `--eval-freq` set produced zero
+    `eval/score_mean` entries across a 15M-plus-step run -- entirely silent,
+    no error, no warning. This test asserts on the actual eval output
+    (metrics.jsonl content), which the existing async e2e test above does
+    not, so it would have caught that regression.
+    """
+    monkeypatch.setattr(train_module, "_make_cli_env", _fake_make_cli_env)
+
+    config_dict = {
+        **SAC_CONFIG,
+        "train": {
+            **SAC_CONFIG["train"],
+            "use_async": True,
+            "use_gpu_buffer": use_gpu_buffer,
+        },
+    }
+    config_path = _write_config(tmp_path, "sac_async_eval.yaml", config_dict)
+    total_steps = config_dict["train"]["total_steps"]
+
+    exit_code = train_module.main(
+        [
+            "--config",
+            config_path,
+            "--logdir",
+            str(tmp_path / "runs"),
+            "--ckptdir",
+            str(tmp_path / "checkpoints"),
+            "--eval-freq",
+            str(total_steps // 2),
+            "--eval-episodes",
+            "1",
+            "--no-plots",
+            "--seed",
+            "0",
+        ]
+    )
+    assert exit_code == 0
+
+    metrics_path = tmp_path / "runs" / "sac_sac_async_eval" / "metrics.jsonl"
+    assert metrics_path.exists(), f"no metrics.jsonl written at {metrics_path}"
+    tags = set()
+    with metrics_path.open() as fh:
+        for line in fh:
+            tags.add(json.loads(line)["tag"])
+
+    assert "eval/score_mean" in tags, (
+        "no eval/score_mean ever logged for an async-runner run with "
+        "--eval-freq set -- --eval-freq is silently inert for "
+        "AsyncOffPolicyRunner"
+    )

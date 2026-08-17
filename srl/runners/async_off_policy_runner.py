@@ -99,6 +99,26 @@ class AsyncOffPolicyRunner:
         Updates are triggered every ``update_every`` env steps.
     gradient_steps:
         Number of ``agent.update()`` calls per trigger.
+    eval_fn:
+        Optional callback ``(step) -> None`` invoked once per collector-loop
+        iteration (from the collector/main thread, never the background
+        trainer thread) with the runner's current step count. Own scheduling
+        (e.g. "only actually evaluate every N steps") and metric logging are
+        entirely the callback's responsibility -- the runner does not know
+        or care about ``--eval-freq``, it just calls this every iteration so
+        the callback's own step check can fire when due. This mirrors
+        ``srl.cli.train``'s ``_maybe_run_evaluation`` contract: build the
+        eval env once (before this runner's background trainer thread
+        starts, if the caller wants to dodge the mjlab CUDA-graph-capture
+        race documented in ``_make_visualizer``'s use of the same env type),
+        reuse it across calls, close it once the caller is done with
+        ``run()``. Without this, ``--eval-freq``/``--eval-episodes`` are
+        silently inert whenever ``AsyncOffPolicyRunner`` is active (i.e.
+        whenever ``use_async`` or ``use_gpu_buffer`` is set) -- confirmed on
+        a real run: zero ``eval/score_mean`` entries ever written despite a
+        configured ``--eval-freq``, because ``_run_off_policy`` in
+        ``srl.cli.train`` hands off to this class and ``return``s before
+        reaching its own (otherwise fully working) eval loop further down.
     """
 
     def __init__(
@@ -114,6 +134,7 @@ class AsyncOffPolicyRunner:
         update_after: int = 1000,
         update_every: int = 1,
         gradient_steps: int = 1,
+        eval_fn: Callable[[int], None] | None = None,
     ) -> None:
         self.agent = agent
         self.env = env
@@ -125,6 +146,7 @@ class AsyncOffPolicyRunner:
         self.update_after = update_after
         self.update_every = update_every
         self.gradient_steps = gradient_steps
+        self.eval_fn = eval_fn
 
         if obs_to_tensor_fn is not None:
             self._obs_to_tensor = obs_to_tensor_fn
@@ -261,6 +283,16 @@ class AsyncOffPolicyRunner:
                     collect_steps = 0
                     t_start = time.perf_counter()
 
+            # Periodic eval -- see this class's docstring (`eval_fn`) for why
+            # this call exists at all: without it, `--eval-freq` is silently
+            # inert for this runner. Called every iteration (cheap: the
+            # callback owns its own due-or-not check) from this thread only
+            # -- `_run_sync` has no background trainer thread, so there's no
+            # concurrent-CUDA-work hazard to dodge here the way `_run_async`
+            # has to.
+            if self.eval_fn is not None:
+                self.eval_fn(step)
+
     # ------------------------------------------------------------------
     # Async mode
     # ------------------------------------------------------------------
@@ -355,6 +387,23 @@ class AsyncOffPolicyRunner:
                     collect_steps = 0
                     t_start = time.perf_counter()
                     next_log_step = step + log_interval
+
+                # Periodic eval -- see this class's docstring (`eval_fn`).
+                # Called from this thread (the collector) only, never from
+                # `_trainer_loop`'s background thread: the callback's own
+                # eval env was built by the caller *before* `run()` started
+                # the trainer thread, specifically so its one-time mjlab
+                # CUDA-graph capture never overlaps with the trainer's
+                # concurrent `agent.update()` kernels on `_train_stream` --
+                # see `srl.cli.train._make_visualizer`'s near-identical race
+                # (confirmed repro there: env construction concurrent with
+                # another thread's GPU work corrupts the capture, hard
+                # SIGABRT). Once built, stepping the reused eval env here is
+                # no different from the collector already sharing the GPU
+                # with the trainer thread every other iteration of this
+                # loop.
+                if self.eval_fn is not None:
+                    self.eval_fn(step)
 
         finally:
             # `_stop_event` means "no more *new* work is coming" (the
