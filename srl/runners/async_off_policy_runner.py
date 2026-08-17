@@ -19,8 +19,18 @@ Trainer (background daemon thread)
 
 Staleness
     The trainer always sees the latest model weights (shared ``agent.model``).
-    A maximum staleness of one gradient step is accepted (Ape-X / IMPALA
-    style), which is negligible for off-policy algorithms.
+    Actions are sampled from whatever weights the trainer has most recently
+    finished writing (Ape-X / IMPALA style), which is negligible staleness
+    for off-policy algorithms *as long as the trainer can broadly keep up*
+    with the collector's rate of ``update()`` triggers. If it can't --
+    e.g. a large ``gradient_steps`` burst per trigger against a small model
+    where per-call Python/kernel-launch overhead dominates actual compute --
+    ``_pending_updates`` backs up over the course of a run; this is bounded
+    (the collector never blocks waiting for it) but not unlimited, and
+    ``run()`` always fully drains the backlog before returning (see
+    ``_run_async``'s ``finally`` block) rather than silently completing with
+    fewer gradient updates than the config's ``update_every``/
+    ``gradient_steps`` promise for however many steps were collected.
 
 GPU buffer
     When ``AsyncRunnerConfig.use_gpu_buffer=True`` the runner replaces the
@@ -347,10 +357,63 @@ class AsyncOffPolicyRunner:
                     next_log_step = step + log_interval
 
         finally:
+            # `_stop_event` means "no more *new* work is coming" (the
+            # collector loop above has already stopped signalling by this
+            # point) -- it must NOT mean "abandon whatever's still queued".
+            # `_trainer_loop`'s own loop condition (below) keeps draining
+            # `_pending_updates` to 0 even after this is set, so a plain,
+            # untimed `join()` here is safe (bounded by however long that
+            # backlog takes to process, never infinite) and is what makes
+            # the wait actually complete rather than abandoning it.
+            #
+            # This matters for two real, confirmed-via-a-real-mjlab-run
+            # failure modes of the old "join with a short timeout, then
+            # move on regardless" version:
+            #
+            # 1. Silent under-training: if the trainer can't fully keep up
+            #    with the collector in real time (a real risk with a large
+            #    `gradient_steps` burst per trigger -- e.g. this repo's own
+            #    SAC config uses `gradient_steps: 512` -- vs. a small model
+            #    where `agent.update()`'s Python/kernel-launch overhead
+            #    dominates its actual compute), `_pending_updates` backs up
+            #    over the course of a run. Cutting the wait off part way
+            #    through the backlog means `run()` returns -- and the
+            #    caller checkpoints -- with a materially smaller
+            #    `encoder_update_counter` than the config's own
+            #    `update_every`/`gradient_steps` promise for that many
+            #    collected steps (confirmed: 6212-6350 actual vs 10240
+            #    expected for a real 15000-step/16-env SAC run against
+            #    `Javis-Payload-Rough` -- roughly 38% of the intended
+            #    gradient updates silently missing from the saved
+            #    checkpoint).
+            # 2. A process-exit crash: a daemon thread left running past
+            #    `run()` returning is still touching CUDA (`self.
+            #    _train_stream`, `self.agent`'s parameters/optimizer state)
+            #    exactly when a caller's next steps -- checkpoint save,
+            #    `env.close()`, process exit -- start tearing down CUDA
+            #    state out from under it. Confirmed via the same real run:
+            #    reliable SIGABRT ("terminate called without an active
+            #    exception", exit code 134) immediately after "Done." even
+            #    though training and checkpointing had both already
+            #    completed successfully.
             self._stop_event.set()
             with self._train_cond:
                 self._train_cond.notify_all()
-            trainer_thread.join(timeout=10.0)
+            trainer_thread.join()
+            if self._train_stream is not None:
+                # Flush the trainer's stream deterministically here, in the
+                # collector thread, right after we know it has fully
+                # stopped touching it -- rather than leaving that
+                # synchronisation to whatever finalises `self._train_stream`
+                # (a `torch.cuda.Stream` object) at some later,
+                # unpredictable point (a `del`, GC, or interpreter
+                # shutdown). `_trainer_loop` also self-synchronises this
+                # same stream right before it returns; this is a second,
+                # belt-and-suspenders sync from the collector thread's own
+                # context, since it's this thread (not the now-finished
+                # trainer thread) whose CUDA context state a caller's next
+                # steps will actually observe.
+                torch.cuda.synchronize(self.device)
 
     def _trainer_loop(self) -> None:
         """Background daemon: wait for signal, run gradient_steps updates."""
@@ -358,11 +421,20 @@ class AsyncOffPolicyRunner:
             torch.cuda.stream(self._train_stream) if self._train_stream is not None else _nullctx()
         )
         with stream_ctx:
-            while not self._stop_event.is_set():
+            while True:
                 with self._train_cond:
                     while self._pending_updates == 0 and not self._stop_event.is_set():
                         self._train_cond.wait(timeout=0.1)
-                    if self._stop_event.is_set():
+                    # Stopping only ends the loop once every already-queued
+                    # update has actually been claimed here -- `stop_event`
+                    # being set does not by itself mean there's nothing left
+                    # to do; see `_run_async`'s `finally` block for why
+                    # abandoning a nonzero backlog here is exactly the bug
+                    # this loop used to have (either dropped it silently, if
+                    # this was reached while idle-waiting right as stop was
+                    # set, or left it for a fixed, sometimes-insufficient
+                    # join timeout to cut off).
+                    if self._pending_updates == 0 and self._stop_event.is_set():
                         break
                     n = self._pending_updates
                     self._pending_updates = 0
@@ -376,6 +448,19 @@ class AsyncOffPolicyRunner:
                 if metrics:
                     with self._metrics_lock:
                         self._latest_metrics.update(metrics)
+
+            # About to return (and exit the `stream_ctx` block above) with
+            # the stop signal observed -- make sure every kernel already
+            # queued on this stream has actually finished before the
+            # collector thread (in `_run_async`'s `finally`, right after
+            # `trainer_thread.join()`) treats us as fully stopped and moves
+            # on to whatever comes next (checkpoint save, `env.close()`,
+            # process exit). Without this, `join()` returning only means the
+            # Python thread function returned, not that the GPU has actually
+            # caught up -- the queued work is still in flight on
+            # `self._train_stream` when it does.
+            if self._train_stream is not None:
+                self._train_stream.synchronize()
 
     # ------------------------------------------------------------------
     # Helpers

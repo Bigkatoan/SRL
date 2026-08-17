@@ -26,10 +26,26 @@ runner's own collection loop under `num_envs > 1`:
   whole batch into a single buffer slot (mean-reduced reward, any()-reduced
   done) and would raise `TypeError` outright the moment the observation
   tensor lives on CUDA (numpy cannot ingest a CUDA tensor).
+* `_run_async`'s shutdown joined the trainer thread with a fixed 10s
+  timeout and moved on regardless of whether it had actually finished, and
+  `_trainer_loop` exited as soon as `_stop_event` was set even with a
+  nonzero backlog still queued (dropped outright if it happened to be idle-
+  waiting right as stop was set; otherwise left for the timeout to cut off
+  mid-drain). Confirmed via a real 15000-step/16-env SAC run against
+  `Javis-Payload-Rough` with `gradient_steps=512`: the trainer fell behind
+  the collector's rate of update triggers, `run()` returned -- and the
+  caller checkpointed -- with only ~6250 of the 10240 gradient updates the
+  config's `update_every`/`gradient_steps` actually call for (roughly 39%
+  silently missing), and the abandoned daemon thread's still-in-flight CUDA
+  work reliably crashed the process at exit (SIGABRT, "terminate called
+  without an active exception") immediately after "Done." had already
+  printed and the (silently incomplete) checkpoint had already saved.
 """
 
 from __future__ import annotations
 
+import threading
+import time
 from types import SimpleNamespace
 
 import numpy as np
@@ -258,3 +274,75 @@ def test_async_runner_with_gpu_buffer_on_vectorized_env_runs_to_completion() -> 
     assert env.step_calls == total_steps // num_envs
     assert env.reset_calls == 1
     assert agent.update_calls > 0, "no gradient updates ran at all"
+
+
+class _SlowFakeAgent(_FakeAgent):
+    """`update()` deliberately takes long enough that the trainer thread
+    cannot keep up with a fast (near-instant, fake-env) collector -- forcing
+    a real backlog to build up in `_pending_updates`, the exact condition
+    that exposed the drain bug on a real mjlab run (there, caused by
+    `gradient_steps=512` worth of real GPU work per trigger outpacing a slow
+    collector instead, but the runner-level effect -- backlog accumulates
+    faster than the trainer can drain it -- is identical)."""
+
+    def update(self):
+        time.sleep(0.004)
+        return super().update()
+
+
+def test_run_fully_drains_backlog_before_returning_even_when_trainer_falls_behind() -> None:
+    """Regression test for the async shutdown bug: `run()` must not return
+    until every triggered `update()` call has actually executed, even if
+    the trainer was still working through a backlog when collection
+    finished. The old code joined the trainer thread with a fixed timeout
+    and moved on regardless -- on a real run this meant checkpointing with
+    ~39% of the intended gradient updates silently missing, and left a
+    daemon thread with live CUDA work running past `run()` returning
+    (confirmed to reliably SIGABRT the process at exit)."""
+    num_envs = 4
+    n_iters = 20
+    total_steps = num_envs * n_iters
+    update_every = num_envs  # every iteration is an update trigger
+    gradient_steps = 25
+    expected_total_updates = n_iters * gradient_steps  # 500
+
+    env = _FakeVecEnv(num_envs)
+    agent = _SlowFakeAgent()
+
+    runner = AsyncOffPolicyRunner(
+        agent=agent,
+        env=env,
+        total_steps=total_steps,
+        runner_cfg=AsyncRunnerConfig(use_async=True),
+        obs_to_tensor_fn=_obs_to_tensor,
+        device="cpu",
+        random_steps=0,
+        update_after=0,
+        update_every=update_every,
+        gradient_steps=gradient_steps,
+    )
+
+    t0 = time.perf_counter()
+    runner.run()
+    elapsed = time.perf_counter() - t0
+
+    assert agent.update_calls == expected_total_updates, (
+        f"expected all {expected_total_updates} triggered update() calls to "
+        f"have run by the time run() returned, got {agent.update_calls} -- "
+        "the trainer's backlog was abandoned instead of fully drained"
+    )
+    # The fake collector loop itself finishes in well under 100ms (pure
+    # numpy on tiny arrays); 500 updates x 4ms = ~2s of unavoidable trainer
+    # work. If run() returned quickly anyway, the drain was skipped rather
+    # than waited for.
+    assert elapsed >= 1.5, (
+        f"run() returned after only {elapsed:.2f}s, too fast to have actually "
+        "waited for ~2s of trainer backlog -- looks like it returned without "
+        "draining"
+    )
+
+    # No thread should still be alive/touching the agent after run()
+    # returns -- the whole point of draining fully before returning is so a
+    # caller can safely checkpoint/close the env/exit immediately after.
+    trainer_threads = [t for t in threading.enumerate() if t.name == "srl-trainer"]
+    assert not any(t.is_alive() for t in trainer_threads)
