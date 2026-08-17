@@ -12,6 +12,35 @@ Changes in v0.2.0
 * aux_loss_type (VisualSACConfig): "none"|"ae"|"vae"|"curl"|"byol"|"drq"|"spr"|"barlow".
   Aux gradients accumulate on encoder params across freq steps and are consumed
   together with (or instead of) critic gradients when encoder_optimizer.step() fires.
+
+Changes since v0.2.0
+---------------------
+* Fixed: an encoder that feeds ONLY the actor (a `flows:` graph with separate
+  per-head encoders, e.g. `["actor_state_enc -> actor", "critic_state_enc ->
+  critic"]`) used to never receive a gradient update that any optimizer
+  actually consumed -- critic_loss's backward pass never touches it
+  (compute_actor=False forward passes correctly prune encoders that don't
+  feed the critic), and the one place a real gradient into it existed
+  (actor_loss's own backward pass) was unconditionally zeroed before
+  encoder_optimizer.step() ever ran again. Confirmed directly: such an
+  encoder's weights never moved from random init across real update() calls.
+  Now split via `_partition_encoder_params`: critic-reachable encoders keep
+  the original "trained only through critic backward" behaviour unchanged;
+  actor-only encoders get their own `actor_only_encoder_optimizer`, stepped
+  off actor_loss's backward pass (their only valid signal) instead.
+* weight_norm_projection (SACConfig, opt-in): FlashSAC-style (arXiv:2604.04539
+  section 4.2) post-optimizer.step() projection of Linear weight rows to unit
+  L2 norm and norm-layer affine vectors to L2 norm sqrt(d). See
+  `_project_weights_unit_norm`.
+* BatchNorm (`norm: batch_norm` in an encoder/actor/critic's layer config) is
+  now safe to use with SAC: target_model is permanently eval()-mode with its
+  running stats hard-copied from the online net each update()
+  (`_sync_target_buffers`), `self.model`'s train/eval mode is set atomically
+  with its forward call under `_model_lock` (safe against
+  AsyncOffPolicyRunner's concurrent predict()/update() threads), and the
+  critic's Bellman-residual forward pass uses FlashSAC's "cross-batch value
+  prediction" (`_critic_forward`) so the predicted and target halves share
+  BatchNorm statistics.
 """
 
 from __future__ import annotations
@@ -129,11 +158,49 @@ class SAC(BaseAgent):
         )
 
         # ------------------------------------------------------------------
-        # Three-optimizer design (v0.2.0)
+        # Three-optimizer design (v0.2.0), split by reachability (v0.2.1)
         # ------------------------------------------------------------------
-        # Collect unique encoder params (de-duplicated by tensor id so shared
-        # encoders are not double-counted).
-        self._encoder_param_list: list[nn.Parameter] = _unique_encoder_params(self.model)
+        # `_encoder_param_list` used to be every encoder parameter,
+        # unconditionally trained through `encoder_optimizer` off of
+        # critic_loss's backward pass alone (DrQ-v2 style: "encoder is
+        # updated only through critic backward"). That rule is correct for
+        # a SHARED encoder (or a critic-only one) -- but for a config with
+        # a SEPARATE, actor-only encoder (e.g. a `flows:` graph like
+        # `["actor_state_enc -> actor", "critic_state_enc -> critic"]`,
+        # each head with its own dedicated encoder), it silently starves
+        # that encoder of any training signal at all: critic_loss's
+        # backward pass never touches it (compute_actor=False forward
+        # passes correctly prune encoders that don't feed the critic, so
+        # it's never even part of that graph), and the ONE place a real
+        # gradient into it exists -- actor_loss's own backward pass, which
+        # does run through it -- gets explicitly zeroed out before any
+        # optimizer.step() ever consumes it (see [5]/[8] below), by design,
+        # to keep actor_loss from contaminating a *shared* encoder's critic
+        # -driven training. For an actor-only encoder that rule has no
+        # shared encoder to protect, and left unconditionally applied it
+        # means the encoder's weights never move from random init --
+        # confirmed directly: 20 real `update()` calls against a tiny
+        # actor-only-encoder fixture left every one of its parameter
+        # tensors bit-for-bit identical to their initial values, while the
+        # critic's own (correctly-trained) encoder moved normally.
+        #
+        # Fix: partition encoder params by whether they're reachable from
+        # the critic head (`encoder_names_for_head`, which already exists
+        # for exactly this "which encoders does this head actually need"
+        # question). Critic-reachable (shared or critic-only) encoders keep
+        # the original behaviour untouched -- `encoder_optimizer` trained
+        # off critic_loss alone, actor_loss's contribution zeroed before it
+        # can leak in. Actor-only encoders get their own dedicated
+        # `actor_only_encoder_optimizer`, stepped off actor_loss's backward
+        # pass (their only valid signal) instead of being zeroed.
+        _critic_reachable, _actor_only, _actor_only_modules = _partition_encoder_params(self.model)
+        self._encoder_param_list: list[nn.Parameter] = _critic_reachable
+        self._actor_only_encoder_param_list: list[nn.Parameter] = _actor_only
+        # Modules (not just flat params) for the actor-only subset -- weight
+        # -norm projection needs to know which tensor is a Linear row vs a
+        # norm layer's affine vector, which requires walking `nn.Module`
+        # structure, not a flat `nn.Parameter` list.
+        self._actor_only_encoder_modules: list[nn.Module] = _actor_only_modules
 
         # encoder_lr: read from VisualSACConfig if available, else fall back to
         # lr_critic (conservative default for state-based configs).
@@ -142,6 +209,11 @@ class SAC(BaseAgent):
         self.encoder_optimizer: torch.optim.Optimizer | None = (
             torch.optim.Adam(self._encoder_param_list, lr=_encoder_lr)
             if self._encoder_param_list
+            else None
+        )
+        self.actor_only_encoder_optimizer: torch.optim.Optimizer | None = (
+            torch.optim.Adam(self._actor_only_encoder_param_list, lr=_encoder_lr)
+            if self._actor_only_encoder_param_list
             else None
         )
 
@@ -410,6 +482,8 @@ class SAC(BaseAgent):
         # ------------------------------------------------------------------
         if self.encoder_optimizer is not None:
             self.encoder_optimizer.zero_grad()
+        if self.actor_only_encoder_optimizer is not None:
+            self.actor_only_encoder_optimizer.zero_grad()
 
         # ------------------------------------------------------------------
         # [2] Critic forward + backward
@@ -520,15 +594,39 @@ class SAC(BaseAgent):
 
         actor_loss = sac_policy_loss(log_prob, q_actor, self.alpha.detach())
 
-        # [7] Actor head step only
+        # [7] Actor head step, PLUS any actor-only encoder(s)' step.
+        #
+        # `actor_loss.backward()` populates gradients for every parameter in
+        # its graph -- that's `self.model.actor`'s own params (via
+        # `result_actor`/`new_action`), any *shared*/critic-reachable
+        # encoder (via `q_actor`'s critic forward, since q_actor's encoder
+        # is whatever feeds the critic head), AND any actor-only encoder
+        # (via `result_actor`'s own forward, e.g. `actor_state_enc` in a
+        # `flows: ["actor_state_enc -> actor", "critic_state_enc ->
+        # critic"]` config). Only the actor-only subset should actually be
+        # consumed by an optimizer.step() here -- the shared/critic-
+        # reachable subset's contribution is exactly the contamination [5]
+        # exists to keep out (an actor-only encoder has no such shared
+        # state to protect, since nothing else ever trains it: see
+        # `_partition_encoder_params`'s docstring in __init__).
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
         if self._weight_norm_projection:
             _project_weights_unit_norm(self.model.actor)
+        if self.actor_only_encoder_optimizer is not None and (
+            self._encoder_update_counter % freq == 0
+        ):
+            self.actor_only_encoder_optimizer.step()
+            if self._weight_norm_projection:
+                for enc in self._actor_only_encoder_modules:
+                    _project_weights_unit_norm(enc)
 
         # ------------------------------------------------------------------
         # [8] Zero encoder grads again — clean for next update() call
+        #     (critic-reachable encoders only -- actor-only encoders' grad
+        #     was just legitimately consumed above, not contamination to
+        #     discard).
         # ------------------------------------------------------------------
         _zero_param_grads(self._encoder_param_list)
 
@@ -705,6 +803,13 @@ class SAC(BaseAgent):
         # encoder_optimizer_state: absent in v0.1.x checkpoints — gracefully skipped on load
         if self.encoder_optimizer is not None:
             payload["encoder_optimizer_state"] = self.encoder_optimizer.state_dict()
+        # actor_only_encoder_optimizer_state: absent in checkpoints saved
+        # before this optimizer existed — gracefully skipped on load, same
+        # as encoder_optimizer_state above.
+        if self.actor_only_encoder_optimizer is not None:
+            payload["actor_only_encoder_optimizer_state"] = (
+                self.actor_only_encoder_optimizer.state_dict()
+            )
         return payload
 
     def load_checkpoint_payload(self, payload: dict[str, object]) -> None:
@@ -723,6 +828,9 @@ class SAC(BaseAgent):
         enc_opt = payload.get("encoder_optimizer_state")
         if self.encoder_optimizer is not None and enc_opt is not None:
             self.encoder_optimizer.load_state_dict(enc_opt)
+        actor_only_enc_opt = payload.get("actor_only_encoder_optimizer_state")
+        if self.actor_only_encoder_optimizer is not None and actor_only_enc_opt is not None:
+            self.actor_only_encoder_optimizer.load_state_dict(actor_only_enc_opt)
         alpha_opt = payload.get("alpha_optimizer_state")
         if self.alpha_optimizer is not None and alpha_opt is not None:
             self.alpha_optimizer.load_state_dict(alpha_opt)
@@ -818,7 +926,27 @@ def _project_weights_unit_norm(module: nn.Module, eps: float = 1e-8) -> None:
                     if vec is None or vec.dim() != 1:
                         continue
                     d = vec.numel()
-                    vec_norm = vec.data.norm(p=2).clamp_min(eps)
+                    vec_norm = vec.data.norm(p=2).item()
+                    # A vector can only be legitimately at (or extremely
+                    # near) exactly zero norm if it has never actually
+                    # received a gradient update -- e.g. BatchNorm's bias
+                    # (beta) starts at all-zeros by default, and stays
+                    # there for as long as nothing trains it. Scaling by
+                    # sqrt(d)/vec_norm in that regime is a mathematically
+                    # meaningless "direction" (there isn't one) and, worse,
+                    # silently masks the underlying problem: a genuinely
+                    # zero vector times any finite scale is still zero (no
+                    # crash, nothing to notice), while a merely-tiny
+                    # (denormal-ish) one could overflow to inf under
+                    # `sqrt(d)/vec_norm` for a small `eps`. Skip the rescale
+                    # entirely below this threshold rather than either --
+                    # this is what surfaced the actor-only-encoder-never-
+                    # trains bug in the first place (its BatchNorm bias
+                    # was suspiciously stuck at an exact 0.0 vector across
+                    # an entire run, instead of silently "succeeding" at
+                    # rescaling zero to zero).
+                    if vec_norm < eps:
+                        continue
                     vec.data.mul_(math.sqrt(d) / vec_norm)
 
 
@@ -833,6 +961,66 @@ def _unique_encoder_params(model: nn.Module) -> list[nn.Parameter]:
                 seen.add(id(p))
                 params.append(p)
     return params
+
+
+def _partition_encoder_params(
+    model: nn.Module,
+) -> tuple[list[nn.Parameter], list[nn.Parameter], list[nn.Module]]:
+    """Split a model's encoders into (critic-reachable, actor-only).
+
+    Returns ``(critic_reachable_params, actor_only_params,
+    actor_only_modules)`` -- the first two are flat, de-duplicated
+    ``nn.Parameter`` lists (matching ``_unique_encoder_params``'s
+    de-duplication-by-tensor-id), the third is the actual actor-only
+    encoder module objects (needed by weight-norm projection, which walks
+    module structure to tell a Linear row apart from a norm layer's affine
+    vector -- a flat parameter list alone can't distinguish them).
+
+    "Critic-reachable" means named in ``encoder_names_for_head("critic")``
+    (which already exists on ``AgentModel`` for exactly this "which
+    encoders does this head actually need" question, and conservatively
+    returns *every* encoder name when a model has no explicit `flows:`
+    routing for its critic -- e.g. one implicit encoder shared by both
+    heads -- so single-encoder configs are unaffected: nothing ends up
+    actor-only for them). Every encoder not in that set feeds only the
+    actor, and is actor-only.
+
+    See ``SAC.__init__``'s comment above this function's call site for why
+    this split exists: an actor-only encoder has no valid gradient source
+    under the old "train encoders only through critic backward" rule
+    (critic_loss's graph never touches it; actor_loss's does, but that
+    contribution used to always be discarded) -- it would sit frozen at
+    random initialization forever otherwise.
+    """
+    encoders: dict[str, nn.Module] = dict(getattr(model, "encoders", {}) or {})
+    if not encoders:
+        return [], [], []
+
+    encoder_names_for_head = getattr(model, "encoder_names_for_head", None)
+    critic = getattr(model, "critic", None)
+    if encoder_names_for_head is None or critic is None:
+        # No critic head (or a model type without the reachability query)
+        # -- fall back to the old, conservative "every encoder is
+        # critic-reachable" behaviour; nothing is actor-only.
+        return _unique_encoder_params(model), [], []
+
+    critic_name = getattr(critic, "name", "critic")
+    critic_reachable_names = set(encoder_names_for_head(critic_name))
+
+    critic_reachable_params: list[nn.Parameter] = []
+    actor_only_params: list[nn.Parameter] = []
+    actor_only_modules: list[nn.Module] = []
+    seen: set[int] = set()
+    for name, enc in encoders.items():
+        is_critic_reachable = name in critic_reachable_names
+        target = critic_reachable_params if is_critic_reachable else actor_only_params
+        if not is_critic_reachable:
+            actor_only_modules.append(enc)
+        for p in enc.parameters():
+            if id(p) not in seen:
+                seen.add(id(p))
+                target.append(p)
+    return critic_reachable_params, actor_only_params, actor_only_modules
 
 
 def _zero_param_grads(params: list[nn.Parameter]) -> None:
