@@ -1582,7 +1582,10 @@ def _run_off_policy(
             # `finally` so a mid-run exception/KeyboardInterrupt still closes
             # whatever eval env got built instead of leaking the mjlab
             # instance.
-            if _eval_state["next_eval_step"] is not None and _eval_state["last_eval_step"] != args.steps:
+            if (
+                _eval_state["next_eval_step"] is not None
+                and _eval_state["last_eval_step"] != args.steps
+            ):
                 _, _eval_env, _ = _maybe_run_evaluation(
                     agent,
                     args,
