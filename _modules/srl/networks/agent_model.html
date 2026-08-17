@@ -55,7 +55,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
-    <meta name="docbuild:last-update" content="Aug 14, 2026"/>
+    <meta name="docbuild:last-update" content="Aug 17, 2026"/>
   
     
     <script src="../../../_static/searchtools.js"></script>
@@ -480,6 +480,8 @@
         <span class="o">*</span><span class="p">,</span>
         <span class="n">detach_encoders</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">actor_action</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">compute_actor</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">compute_critic</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the full forward pass.</span>
 
@@ -508,11 +510,35 @@
 <span class="sd">            sample, which silently breaks the PPO ratio (`new_log_prob -</span>
 <span class="sd">            old_log_prob` is meaningless unless both refer to the same</span>
 <span class="sd">            action).</span>
+<span class="sd">        compute_actor, compute_critic:</span>
+<span class="sd">            Set either to False when a caller only wants the other head&#39;s</span>
+<span class="sd">            output (e.g. an off-policy `update()` computing next_action from</span>
+<span class="sd">            the actor alone, or a Q(s, a) critic pass that has no use for a</span>
+<span class="sd">            fresh actor sample). Both default to True, which reproduces the</span>
+<span class="sd">            exact behaviour of every existing caller -- this is purely</span>
+<span class="sd">            opt-in. When one is False, encoders that feed *only* the skipped</span>
+<span class="sd">            head are not run either (see `encoder_names_for_head`), which is</span>
+<span class="sd">            where the real saving comes from for architectures with separate</span>
+<span class="sd">            actor/critic encoders (e.g. an asymmetric actor-critic with a</span>
+<span class="sd">            privileged critic observation). For a single shared encoder that</span>
+<span class="sd">            implicitly feeds both heads (no explicit flow-graph routing),</span>
+<span class="sd">            `encoder_names_for_head` conservatively reports every encoder as</span>
+<span class="sd">            needed regardless of which head is requested, so nothing is</span>
+<span class="sd">            skipped there -- only the unwanted head&#39;s own module call (and,</span>
+<span class="sd">            for the critic with no `action` given, its dummy zero-action</span>
+<span class="sd">            forward) is avoided. Raises if both are False, since that would</span>
+<span class="sd">            make the call a no-op that still pays for every encoder.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        dict with keys: latents, actor_out, value, new_hidden</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">compute_actor</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">compute_critic</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;AgentModel.forward(): compute_actor and compute_critic cannot both be &quot;</span>
+                <span class="s2">&quot;False -- there would be nothing to compute.&quot;</span>
+            <span class="p">)</span>
+
         <span class="n">hidden_states</span> <span class="o">=</span> <span class="n">hidden_states</span> <span class="ow">or</span> <span class="p">{}</span>
         <span class="n">latents</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">new_hidden</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
@@ -521,10 +547,26 @@
         <span class="c1"># E.g., if obs has {&#39;state&#39;} and encoder expects {&#39;state_enc&#39;}, auto-map for simplicity</span>
         <span class="n">_obs_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_remap_obs_dict</span><span class="p">(</span><span class="n">obs_dict</span><span class="p">)</span>
 
+        <span class="c1"># When only one head is requested, skip encoders that exclusively</span>
+        <span class="c1"># feed the other one. `None` means &quot;compute every encoder&quot; (the</span>
+        <span class="c1"># default, both-heads-requested case) so the loop below is an exact</span>
+        <span class="c1"># no-op change from before.</span>
+        <span class="n">needed_encoders</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">compute_actor</span> <span class="ow">and</span> <span class="n">compute_critic</span><span class="p">):</span>
+            <span class="n">needed_encoders</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">compute_actor</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">actor</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">actor_name</span> <span class="o">=</span> <span class="n">_get_module_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="s2">&quot;actor&quot;</span><span class="p">)</span>
+                <span class="n">needed_encoders</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">encoder_names_for_head</span><span class="p">(</span><span class="n">actor_name</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">compute_critic</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">critic</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">critic_name</span> <span class="o">=</span> <span class="n">_get_module_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">critic</span><span class="p">,</span> <span class="s2">&quot;critic&quot;</span><span class="p">)</span>
+                <span class="n">needed_encoders</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">encoder_names_for_head</span><span class="p">(</span><span class="n">critic_name</span><span class="p">))</span>
+
         <span class="k">for</span> <span class="n">node_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">flow_graph</span><span class="o">.</span><span class="n">execution_order</span><span class="p">:</span>
             <span class="n">inputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">flow_graph</span><span class="o">.</span><span class="n">get_inputs</span><span class="p">(</span><span class="n">node_name</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">node_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">encoders</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">needed_encoders</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">node_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">needed_encoders</span><span class="p">:</span>
+                    <span class="k">continue</span>
                 <span class="n">enc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">encoders</span><span class="p">[</span><span class="n">node_name</span><span class="p">]</span>
                 <span class="n">obs</span> <span class="o">=</span> <span class="n">_obs_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">node_name</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">obs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -555,7 +597,7 @@
 
         <span class="c1"># Compute actor head input</span>
         <span class="n">actor_out</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">actor</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">actor</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">compute_actor</span><span class="p">:</span>
             <span class="n">actor_name</span> <span class="o">=</span> <span class="n">_get_module_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="s2">&quot;actor&quot;</span><span class="p">)</span>
             <span class="n">actor_inputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">flow_graph</span><span class="o">.</span><span class="n">get_inputs</span><span class="p">(</span><span class="n">actor_name</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">actor_inputs</span><span class="p">:</span>
@@ -578,7 +620,7 @@
 
         <span class="c1"># Compute critic head input</span>
         <span class="n">value_out</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">critic</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">critic</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">compute_critic</span><span class="p">:</span>
             <span class="n">critic_name</span> <span class="o">=</span> <span class="n">_get_module_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">critic</span><span class="p">,</span> <span class="s2">&quot;critic&quot;</span><span class="p">)</span>
             <span class="n">critic_inputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">flow_graph</span><span class="o">.</span><span class="n">get_inputs</span><span class="p">(</span><span class="n">critic_name</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">critic_inputs</span><span class="p">:</span>
@@ -827,7 +869,7 @@ By SRL Contributors
   
   <div class="footer-item">
     <p class="last-updated">
-  Last updated on Aug 14, 2026.
+  Last updated on Aug 17, 2026.
   <br/>
 </p>
   </div>

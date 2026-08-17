@@ -55,7 +55,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
-    <meta name="docbuild:last-update" content="Aug 14, 2026"/>
+    <meta name="docbuild:last-update" content="Aug 17, 2026"/>
   
     
     <script src="../../../_static/searchtools.js"></script>
@@ -627,7 +627,13 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
         <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
-            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">obs</span><span class="p">,</span> <span class="n">hidden_states</span><span class="o">=</span><span class="n">hidden</span><span class="p">)</span>
+            <span class="c1"># compute_critic=False: predict() is the env-collection path --</span>
+            <span class="c1"># called on every single environment step -- and never reads</span>
+            <span class="c1"># result[&quot;value&quot;] (see the `None` returned for it below). Without</span>
+            <span class="c1"># the flag every action-selection call would also run the critic</span>
+            <span class="c1"># encoder(s) and a full TwinQHead forward on a dummy zero action,</span>
+            <span class="c1"># for a result nothing downstream uses.</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">obs</span><span class="p">,</span> <span class="n">hidden_states</span><span class="o">=</span><span class="n">hidden</span><span class="p">,</span> <span class="n">compute_critic</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">actor_out</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;actor_out&quot;</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">actor_out</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
             <span class="n">action</span> <span class="o">=</span> <span class="p">(</span>
@@ -683,7 +689,11 @@
         <span class="c1">#     Encoder receives gradients from critic iff enc_with_critic=True.</span>
         <span class="c1"># ------------------------------------------------------------------</span>
         <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
-            <span class="n">next_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">next_obs</span><span class="p">)</span>
+            <span class="c1"># compute_critic=False: only next_action/next_log_prob are used</span>
+            <span class="c1"># from this call. Without the flag, AgentModel.forward() would</span>
+            <span class="c1"># also run the critic encoder(s) and a full TwinQHead forward on</span>
+            <span class="c1"># a dummy zero action just to throw the result away below.</span>
+            <span class="n">next_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">next_obs</span><span class="p">,</span> <span class="n">compute_critic</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
             <span class="n">next_actor_out</span> <span class="o">=</span> <span class="n">next_result</span><span class="p">[</span><span class="s2">&quot;actor_out&quot;</span><span class="p">]</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">next_actor_out</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
                 <span class="n">next_action</span> <span class="o">=</span> <span class="n">next_actor_out</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;action&quot;</span><span class="p">)</span>
@@ -695,7 +705,11 @@
                     <span class="n">rewards</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span>
                 <span class="p">)</span>
 
-            <span class="n">next_q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_model</span><span class="p">(</span><span class="n">next_obs</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">next_action</span><span class="p">)[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span>
+            <span class="c1"># compute_actor=False: next_action was already sampled from the</span>
+            <span class="c1"># (non-target) actor above; the target network&#39;s own actor head</span>
+            <span class="c1"># is never consulted in SAC, so running it here would be pure</span>
+            <span class="c1"># waste discarded a line later.</span>
+            <span class="n">next_q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_model</span><span class="p">(</span><span class="n">next_obs</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">next_action</span><span class="p">,</span> <span class="n">compute_actor</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">next_q</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
                 <span class="n">next_q</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="o">*</span><span class="n">next_q</span><span class="p">)</span>
             <span class="n">target_q</span> <span class="o">=</span> <span class="n">rewards</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">gamma</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">dones</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span>
@@ -709,7 +723,9 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">obs_for_critic</span> <span class="o">=</span> <span class="n">obs</span>
 
-        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">obs_for_critic</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">actions</span><span class="p">)</span>
+        <span class="c1"># compute_actor=False: this call only needs the critic&#39;s Q(s, a);</span>
+        <span class="c1"># the actor head&#39;s output on obs_for_critic is never read below.</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">obs_for_critic</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">actions</span><span class="p">,</span> <span class="n">compute_actor</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">q_out</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">q_out</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
             <span class="n">q1</span><span class="p">,</span> <span class="n">q2</span> <span class="o">=</span> <span class="n">q_out</span>
@@ -752,7 +768,10 @@
         <span class="c1"># ------------------------------------------------------------------</span>
         <span class="c1"># [6] Actor forward + backward (encoder grad blocked above)</span>
         <span class="c1"># ------------------------------------------------------------------</span>
-        <span class="n">result_actor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
+        <span class="c1"># compute_critic=False: only the fresh action/log_prob sample is</span>
+        <span class="c1"># used from this call (the critic pass below, with that action, is</span>
+        <span class="c1"># what actually needs the critic head).</span>
+        <span class="n">result_actor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">obs</span><span class="p">,</span> <span class="n">compute_critic</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">actor_out</span> <span class="o">=</span> <span class="n">result_actor</span><span class="p">[</span><span class="s2">&quot;actor_out&quot;</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">actor_out</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
             <span class="n">new_action</span> <span class="o">=</span> <span class="n">actor_out</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;action&quot;</span><span class="p">)</span>
@@ -762,7 +781,11 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">new_action</span><span class="p">,</span> <span class="n">log_prob</span> <span class="o">=</span> <span class="n">actor_out</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">rewards</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
-        <span class="n">q_actor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">obs</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">new_action</span><span class="p">)[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span>
+        <span class="c1"># compute_actor=False: without it, this call would silently redo the</span>
+        <span class="c1"># exact actor forward pass above (same obs, same still-unstepped</span>
+        <span class="c1"># actor/encoder weights) just to discard the result -- new_action is</span>
+        <span class="c1"># already fixed from result_actor and is what&#39;s passed in below.</span>
+        <span class="n">q_actor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">obs</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">new_action</span><span class="p">,</span> <span class="n">compute_actor</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">q_actor</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
             <span class="n">q_actor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="o">*</span><span class="n">q_actor</span><span class="p">)</span>
 
@@ -882,8 +905,8 @@
             <span class="n">aug2</span> <span class="o">=</span> <span class="p">{</span>
                 <span class="n">k</span><span class="p">:</span> <span class="n">augment</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">float</span><span class="p">(),</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;drq&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">==</span> <span class="mi">4</span> <span class="k">else</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">obs</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
             <span class="p">}</span>
-            <span class="n">q1_aug</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">aug1</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">actions</span><span class="p">)[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span>
-            <span class="n">q2_aug</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">aug2</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">actions</span><span class="p">)[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span>
+            <span class="n">q1_aug</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">aug1</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">actions</span><span class="p">,</span> <span class="n">compute_actor</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span>
+            <span class="n">q2_aug</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">aug2</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">actions</span><span class="p">,</span> <span class="n">compute_actor</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">q1_aug</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
                 <span class="n">q1_aug</span> <span class="o">=</span> <span class="n">q1_aug</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">q2_aug</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
@@ -1172,7 +1195,7 @@ By SRL Contributors
   
   <div class="footer-item">
     <p class="last-updated">
-  Last updated on Aug 14, 2026.
+  Last updated on Aug 17, 2026.
   <br/>
 </p>
   </div>
