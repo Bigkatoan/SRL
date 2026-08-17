@@ -212,7 +212,13 @@ class SAC(BaseAgent):
     ) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None, dict]:
         self.model.eval()
         with torch.no_grad():
-            result = self.model(obs, hidden_states=hidden)
+            # compute_critic=False: predict() is the env-collection path --
+            # called on every single environment step -- and never reads
+            # result["value"] (see the `None` returned for it below). Without
+            # the flag every action-selection call would also run the critic
+            # encoder(s) and a full TwinQHead forward on a dummy zero action,
+            # for a result nothing downstream uses.
+            result = self.model(obs, hidden_states=hidden, compute_critic=False)
         actor_out = result["actor_out"]
         if isinstance(actor_out, dict):
             action = (
@@ -264,7 +270,11 @@ class SAC(BaseAgent):
         #     Encoder receives gradients from critic iff enc_with_critic=True.
         # ------------------------------------------------------------------
         with torch.no_grad():
-            next_result = self.model(next_obs)
+            # compute_critic=False: only next_action/next_log_prob are used
+            # from this call. Without the flag, AgentModel.forward() would
+            # also run the critic encoder(s) and a full TwinQHead forward on
+            # a dummy zero action just to throw the result away below.
+            next_result = self.model(next_obs, compute_critic=False)
             next_actor_out = next_result["actor_out"]
             if isinstance(next_actor_out, dict):
                 next_action = next_actor_out.get("action")
@@ -276,7 +286,11 @@ class SAC(BaseAgent):
                     rewards.shape, device=self.device
                 )
 
-            next_q = self.target_model(next_obs, action=next_action)["value"]
+            # compute_actor=False: next_action was already sampled from the
+            # (non-target) actor above; the target network's own actor head
+            # is never consulted in SAC, so running it here would be pure
+            # waste discarded a line later.
+            next_q = self.target_model(next_obs, action=next_action, compute_actor=False)["value"]
             if isinstance(next_q, tuple):
                 next_q = torch.min(*next_q)
             target_q = rewards + self.cfg.gamma * (1.0 - dones) * (
@@ -290,7 +304,9 @@ class SAC(BaseAgent):
         else:
             obs_for_critic = obs
 
-        result = self.model(obs_for_critic, action=actions)
+        # compute_actor=False: this call only needs the critic's Q(s, a);
+        # the actor head's output on obs_for_critic is never read below.
+        result = self.model(obs_for_critic, action=actions, compute_actor=False)
         q_out = result["value"]
         if isinstance(q_out, tuple):
             q1, q2 = q_out
@@ -333,7 +349,10 @@ class SAC(BaseAgent):
         # ------------------------------------------------------------------
         # [6] Actor forward + backward (encoder grad blocked above)
         # ------------------------------------------------------------------
-        result_actor = self.model(obs)
+        # compute_critic=False: only the fresh action/log_prob sample is
+        # used from this call (the critic pass below, with that action, is
+        # what actually needs the critic head).
+        result_actor = self.model(obs, compute_critic=False)
         actor_out = result_actor["actor_out"]
         if isinstance(actor_out, dict):
             new_action = actor_out.get("action")
@@ -343,7 +362,11 @@ class SAC(BaseAgent):
         else:
             new_action, log_prob = actor_out, torch.zeros(rewards.shape, device=self.device)
 
-        q_actor = self.model(obs, action=new_action)["value"]
+        # compute_actor=False: without it, this call would silently redo the
+        # exact actor forward pass above (same obs, same still-unstepped
+        # actor/encoder weights) just to discard the result -- new_action is
+        # already fixed from result_actor and is what's passed in below.
+        q_actor = self.model(obs, action=new_action, compute_actor=False)["value"]
         if isinstance(q_actor, tuple):
             q_actor = torch.min(*q_actor)
 
@@ -463,8 +486,8 @@ class SAC(BaseAgent):
             aug2 = {
                 k: augment(v.float(), mode="drq") if v.dim() == 4 else v for k, v in obs.items()
             }
-            q1_aug = self.model(aug1, action=actions)["value"]
-            q2_aug = self.model(aug2, action=actions)["value"]
+            q1_aug = self.model(aug1, action=actions, compute_actor=False)["value"]
+            q2_aug = self.model(aug2, action=actions, compute_actor=False)["value"]
             if isinstance(q1_aug, tuple):
                 q1_aug = q1_aug[0]
             if isinstance(q2_aug, tuple):

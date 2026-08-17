@@ -65,6 +65,8 @@ class AgentModel(nn.Module):
         *,
         detach_encoders: bool = False,
         actor_action: torch.Tensor | None = None,
+        compute_actor: bool = True,
+        compute_critic: bool = True,
     ) -> dict[str, Any]:
         """Run the full forward pass.
 
@@ -93,11 +95,35 @@ class AgentModel(nn.Module):
             sample, which silently breaks the PPO ratio (`new_log_prob -
             old_log_prob` is meaningless unless both refer to the same
             action).
+        compute_actor, compute_critic:
+            Set either to False when a caller only wants the other head's
+            output (e.g. an off-policy `update()` computing next_action from
+            the actor alone, or a Q(s, a) critic pass that has no use for a
+            fresh actor sample). Both default to True, which reproduces the
+            exact behaviour of every existing caller -- this is purely
+            opt-in. When one is False, encoders that feed *only* the skipped
+            head are not run either (see `encoder_names_for_head`), which is
+            where the real saving comes from for architectures with separate
+            actor/critic encoders (e.g. an asymmetric actor-critic with a
+            privileged critic observation). For a single shared encoder that
+            implicitly feeds both heads (no explicit flow-graph routing),
+            `encoder_names_for_head` conservatively reports every encoder as
+            needed regardless of which head is requested, so nothing is
+            skipped there -- only the unwanted head's own module call (and,
+            for the critic with no `action` given, its dummy zero-action
+            forward) is avoided. Raises if both are False, since that would
+            make the call a no-op that still pays for every encoder.
 
         Returns
         -------
         dict with keys: latents, actor_out, value, new_hidden
         """
+        if not compute_actor and not compute_critic:
+            raise ValueError(
+                "AgentModel.forward(): compute_actor and compute_critic cannot both be "
+                "False -- there would be nothing to compute."
+            )
+
         hidden_states = hidden_states or {}
         latents: dict[str, torch.Tensor] = {}
         new_hidden: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
@@ -106,10 +132,26 @@ class AgentModel(nn.Module):
         # E.g., if obs has {'state'} and encoder expects {'state_enc'}, auto-map for simplicity
         _obs_dict = self._remap_obs_dict(obs_dict)
 
+        # When only one head is requested, skip encoders that exclusively
+        # feed the other one. `None` means "compute every encoder" (the
+        # default, both-heads-requested case) so the loop below is an exact
+        # no-op change from before.
+        needed_encoders: set[str] | None = None
+        if not (compute_actor and compute_critic):
+            needed_encoders = set()
+            if compute_actor and self.actor is not None:
+                actor_name = _get_module_name(self.actor, "actor")
+                needed_encoders.update(self.encoder_names_for_head(actor_name))
+            if compute_critic and self.critic is not None:
+                critic_name = _get_module_name(self.critic, "critic")
+                needed_encoders.update(self.encoder_names_for_head(critic_name))
+
         for node_name in self.flow_graph.execution_order:
             inputs = self.flow_graph.get_inputs(node_name)
 
             if node_name in self.encoders:
+                if needed_encoders is not None and node_name not in needed_encoders:
+                    continue
                 enc = self.encoders[node_name]
                 obs = _obs_dict.get(node_name)
                 if obs is None:
@@ -140,7 +182,7 @@ class AgentModel(nn.Module):
 
         # Compute actor head input
         actor_out = None
-        if self.actor is not None:
+        if self.actor is not None and compute_actor:
             actor_name = _get_module_name(self.actor, "actor")
             actor_inputs = self.flow_graph.get_inputs(actor_name)
             if actor_inputs:
@@ -163,7 +205,7 @@ class AgentModel(nn.Module):
 
         # Compute critic head input
         value_out = None
-        if self.critic is not None:
+        if self.critic is not None and compute_critic:
             critic_name = _get_module_name(self.critic, "critic")
             critic_inputs = self.flow_graph.get_inputs(critic_name)
             if critic_inputs:
