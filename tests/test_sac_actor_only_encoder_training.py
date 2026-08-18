@@ -192,3 +192,34 @@ def test_shared_single_encoder_config_unaffected() -> None:
     _fill_replay_buffer(agent, n_transitions=16, rng=rng)
     metrics = agent.update()
     assert metrics and all(np.isfinite(v) for v in metrics.values())
+
+
+def test_actor_only_encoder_trains_with_weight_norm_projection_too() -> None:
+    """End-to-end with weight_norm_projection=True: the actor-only
+    encoder's Linear rows must be trained (moving in a meaningful,
+    non-frozen-at-init direction over several updates), not just
+    unit-norm-rescaled copies of their random init forever."""
+    rng = np.random.default_rng(0)
+    model = ModelBuilder.from_dict(_separate_encoders_model_dict("layer_norm"))
+    target = copy.deepcopy(model)
+    agent = SAC(
+        model,
+        target,
+        config=SACConfig(action_dim=ACTION_DIM, batch_size=8, weight_norm_projection=True),
+        device="cpu",
+    )
+    _fill_replay_buffer(agent, n_transitions=32, rng=rng)
+
+    enc = agent.model.encoders["actor_state_enc"]
+    linear = next(m for m in enc.modules() if isinstance(m, torch.nn.Linear))
+    row_directions_before = torch.nn.functional.normalize(linear.weight.data.clone(), dim=1)
+
+    for _ in range(20):
+        agent.update()
+
+    row_directions_after = torch.nn.functional.normalize(linear.weight.data, dim=1)
+    # Rows are unit-norm either way (weight_norm_projection guarantees
+    # that), so compare DIRECTION -- if the encoder were still frozen,
+    # after == before exactly (projection of an already-unit vector is a
+    # no-op). Real training moves the direction.
+    assert not torch.allclose(row_directions_before, row_directions_after, atol=1e-4)

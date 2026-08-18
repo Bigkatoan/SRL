@@ -92,6 +92,26 @@ class SACConfig:
     encoder_update_freq: int = 1
 
     # ------------------------------------------------------------------
+    # Weight Normalization (FlashSAC, arXiv:2604.04539 section 4.2)
+    # ------------------------------------------------------------------
+    # Opt-in and off by default -- projecting weights after every optimizer
+    # step changes training numerics for every SAC run that turns it on, so
+    # it must be requested explicitly rather than silently applied to
+    # existing configs. When True, immediately after each of the
+    # actor/critic/encoder optimizers' `.step()` calls, every `nn.Linear`
+    # weight row (each output unit's incoming weight vector) is projected
+    # onto the unit L2-norm sphere, and every normalization layer's affine
+    # vector(s) (LayerNorm/BatchNorm/GroupNorm gamma+beta, RMSNorm gamma) is
+    # rescaled to L2 norm sqrt(d) where d is that vector's length. This
+    # bounds uncontrolled weight growth that would otherwise inflate
+    # Q-value variance and amplify bootstrapped estimation error --
+    # motivated by, and most relevant when combined with, large-batch/
+    # few-gradient-step SAC configurations (see `batch_size`/
+    # `gradient_steps` above), where each individual update is much larger
+    # and less frequent than SAC's textbook (256, ~1-per-env-step) regime.
+    weight_norm_projection: bool = False
+
+    # ------------------------------------------------------------------
     # Hindsight Experience Replay (goal-conditioned tasks only)
     # ------------------------------------------------------------------
     # Opt-in from YAML: `use_her: true` in the train block of a goal config

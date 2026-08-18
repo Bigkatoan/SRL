@@ -28,11 +28,25 @@ Changes since v0.2.0
   the original "trained only through critic backward" behaviour unchanged;
   actor-only encoders get their own `actor_only_encoder_optimizer`, stepped
   off actor_loss's backward pass (their only valid signal) instead.
+* weight_norm_projection (SACConfig, opt-in): FlashSAC-style (arXiv:2604.04539
+  section 4.2) post-optimizer.step() projection of Linear weight rows to unit
+  L2 norm and norm-layer affine vectors to L2 norm sqrt(d). See
+  `_project_weights_unit_norm`.
+* BatchNorm (`norm: batch_norm` in an encoder/actor/critic's layer config) is
+  now safe to use with SAC: target_model is permanently eval()-mode with its
+  running stats hard-copied from the online net each update()
+  (`_sync_target_buffers`), `self.model`'s train/eval mode is set atomically
+  with its forward call under `_model_lock` (safe against
+  AsyncOffPolicyRunner's concurrent predict()/update() threads), and the
+  critic's Bellman-residual forward pass uses FlashSAC's "cross-batch value
+  prediction" (`_critic_forward`) so the predicted and target halves share
+  BatchNorm statistics.
 """
 
 from __future__ import annotations
 
 import math
+import threading
 
 import torch
 import torch.nn as nn
@@ -96,6 +110,53 @@ class SAC(BaseAgent):
         for p in self.target_model.parameters():
             p.requires_grad = False
 
+        # target_model is ONLY ever touched from inside update() (the
+        # trainer thread under AsyncOffPolicyRunner, or the single main
+        # thread otherwise) -- predict()/the collector loop never call it.
+        # So, unlike `self.model` below, there is no cross-thread mode race
+        # to guard against here: eval() set once, and never toggled again,
+        # is simply correct for the whole object's life. This matters once
+        # BatchNorm is in the mix -- a target network left in train() mode
+        # would normalize each forward pass using THAT CALL's batch
+        # statistics (not the running estimates the rest of this class
+        # assumes), silently making the bootstrapped target y depend on
+        # whatever mini-batch of next-states happened to be sampled, on top
+        # of updating its own running_mean/running_var as a side effect of
+        # every such call -- both wrong for a network that's supposed to be
+        # a slow, stable EMA of the online net. See `_sync_target_buffers`
+        # for how target's BatchNorm running stats actually get updated
+        # instead (hard-copied from the online net, like sklearn/SB3's
+        # polyak_update treats BatchNorm buffers -- not further EMA'd here,
+        # since BatchNorm's own running-stat momentum already IS an EMA).
+        self.target_model.eval()
+
+        # Whether the online model's actor/critic contains any BatchNorm
+        # layer -- decides two things below: (1) `_forward_model`/`predict`
+        # take `_model_lock` around mode-setting + the forward call itself
+        # (train-mode BatchNorm both branches on `.training` AND writes
+        # in-place to running_mean/running_var, so an unguarded race
+        # against a concurrent `predict()` call from AsyncOffPolicyRunner's
+        # collector thread -- which also flips `self.model`'s mode -- is a
+        # real concurrent read/write hazard, not just a "may see slightly
+        # stale weights" one LayerNorm/Dropout already tolerate elsewhere
+        # in this codebase, see `srl/utils/live_viewer.py`); (2)
+        # `_critic_forward` switches to the "cross-batch value prediction"
+        # path (FlashSAC section 4.2) instead of two independent
+        # same-size forward calls.
+        self._has_batchnorm: bool = any(
+            isinstance(m, nn.modules.batchnorm._BatchNorm) for m in self.model.modules()
+        )
+        # Always constructed (not just when `_has_batchnorm`) so every
+        # `self.model(...)` call site can go through the same
+        # `_forward_model` helper unconditionally -- an uncontended
+        # `threading.Lock` acquire/release is on the order of tens of
+        # nanoseconds, negligible next to an actual forward pass, so there
+        # is no real cost to paying it even when nothing needs guarding.
+        self._model_lock = threading.Lock()
+        self._weight_norm_projection: bool = bool(
+            getattr(self.cfg, "weight_norm_projection", False)
+        )
+
         # ------------------------------------------------------------------
         # Three-optimizer design (v0.2.0), split by reachability (v0.2.1)
         # ------------------------------------------------------------------
@@ -135,10 +196,10 @@ class SAC(BaseAgent):
         _critic_reachable, _actor_only, _actor_only_modules = _partition_encoder_params(self.model)
         self._encoder_param_list: list[nn.Parameter] = _critic_reachable
         self._actor_only_encoder_param_list: list[nn.Parameter] = _actor_only
-        # Modules (not just flat params) for the actor-only subset -- kept
-        # in case a subclass or future feature needs to walk module
-        # structure (e.g. weight-norm-style projection) rather than a flat
-        # parameter list.
+        # Modules (not just flat params) for the actor-only subset -- weight
+        # -norm projection needs to know which tensor is a Linear row vs a
+        # norm layer's affine vector, which requires walking `nn.Module`
+        # structure, not a flat `nn.Parameter` list.
         self._actor_only_encoder_modules: list[nn.Module] = _actor_only_modules
 
         # encoder_lr: read from VisualSACConfig if available, else fall back to
@@ -263,13 +324,105 @@ class SAC(BaseAgent):
     # BaseAgent interface
     # ------------------------------------------------------------------
 
+    def _forward_model(self, mode: str, *args, **kwargs):
+        """Call ``self.model(...)`` with its train/eval mode set atomically
+        under ``_model_lock``.
+
+        Every call site that used to do a bare ``self.model.train()``/
+        ``self.model.eval()`` followed by a separate ``self.model(...)``
+        call now goes through here instead. Two statements that are each
+        individually fine become a race once a second thread can interleave
+        between them: ``AsyncOffPolicyRunner`` calls ``predict()`` from its
+        collector thread concurrently with ``update()`` running on its
+        background trainer thread, both against this SAME ``self.model``
+        instance. For LayerNorm/Dropout, "whichever mode wins" barely
+        matters. For BatchNorm it does: a train-mode forward pass both
+        normalizes using *this call's* batch statistics AND writes
+        ``running_mean``/``running_var`` in place -- so an interleaving
+        where `predict()`'s intended eval-mode forward pass ends up running
+        in train mode is a genuine concurrent write hazard on those
+        buffers, on top of silently swapping "stable running stats" for
+        "whatever this rollout batch looked like" for action selection.
+        Holding `_model_lock` only across mode-set + forward (never across
+        backward/optimizer.step(), which don't touch `.training` or read
+        BatchNorm buffers) keeps the async runner's actual overlap intact:
+        the lock is held for microseconds, not for a whole gradient step.
+        """
+        with self._model_lock:
+            self.model.train(mode == "train")
+            return self.model(*args, **kwargs)
+
+    def _critic_forward(
+        self,
+        obs_for_critic: dict[str, torch.Tensor],
+        actions: torch.Tensor,
+        next_obs: dict[str, torch.Tensor],
+        next_action: torch.Tensor,
+    ):
+        """Compute the online critic's Q(s, a) and the target critic's
+        Q(s', a'), returned in whatever form the configured critic head
+        produces (a ``(q1, q2)`` tuple for TwinQHead, a single tensor for
+        QFunctionHead) -- exactly what the two direct
+        ``self.model(...)``/``self.target_model(...)`` calls this method
+        replaces would have returned.
+
+        Without BatchNorm this is just those two direct calls (unchanged
+        from before this method existed -- same cost, same numerics).
+
+        With BatchNorm ("cross-batch value prediction", FlashSAC section
+        4.2 https://arxiv.org/pdf/2604.04539): BatchNorm's train-mode
+        forward normalizes using the CURRENT CALL's batch statistics, so
+        two separate B-sized calls -- one on (s, a), one on (s', a') --
+        hand the predicted half and the target half of the same Bellman
+        residual two *different* sets of normalization statistics, purely
+        because of how the call happened to be split, not because the
+        underlying transitions are actually that different. We concatenate
+        (s, a) and (s', a') into one 2B batch and run each network exactly
+        once, so the predicted half and the target half are each
+        normalized against statistics drawn from the union of current +
+        next transitions. Online and target still have different weights
+        (that's the point -- target lags via Polyak averaging /
+        `_sync_target_buffers`), so their Q-values still differ; only the
+        confound of "which half of the batch defined this call's batch
+        statistics" is removed.
+        """
+        if not self._has_batchnorm:
+            result = self._forward_model(
+                "train", obs_for_critic, action=actions, compute_actor=False
+            )
+            q_out = result["value"]
+            with torch.no_grad():
+                next_q = self.target_model(next_obs, action=next_action, compute_actor=False)[
+                    "value"
+                ]
+            return q_out, next_q
+
+        batch_size = actions.shape[0]
+        concat_obs = {k: torch.cat([obs_for_critic[k], next_obs[k]], dim=0) for k in obs_for_critic}
+        concat_action = torch.cat([actions, next_action], dim=0)
+
+        online_out = self._forward_model(
+            "train", concat_obs, action=concat_action, compute_actor=False
+        )["value"]
+        with torch.no_grad():
+            target_out = self.target_model(concat_obs, action=concat_action, compute_actor=False)[
+                "value"
+            ]
+
+        def _first_half(v):
+            return tuple(t[:batch_size] for t in v) if isinstance(v, tuple) else v[:batch_size]
+
+        def _second_half(v):
+            return tuple(t[batch_size:] for t in v) if isinstance(v, tuple) else v[batch_size:]
+
+        return _first_half(online_out), _second_half(target_out)
+
     def predict(
         self,
         obs: dict[str, torch.Tensor],
         hidden: dict | None = None,
         deterministic: bool = False,
     ) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None, dict]:
-        self.model.eval()
         with torch.no_grad():
             # compute_critic=False: predict() is the env-collection path --
             # called on every single environment step -- and never reads
@@ -277,7 +430,7 @@ class SAC(BaseAgent):
             # the flag every action-selection call would also run the critic
             # encoder(s) and a full TwinQHead forward on a dummy zero action,
             # for a result nothing downstream uses.
-            result = self.model(obs, hidden_states=hidden, compute_critic=False)
+            result = self._forward_model("eval", obs, hidden_states=hidden, compute_critic=False)
         actor_out = result["actor_out"]
         if isinstance(actor_out, dict):
             action = (
@@ -307,7 +460,13 @@ class SAC(BaseAgent):
         elif len(self.buffer) < self.cfg.batch_size:
             return {}
 
-        self.model.train()
+        # Mode is no longer set here once-and-for-all: every `self.model(...)`
+        # call below goes through `_forward_model`, which sets train/eval
+        # mode atomically with the forward call itself under `_model_lock`
+        # -- see that method's docstring for why a single top-level
+        # `self.model.train()` isn't safe once BatchNorm is in the picture
+        # and `AsyncOffPolicyRunner` is running `predict()` concurrently on
+        # another thread.
         batch = self.buffer.sample(self.cfg.batch_size)
 
         obs = {k: v.to(self.device) for k, v in batch.obs.items()}
@@ -335,7 +494,7 @@ class SAC(BaseAgent):
             # from this call. Without the flag, AgentModel.forward() would
             # also run the critic encoder(s) and a full TwinQHead forward on
             # a dummy zero action just to throw the result away below.
-            next_result = self.model(next_obs, compute_critic=False)
+            next_result = self._forward_model("train", next_obs, compute_critic=False)
             next_actor_out = next_result["actor_out"]
             if isinstance(next_actor_out, dict):
                 next_action = next_actor_out.get("action")
@@ -347,17 +506,6 @@ class SAC(BaseAgent):
                     rewards.shape, device=self.device
                 )
 
-            # compute_actor=False: next_action was already sampled from the
-            # (non-target) actor above; the target network's own actor head
-            # is never consulted in SAC, so running it here would be pure
-            # waste discarded a line later.
-            next_q = self.target_model(next_obs, action=next_action, compute_actor=False)["value"]
-            if isinstance(next_q, tuple):
-                next_q = torch.min(*next_q)
-            target_q = rewards + self.cfg.gamma * (1.0 - dones) * (
-                next_q - self.alpha.detach() * next_log_prob
-            )
-
         # When encoder should NOT receive gradients from critic, detach obs
         # pixels/features before the critic forward pass.
         if not self._enc_with_critic and self._encoder_param_list:
@@ -365,10 +513,19 @@ class SAC(BaseAgent):
         else:
             obs_for_critic = obs
 
-        # compute_actor=False: this call only needs the critic's Q(s, a);
-        # the actor head's output on obs_for_critic is never read below.
-        result = self.model(obs_for_critic, action=actions, compute_actor=False)
-        q_out = result["value"]
+        # Predicted Q(s, a) (online, gradient-tracked) and target Q(s', a')
+        # (target net, no_grad) -- see `_critic_forward` for why this isn't
+        # simply the two direct calls it replaces once the critic has
+        # BatchNorm layers.
+        q_out, next_q = self._critic_forward(obs_for_critic, actions, next_obs, next_action)
+
+        with torch.no_grad():
+            if isinstance(next_q, tuple):
+                next_q = torch.min(*next_q)
+            target_q = rewards + self.cfg.gamma * (1.0 - dones) * (
+                next_q - self.alpha.detach() * next_log_prob
+            )
+
         if isinstance(q_out, tuple):
             q1, q2 = q_out
             critic_loss = sac_q_loss(q1, q2, target_q.detach())
@@ -383,6 +540,8 @@ class SAC(BaseAgent):
         # [3] Critic head step (encoder step deferred to [4])
         # ------------------------------------------------------------------
         self.critic_optimizer.step()
+        if self._weight_norm_projection:
+            _project_weights_unit_norm(self.model.critic)
 
         # ------------------------------------------------------------------
         # [4] Aux loss backward (accumulates on top of critic encoder grads)
@@ -400,6 +559,8 @@ class SAC(BaseAgent):
         self._encoder_update_counter += 1
         if self.encoder_optimizer is not None and (self._encoder_update_counter % freq == 0):
             self.encoder_optimizer.step()
+            if self._weight_norm_projection:
+                _project_weights_unit_norm(self.model.encoders)
 
         # ------------------------------------------------------------------
         # [5] Manually zero encoder grads before actor backward
@@ -413,7 +574,7 @@ class SAC(BaseAgent):
         # compute_critic=False: only the fresh action/log_prob sample is
         # used from this call (the critic pass below, with that action, is
         # what actually needs the critic head).
-        result_actor = self.model(obs, compute_critic=False)
+        result_actor = self._forward_model("train", obs, compute_critic=False)
         actor_out = result_actor["actor_out"]
         if isinstance(actor_out, dict):
             new_action = actor_out.get("action")
@@ -427,7 +588,7 @@ class SAC(BaseAgent):
         # exact actor forward pass above (same obs, same still-unstepped
         # actor/encoder weights) just to discard the result -- new_action is
         # already fixed from result_actor and is what's passed in below.
-        q_actor = self.model(obs, action=new_action, compute_actor=False)["value"]
+        q_actor = self._forward_model("train", obs, action=new_action, compute_actor=False)["value"]
         if isinstance(q_actor, tuple):
             q_actor = torch.min(*q_actor)
 
@@ -451,10 +612,15 @@ class SAC(BaseAgent):
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
+        if self._weight_norm_projection:
+            _project_weights_unit_norm(self.model.actor)
         if self.actor_only_encoder_optimizer is not None and (
             self._encoder_update_counter % freq == 0
         ):
             self.actor_only_encoder_optimizer.step()
+            if self._weight_norm_projection:
+                for enc in self._actor_only_encoder_modules:
+                    _project_weights_unit_norm(enc)
 
         # ------------------------------------------------------------------
         # [8] Zero encoder grads again — clean for next update() call
@@ -479,6 +645,19 @@ class SAC(BaseAgent):
         # [10] Soft update target network (unchanged)
         # ------------------------------------------------------------------
         _soft_update(self.model, self.target_model, self.cfg.tau)
+        if self._has_batchnorm:
+            # `_soft_update` only Polyak-averages `.parameters()`; BatchNorm's
+            # running_mean/running_var/num_batches_tracked are buffers, not
+            # parameters, so without this the target's BN statistics would
+            # stay frozen at their step-0 initial values forever (target_model
+            # is permanently eval()-mode -- see __init__ -- so it never
+            # accumulates its own running stats via its own forward passes
+            # either). Hard-copied rather than further EMA'd, matching how
+            # e.g. SB3's polyak_update treats BatchNorm buffers: the online
+            # net's running_mean/running_var are already an EMA (BatchNorm's
+            # own momentum), so Polyak-averaging them again would be
+            # double-smoothing against a moving target for no benefit.
+            _sync_target_buffers(self.model, self.target_model)
         self._global_step += 1
 
         metrics: dict[str, float] = {
@@ -568,8 +747,12 @@ class SAC(BaseAgent):
             aug2 = {
                 k: augment(v.float(), mode="drq") if v.dim() == 4 else v for k, v in obs.items()
             }
-            q1_aug = self.model(aug1, action=actions, compute_actor=False)["value"]
-            q2_aug = self.model(aug2, action=actions, compute_actor=False)["value"]
+            q1_aug = self._forward_model("train", aug1, action=actions, compute_actor=False)[
+                "value"
+            ]
+            q2_aug = self._forward_model("train", aug2, action=actions, compute_actor=False)[
+                "value"
+            ]
             if isinstance(q1_aug, tuple):
                 q1_aug = q1_aug[0]
             if isinstance(q2_aug, tuple):
@@ -671,6 +854,115 @@ def _soft_update(src: nn.Module, tgt: nn.Module, tau: float) -> None:
         tp.data.mul_(1.0 - tau).add_(sp.data * tau)
 
 
+def _sync_target_buffers(src: nn.Module, tgt: nn.Module) -> None:
+    """Hard-copy every buffer (BatchNorm's running_mean/running_var/
+    num_batches_tracked, chiefly) from *src* to *tgt*.
+
+    ``_soft_update`` above only walks ``.parameters()`` -- buffers are
+    deliberately excluded from a module's parameter list (they're not
+    learned by gradient descent), so BatchNorm's running statistics need
+    their own, separate propagation path from the online net to the target
+    net. A straight copy, not a further Polyak average: BatchNorm's own
+    ``momentum`` already performs an EMA update of these buffers on every
+    train-mode forward pass, so re-EMA'ing an already-EMA'd quantity here
+    would just add an extra, redundant lag on top of the one BatchNorm
+    itself already applies.
+    """
+    src_buffers = dict(src.named_buffers())
+    tgt_buffers = dict(tgt.named_buffers())
+    for name, tb in tgt_buffers.items():
+        sb = src_buffers.get(name)
+        if sb is None or sb.shape != tb.shape:
+            continue
+        tb.data.copy_(sb.data)
+
+
+_NORM_AFFINE_TYPES = (
+    nn.LayerNorm,
+    nn.modules.batchnorm._BatchNorm,
+    nn.GroupNorm,
+    nn.modules.instancenorm._InstanceNorm,
+)
+
+
+def _project_weights_unit_norm(module: nn.Module, eps: float = 1e-8) -> None:
+    """FlashSAC weight normalization (arXiv:2604.04539 section 4.2).
+
+    "After each gradient step, we project each weight vector onto the
+    unit-norm sphere and each normalization parameter vector (gamma, beta)
+    to norm sqrt(d)." Concretely, in-place and with no extra optimizer
+    state:
+
+    * Every ``nn.Linear.weight`` ROW (each output unit's incoming weight
+      vector, i.e. dim=1 of the ``(out_features, in_features)`` matrix) is
+      rescaled to unit L2 norm.
+    * Every normalization layer's affine vector(s) -- LayerNorm/BatchNorm/
+      GroupNorm/InstanceNorm's weight (gamma) and bias (beta) if present,
+      RMSNorm's weight -- is rescaled to L2 norm ``sqrt(d)`` where ``d`` is
+      that vector's length (so its RMS value is ~1 on average).
+
+    Bounds uncontrolled weight growth that would otherwise inflate Q-value
+    variance and amplify estimation error under bootstrapping. Meant to be
+    called right after an optimizer's ``.step()`` -- i.e. once per actual
+    gradient step applied to the module in question, not once per
+    ``update()`` call (the encoder optimizer, for instance, only steps
+    every ``encoder_update_freq`` critic updates).
+
+    ``nn.Linear.bias`` is deliberately left untouched -- the paper's text
+    only names "weight vectors" (Linear rows) and normalization-layer
+    affine vectors, not biases.
+    """
+    from srl.networks.layers.norms import _RMSNorm
+
+    with torch.no_grad():
+        for m in module.modules():
+            if isinstance(m, nn.Linear):
+                w = m.weight.data
+                row_norm = w.norm(p=2, dim=1, keepdim=True).clamp_min(eps)
+                w.div_(row_norm)
+            elif isinstance(m, _NORM_AFFINE_TYPES) or isinstance(m, _RMSNorm):
+                for attr in ("weight", "bias"):
+                    vec = getattr(m, attr, None)
+                    if vec is None or vec.dim() != 1:
+                        continue
+                    d = vec.numel()
+                    vec_norm = vec.data.norm(p=2).item()
+                    # A vector can only be legitimately at (or extremely
+                    # near) exactly zero norm if it has never actually
+                    # received a gradient update -- e.g. BatchNorm's bias
+                    # (beta) starts at all-zeros by default, and stays
+                    # there for as long as nothing trains it. Scaling by
+                    # sqrt(d)/vec_norm in that regime is a mathematically
+                    # meaningless "direction" (there isn't one) and, worse,
+                    # silently masks the underlying problem: a genuinely
+                    # zero vector times any finite scale is still zero (no
+                    # crash, nothing to notice), while a merely-tiny
+                    # (denormal-ish) one could overflow to inf under
+                    # `sqrt(d)/vec_norm` for a small `eps`. Skip the rescale
+                    # entirely below this threshold rather than either --
+                    # this is what surfaced the actor-only-encoder-never-
+                    # trains bug in the first place (its BatchNorm bias
+                    # was suspiciously stuck at an exact 0.0 vector across
+                    # an entire run, instead of silently "succeeding" at
+                    # rescaling zero to zero).
+                    if vec_norm < eps:
+                        continue
+                    vec.data.mul_(math.sqrt(d) / vec_norm)
+
+
+def _unique_encoder_params(model: nn.Module) -> list[nn.Parameter]:
+    """Collect all encoder parameters, de-duplicated by tensor id."""
+    seen: set[int] = set()
+    params: list[nn.Parameter] = []
+    encoders = getattr(model, "encoders", {})
+    for enc in encoders.values():
+        for p in enc.parameters():
+            if id(p) not in seen:
+                seen.add(id(p))
+                params.append(p)
+    return params
+
+
 def _partition_encoder_params(
     model: nn.Module,
 ) -> tuple[list[nn.Parameter], list[nn.Parameter], list[nn.Module]]:
@@ -680,8 +972,9 @@ def _partition_encoder_params(
     actor_only_modules)`` -- the first two are flat, de-duplicated
     ``nn.Parameter`` lists (matching ``_unique_encoder_params``'s
     de-duplication-by-tensor-id), the third is the actual actor-only
-    encoder module objects (kept for anything that needs to walk module
-    structure rather than a flat parameter list).
+    encoder module objects (needed by weight-norm projection, which walks
+    module structure to tell a Linear row apart from a norm layer's affine
+    vector -- a flat parameter list alone can't distinguish them).
 
     "Critic-reachable" means named in ``encoder_names_for_head("critic")``
     (which already exists on ``AgentModel`` for exactly this "which
@@ -728,19 +1021,6 @@ def _partition_encoder_params(
                 seen.add(id(p))
                 target.append(p)
     return critic_reachable_params, actor_only_params, actor_only_modules
-
-
-def _unique_encoder_params(model: nn.Module) -> list[nn.Parameter]:
-    """Collect all encoder parameters, de-duplicated by tensor id."""
-    seen: set[int] = set()
-    params: list[nn.Parameter] = []
-    encoders = getattr(model, "encoders", {})
-    for enc in encoders.values():
-        for p in enc.parameters():
-            if id(p) not in seen:
-                seen.add(id(p))
-                params.append(p)
-    return params
 
 
 def _zero_param_grads(params: list[nn.Parameter]) -> None:
