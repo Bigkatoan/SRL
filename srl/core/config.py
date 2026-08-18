@@ -26,6 +26,25 @@ class PPOConfig:
     max_grad_norm: float = 0.5
     target_kl: float | None = None
     use_fp16: bool = False
+    # Adaptive KL-based learning-rate schedule (off by default -- `lr` stays
+    # fixed for the whole run unless `lr_schedule="adaptive"`). Modeled on
+    # rsl_rl's PPO (`schedule="adaptive"`, the default there), which applies
+    # this every minibatch for the entire run: `target_kl` above is only a
+    # same-epoch early stop (breaks out of *this* update's minibatch loop
+    # once KL gets too large), a much weaker, one-shot safeguard that does
+    # nothing to prevent the next update from being just as aggressive.
+    # Nothing bounding per-update aggressiveness across the whole run is
+    # what let a real 20M-step PPO run on JAVIS's mjlab balance task drift
+    # into a declining policy over millions of steps with `approx_kl`
+    # staying inside a superficially "healthy" band throughout -- healthy
+    # relative to no target at all, not to a `desired_kl` actually being
+    # enforced. See srl/algorithms/ppo.py's PPO.update() for where this is
+    # applied.
+    lr_schedule: str = "fixed"  # "fixed" | "adaptive"
+    desired_kl: float = 0.01
+    min_lr: float = 1e-5
+    max_lr: float = 1e-2
+    kl_lr_factor: float = 1.5
 
 
 @dataclass

@@ -21,6 +21,21 @@ The format follows Keep a Changelog and the project uses Semantic Versioning as 
   seeds from any `best_*` checkpoint already on disk so a resumed run's first
   eval isn't automatically treated as "best." See `BestCheckpointTracker` in
   `srl/utils/checkpoint.py`.
+- **PPO adaptive KL-based learning-rate schedule** (`PPOConfig.lr_schedule:
+  "adaptive"`, off by default at `"fixed"`) — every minibatch, adapts the
+  optimizer's LR from the measured `approx_kl`: shrinks it when KL exceeds
+  `desired_kl * 2.0` (divide by `kl_lr_factor`, floored at `min_lr`), grows it
+  when KL is under `desired_kl / 2.0` (multiply by `kl_lr_factor`, capped at
+  `max_lr`). Modeled on rsl_rl PPO's `schedule="adaptive"` (its own default),
+  which is why mjlab's reference PPO training path converges and holds on a
+  task where SRL's PPO, with nothing bounding per-update aggressiveness
+  across a long run, was found to peak early and then decline continuously
+  for millions of steps despite `approx_kl` looking superficially healthy the
+  whole time (healthy relative to no target being enforced at all).
+  `PPOConfig.target_kl` (pre-existing) is a much weaker, one-shot safeguard —
+  a same-epoch early stop that reacts only *after* one update already
+  overshot, doing nothing to prevent the next one from being just as
+  aggressive. See `PPO._adapt_lr` in `srl/algorithms/ppo.py`.
 - **`srl-train --visualize`** — runs one extra single env in a background thread,
   doing live deterministic inference against the *current* (still-training) model
   weights and rendering it, while the main training envs keep running headless and
