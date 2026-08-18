@@ -627,6 +627,82 @@
             <span class="ow">and</span> <span class="nb">set</span><span class="p">(</span><span class="n">payload</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">&lt;=</span> <span class="p">{</span><span class="s2">"model_state"</span><span class="p">,</span> <span class="s2">"step"</span><span class="p">,</span> <span class="s2">"metrics"</span><span class="p">,</span> <span class="s2">"rng_state"</span><span class="p">}</span>
         <span class="p">)</span></div>
 
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">BestCheckpointTracker</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Tracks the best value of a monitored eval metric across a run and</span>
+<span class="sd">    saves a ``best_*`` checkpoint whenever a new best is seen.</span>
+
+<span class="sd">    This exists because the *final* checkpoint a run produces is not always</span>
+<span class="sd">    the *best* one -- PPO/A2C/SAC/... runs can (and on some tasks reliably</span>
+<span class="sd">    do) peak partway through and then regress for the remainder of training</span>
+<span class="sd">    (entropy collapse driving std/exploration to near-zero is one concrete</span>
+<span class="sd">    way this happens on-policy). Without something tracking the best score</span>
+<span class="sd">    independently, that peak is unrecoverable once training moves past it:</span>
+<span class="sd">    only ``final_*``/periodic ``ckpt_*`` checkpoints exist, and by the time</span>
+<span class="sd">    a run ends the periodic ones have long since rotated past whatever step</span>
+<span class="sd">    the real peak was at.</span>
+
+<span class="sd">    Deliberately keeps its own ``CheckpointManager`` (passed in per call, not</span>
+<span class="sd">    owned) with ``max_keep=1`` rather than sharing the periodic-checkpoint</span>
+<span class="sd">    manager's save/eviction FIFO: `CheckpointManager._record` evicts its</span>
+<span class="sd">    oldest save once more than ``max_keep`` accumulate, tag-agnostically --</span>
+<span class="sd">    sharing a manager between a periodic ``ckpt_*``/``final_*`` writer and</span>
+<span class="sd">    this tracker would let ordinary periodic saves evict an old "best" file</span>
+<span class="sd">    long before anything better has been found to replace it, silently</span>
+<span class="sd">    defeating the entire point of this class.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    mode:</span>
+<span class="sd">        ``"max"`` (default) if higher monitored-metric values are better,</span>
+<span class="sd">        ``"min"`` if lower is better.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"max"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"max"</span><span class="p">,</span> <span class="s2">"min"</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"mode must be 'max' or 'min', got </span><span class="si">{</span><span class="n">mode</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">mode</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">best_score</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">best_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">best_step</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_better</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">score</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Whether *score* would improve on the best seen so far."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_score</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="n">score</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_score</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">"max"</span> <span class="k">else</span> <span class="n">score</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_score</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">seed_from_checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">payload</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">monitor</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Seed ``best_score`` from a previously-saved best checkpoint's</span>
+<span class="sd">        stored metrics -- used on ``--resume`` so a resumed run doesn't</span>
+<span class="sd">        treat its first eval as automatically "best" and overwrite a</span>
+<span class="sd">        genuinely-better pre-resume checkpoint with a worse one.</span>
+<span class="sd">        """</span>
+        <span class="n">metrics</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"metrics"</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">monitor</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">best_score</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">metrics</span><span class="p">[</span><span class="n">monitor</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">best_step</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"step"</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">score</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">cm</span><span class="p">:</span> <span class="n">CheckpointManager</span><span class="p">,</span>
+        <span class="n">step</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">optimizer</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">metrics</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Record *score*; if it's a new best, save via *cm* and return the</span>
+<span class="sd">        checkpoint path. Returns None when *score* did not improve.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_better</span><span class="p">(</span><span class="n">score</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">best_score</span> <span class="o">=</span> <span class="n">score</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">best_step</span> <span class="o">=</span> <span class="n">step</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">best_path</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">optimizer</span><span class="o">=</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">metrics</span><span class="p">,</span> <span class="n">tag</span><span class="o">=</span><span class="s2">"best"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_path</span>
 </pre></div>
 
                 </article>

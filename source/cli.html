@@ -476,6 +476,7 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#before-you-run-anything">Before you run anything</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#srl-train"><code class="docutils literal notranslate"><span class="pre">srl-train</span></code></a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#evaluation-semantics">Evaluation semantics</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#best-checkpoint-tracking-save-best">Best-checkpoint tracking (<code class="docutils literal notranslate"><span class="pre">--save-best</span></code>)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#live-viewer-visualize">Live viewer (<code class="docutils literal notranslate"><span class="pre">--visualize</span></code>)</a></li>
 </ul>
 </li>
@@ -558,6 +559,7 @@ python<span class="w"> </span>-m<span class="w"> </span>srl.cli.visualize<span c
 <li><p>Checkpointing and resume: <code class="docutils literal notranslate"><span class="pre">--resume</span></code></p></li>
 <li><p>Pipeline export: <code class="docutils literal notranslate"><span class="pre">--save-model-pipeline</span></code>, <code class="docutils literal notranslate"><span class="pre">--save-training-pipeline</span></code>, <code class="docutils literal notranslate"><span class="pre">--export-pipeline-only</span></code></p></li>
 <li><p>Evaluation: <code class="docutils literal notranslate"><span class="pre">--eval-freq</span></code>, <code class="docutils literal notranslate"><span class="pre">--eval-episodes</span></code>, <code class="docutils literal notranslate"><span class="pre">--render</span></code></p></li>
+<li><p>Best-checkpoint tracking: <code class="docutils literal notranslate"><span class="pre">--save-best</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-save-best</span></code></p></li>
 <li><p>Live viewer: <code class="docutils literal notranslate"><span class="pre">--visualize</span></code></p></li>
 </ul>
 <section id="evaluation-semantics">
@@ -575,6 +577,29 @@ python<span class="w"> </span>-m<span class="w"> </span>srl.cli.visualize<span c
 <li><p><code class="docutils literal notranslate"><span class="pre">eval/episode_length_mean</span></code></p></li>
 </ul>
 <p>Whether all of these appear depends on the environment and the current training loop, so treat <code class="docutils literal notranslate"><span class="pre">summary.json</span></code> as the source of truth for a specific run.</p>
+</section>
+<section id="best-checkpoint-tracking-save-best">
+<h3>Best-checkpoint tracking (<code class="docutils literal notranslate"><span class="pre">--save-best</span></code>)<a class="headerlink" href="#best-checkpoint-tracking-save-best" title="Link to this heading">#</a></h3>
+<p>Some runs peak partway through training and then regress for the rest of it — a
+periodic-checkpoint-only setup has no way to recover that peak once training moves
+past it, since <code class="docutils literal notranslate"><span class="pre">--resume</span></code>’s checkpoints and the final <code class="docutils literal notranslate"><span class="pre">final_*.pt</span></code> both just reflect
+whatever the <em>most recent</em> state was, not the <em>best</em> one.</p>
+<p><code class="docutils literal notranslate"><span class="pre">--save-best</span></code> (or <code class="docutils literal notranslate"><span class="pre">train.save_best:</span> <span class="pre">true</span></code> in the YAML config) turns on independent
+tracking of the best <code class="docutils literal notranslate"><span class="pre">eval/score_mean</span></code> seen so far this run. Every time an evaluation
+phase produces a new run-best score, a <code class="docutils literal notranslate"><span class="pre">best_*.pt</span></code> checkpoint is saved into the same
+<code class="docutils literal notranslate"><span class="pre">--ckptdir</span></code> directory as the regular <code class="docutils literal notranslate"><span class="pre">ckpt_*</span></code>/<code class="docutils literal notranslate"><span class="pre">final_*</span></code> checkpoints — alongside them,
+never replacing them. Off by default; requires <code class="docutils literal notranslate"><span class="pre">--eval-freq</span> <span class="pre">&gt;</span> <span class="pre">0</span></code> (with <code class="docutils literal notranslate"><span class="pre">--eval-freq</span> <span class="pre">0</span></code>
+there is no <code class="docutils literal notranslate"><span class="pre">eval/score_mean</span></code> to track against).</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>srl-train<span class="w"> </span>--config<span class="w"> </span>configs/envs/pendulum_ppo.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">          </span>--env<span class="w"> </span>Pendulum-v1<span class="w"> </span>--algo<span class="w"> </span>ppo<span class="w"> </span>--steps<span class="w"> </span><span class="m">200000</span><span class="w"> </span><span class="se">\</span>
+<span class="w">          </span>--eval-freq<span class="w"> </span><span class="m">20000</span><span class="w"> </span>--eval-episodes<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
+<span class="w">          </span>--save-best
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">--no-save-best</span></code> explicitly disables it even if the YAML config sets
+<code class="docutils literal notranslate"><span class="pre">train.save_best:</span> <span class="pre">true</span></code>. On <code class="docutils literal notranslate"><span class="pre">--resume</span></code>, the tracker is seeded from any <code class="docutils literal notranslate"><span class="pre">best_*</span></code>
+checkpoint already present in the run’s checkpoint directory, so a resumed run’s first
+evaluation is not automatically treated as a new best.</p>
 <p>Example: resume from a checkpoint.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>srl-train<span class="w"> </span>--config<span class="w"> </span>configs/envs/pendulum_ppo.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">          </span>--env<span class="w"> </span>Pendulum-v1<span class="w"> </span><span class="se">\</span>
@@ -801,6 +826,7 @@ takes the run down with it.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#before-you-run-anything">Before you run anything</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#srl-train"><code class="docutils literal notranslate"><span class="pre">srl-train</span></code></a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#evaluation-semantics">Evaluation semantics</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#best-checkpoint-tracking-save-best">Best-checkpoint tracking (<code class="docutils literal notranslate"><span class="pre">--save-best</span></code>)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#live-viewer-visualize">Live viewer (<code class="docutils literal notranslate"><span class="pre">--visualize</span></code>)</a></li>
 </ul>
 </li>

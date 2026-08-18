@@ -518,6 +518,10 @@ flags only</strong> (<code class="docutils literal notranslate"><span class="pre
 <code class="docutils literal notranslate"><span class="pre">--eval-episodes</span></code>). They are not read from the <code class="docutils literal notranslate"><span class="pre">train:</span></code> block.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">action_dim</span></code> and the parallel-env count are derived from the environment and
 overwrite whatever the YAML says.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">save_best</span></code> <strong>is</strong> read from the <code class="docutils literal notranslate"><span class="pre">train:</span></code> block (<code class="docutils literal notranslate"><span class="pre">train.save_best:</span> <span class="pre">true</span></code>), unlike
+<code class="docutils literal notranslate"><span class="pre">eval_freq</span></code>/<code class="docutils literal notranslate"><span class="pre">eval_episodes</span></code> above — it also has a matching <code class="docutils literal notranslate"><span class="pre">--save-best</span></code>/
+<code class="docutils literal notranslate"><span class="pre">--no-save-best</span></code> CLI flag, which wins over the YAML value when passed. See
+<a class="reference internal" href="../cli.html#best-checkpoint-tracking-save-best"><span class="std std-ref"><code class="docutils literal notranslate"><span class="pre">--save-best</span></code></span></a> in the CLI reference.</p></li>
 </ul>
 </section>
 <section id="fields-read-directly-by-the-cli">
