@@ -55,7 +55,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
-    <meta name="docbuild:last-update" content="Aug 17, 2026"/>
+    <meta name="docbuild:last-update" content="Aug 18, 2026"/>
   
     
     <script src="../../../_static/searchtools.js"></script>
@@ -436,11 +436,25 @@
 <span class="sd">  the original "trained only through critic backward" behaviour unchanged;</span>
 <span class="sd">  actor-only encoders get their own `actor_only_encoder_optimizer`, stepped</span>
 <span class="sd">  off actor_loss's backward pass (their only valid signal) instead.</span>
+<span class="sd">* weight_norm_projection (SACConfig, opt-in): FlashSAC-style (arXiv:2604.04539</span>
+<span class="sd">  section 4.2) post-optimizer.step() projection of Linear weight rows to unit</span>
+<span class="sd">  L2 norm and norm-layer affine vectors to L2 norm sqrt(d). See</span>
+<span class="sd">  `_project_weights_unit_norm`.</span>
+<span class="sd">* BatchNorm (`norm: batch_norm` in an encoder/actor/critic's layer config) is</span>
+<span class="sd">  now safe to use with SAC: target_model is permanently eval()-mode with its</span>
+<span class="sd">  running stats hard-copied from the online net each update()</span>
+<span class="sd">  (`_sync_target_buffers`), `self.model`'s train/eval mode is set atomically</span>
+<span class="sd">  with its forward call under `_model_lock` (safe against</span>
+<span class="sd">  AsyncOffPolicyRunner's concurrent predict()/update() threads), and the</span>
+<span class="sd">  critic's Bellman-residual forward pass uses FlashSAC's "cross-batch value</span>
+<span class="sd">  prediction" (`_critic_forward`) so the predicted and target halves share</span>
+<span class="sd">  BatchNorm statistics.</span>
 <span class="sd">"""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
@@ -508,6 +522,53 @@
         <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_model</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
             <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
 
+        <span class="c1"># target_model is ONLY ever touched from inside update() (the</span>
+        <span class="c1"># trainer thread under AsyncOffPolicyRunner, or the single main</span>
+        <span class="c1"># thread otherwise) -- predict()/the collector loop never call it.</span>
+        <span class="c1"># So, unlike `self.model` below, there is no cross-thread mode race</span>
+        <span class="c1"># to guard against here: eval() set once, and never toggled again,</span>
+        <span class="c1"># is simply correct for the whole object's life. This matters once</span>
+        <span class="c1"># BatchNorm is in the mix -- a target network left in train() mode</span>
+        <span class="c1"># would normalize each forward pass using THAT CALL's batch</span>
+        <span class="c1"># statistics (not the running estimates the rest of this class</span>
+        <span class="c1"># assumes), silently making the bootstrapped target y depend on</span>
+        <span class="c1"># whatever mini-batch of next-states happened to be sampled, on top</span>
+        <span class="c1"># of updating its own running_mean/running_var as a side effect of</span>
+        <span class="c1"># every such call -- both wrong for a network that's supposed to be</span>
+        <span class="c1"># a slow, stable EMA of the online net. See `_sync_target_buffers`</span>
+        <span class="c1"># for how target's BatchNorm running stats actually get updated</span>
+        <span class="c1"># instead (hard-copied from the online net, like sklearn/SB3's</span>
+        <span class="c1"># polyak_update treats BatchNorm buffers -- not further EMA'd here,</span>
+        <span class="c1"># since BatchNorm's own running-stat momentum already IS an EMA).</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">target_model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+
+        <span class="c1"># Whether the online model's actor/critic contains any BatchNorm</span>
+        <span class="c1"># layer -- decides two things below: (1) `_forward_model`/`predict`</span>
+        <span class="c1"># take `_model_lock` around mode-setting + the forward call itself</span>
+        <span class="c1"># (train-mode BatchNorm both branches on `.training` AND writes</span>
+        <span class="c1"># in-place to running_mean/running_var, so an unguarded race</span>
+        <span class="c1"># against a concurrent `predict()` call from AsyncOffPolicyRunner's</span>
+        <span class="c1"># collector thread -- which also flips `self.model`'s mode -- is a</span>
+        <span class="c1"># real concurrent read/write hazard, not just a "may see slightly</span>
+        <span class="c1"># stale weights" one LayerNorm/Dropout already tolerate elsewhere</span>
+        <span class="c1"># in this codebase, see `srl/utils/live_viewer.py`); (2)</span>
+        <span class="c1"># `_critic_forward` switches to the "cross-batch value prediction"</span>
+        <span class="c1"># path (FlashSAC section 4.2) instead of two independent</span>
+        <span class="c1"># same-size forward calls.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_has_batchnorm</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">modules</span><span class="o">.</span><span class="n">batchnorm</span><span class="o">.</span><span class="n">_BatchNorm</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">modules</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="c1"># Always constructed (not just when `_has_batchnorm`) so every</span>
+        <span class="c1"># `self.model(...)` call site can go through the same</span>
+        <span class="c1"># `_forward_model` helper unconditionally -- an uncontended</span>
+        <span class="c1"># `threading.Lock` acquire/release is on the order of tens of</span>
+        <span class="c1"># nanoseconds, negligible next to an actual forward pass, so there</span>
+        <span class="c1"># is no real cost to paying it even when nothing needs guarding.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_model_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_weight_norm_projection</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span>
+            <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="p">,</span> <span class="s2">"weight_norm_projection"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="p">)</span>
+
         <span class="c1"># ------------------------------------------------------------------</span>
         <span class="c1"># Three-optimizer design (v0.2.0), split by reachability (v0.2.1)</span>
         <span class="c1"># ------------------------------------------------------------------</span>
@@ -547,10 +608,10 @@
         <span class="n">_critic_reachable</span><span class="p">,</span> <span class="n">_actor_only</span><span class="p">,</span> <span class="n">_actor_only_modules</span> <span class="o">=</span> <span class="n">_partition_encoder_params</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_encoder_param_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">]</span> <span class="o">=</span> <span class="n">_critic_reachable</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_actor_only_encoder_param_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">]</span> <span class="o">=</span> <span class="n">_actor_only</span>
-        <span class="c1"># Modules (not just flat params) for the actor-only subset -- kept</span>
-        <span class="c1"># in case a subclass or future feature needs to walk module</span>
-        <span class="c1"># structure (e.g. weight-norm-style projection) rather than a flat</span>
-        <span class="c1"># parameter list.</span>
+        <span class="c1"># Modules (not just flat params) for the actor-only subset -- weight</span>
+        <span class="c1"># -norm projection needs to know which tensor is a Linear row vs a</span>
+        <span class="c1"># norm layer's affine vector, which requires walking `nn.Module`</span>
+        <span class="c1"># structure, not a flat `nn.Parameter` list.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_actor_only_encoder_modules</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="n">_actor_only_modules</span>
 
         <span class="c1"># encoder_lr: read from VisualSACConfig if available, else fall back to</span>
@@ -676,6 +737,99 @@
     <span class="c1"># BaseAgent interface</span>
     <span class="c1"># ------------------------------------------------------------------</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_forward_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Call ``self.model(...)`` with its train/eval mode set atomically</span>
+<span class="sd">        under ``_model_lock``.</span>
+
+<span class="sd">        Every call site that used to do a bare ``self.model.train()``/</span>
+<span class="sd">        ``self.model.eval()`` followed by a separate ``self.model(...)``</span>
+<span class="sd">        call now goes through here instead. Two statements that are each</span>
+<span class="sd">        individually fine become a race once a second thread can interleave</span>
+<span class="sd">        between them: ``AsyncOffPolicyRunner`` calls ``predict()`` from its</span>
+<span class="sd">        collector thread concurrently with ``update()`` running on its</span>
+<span class="sd">        background trainer thread, both against this SAME ``self.model``</span>
+<span class="sd">        instance. For LayerNorm/Dropout, "whichever mode wins" barely</span>
+<span class="sd">        matters. For BatchNorm it does: a train-mode forward pass both</span>
+<span class="sd">        normalizes using *this call's* batch statistics AND writes</span>
+<span class="sd">        ``running_mean``/``running_var`` in place -- so an interleaving</span>
+<span class="sd">        where `predict()`'s intended eval-mode forward pass ends up running</span>
+<span class="sd">        in train mode is a genuine concurrent write hazard on those</span>
+<span class="sd">        buffers, on top of silently swapping "stable running stats" for</span>
+<span class="sd">        "whatever this rollout batch looked like" for action selection.</span>
+<span class="sd">        Holding `_model_lock` only across mode-set + forward (never across</span>
+<span class="sd">        backward/optimizer.step(), which don't touch `.training` or read</span>
+<span class="sd">        BatchNorm buffers) keeps the async runner's actual overlap intact:</span>
+<span class="sd">        the lock is held for microseconds, not for a whole gradient step.</span>
+<span class="sd">        """</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model_lock</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">"train"</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_critic_forward</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">obs_for_critic</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">actions</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">next_obs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">next_action</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Compute the online critic's Q(s, a) and the target critic's</span>
+<span class="sd">        Q(s', a'), returned in whatever form the configured critic head</span>
+<span class="sd">        produces (a ``(q1, q2)`` tuple for TwinQHead, a single tensor for</span>
+<span class="sd">        QFunctionHead) -- exactly what the two direct</span>
+<span class="sd">        ``self.model(...)``/``self.target_model(...)`` calls this method</span>
+<span class="sd">        replaces would have returned.</span>
+
+<span class="sd">        Without BatchNorm this is just those two direct calls (unchanged</span>
+<span class="sd">        from before this method existed -- same cost, same numerics).</span>
+
+<span class="sd">        With BatchNorm ("cross-batch value prediction", FlashSAC section</span>
+<span class="sd">        4.2 https://arxiv.org/pdf/2604.04539): BatchNorm's train-mode</span>
+<span class="sd">        forward normalizes using the CURRENT CALL's batch statistics, so</span>
+<span class="sd">        two separate B-sized calls -- one on (s, a), one on (s', a') --</span>
+<span class="sd">        hand the predicted half and the target half of the same Bellman</span>
+<span class="sd">        residual two *different* sets of normalization statistics, purely</span>
+<span class="sd">        because of how the call happened to be split, not because the</span>
+<span class="sd">        underlying transitions are actually that different. We concatenate</span>
+<span class="sd">        (s, a) and (s', a') into one 2B batch and run each network exactly</span>
+<span class="sd">        once, so the predicted half and the target half are each</span>
+<span class="sd">        normalized against statistics drawn from the union of current +</span>
+<span class="sd">        next transitions. Online and target still have different weights</span>
+<span class="sd">        (that's the point -- target lags via Polyak averaging /</span>
+<span class="sd">        `_sync_target_buffers`), so their Q-values still differ; only the</span>
+<span class="sd">        confound of "which half of the batch defined this call's batch</span>
+<span class="sd">        statistics" is removed.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_has_batchnorm</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward_model</span><span class="p">(</span>
+                <span class="s2">"train"</span><span class="p">,</span> <span class="n">obs_for_critic</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">actions</span><span class="p">,</span> <span class="n">compute_actor</span><span class="o">=</span><span class="kc">False</span>
+            <span class="p">)</span>
+            <span class="n">q_out</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">"value"</span><span class="p">]</span>
+            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+                <span class="n">next_q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_model</span><span class="p">(</span><span class="n">next_obs</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">next_action</span><span class="p">,</span> <span class="n">compute_actor</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span>
+                    <span class="s2">"value"</span>
+                <span class="p">]</span>
+            <span class="k">return</span> <span class="n">q_out</span><span class="p">,</span> <span class="n">next_q</span>
+
+        <span class="n">batch_size</span> <span class="o">=</span> <span class="n">actions</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">concat_obs</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">obs_for_critic</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">next_obs</span><span class="p">[</span><span class="n">k</span><span class="p">]],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">obs_for_critic</span><span class="p">}</span>
+        <span class="n">concat_action</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">actions</span><span class="p">,</span> <span class="n">next_action</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="n">online_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward_model</span><span class="p">(</span>
+            <span class="s2">"train"</span><span class="p">,</span> <span class="n">concat_obs</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">concat_action</span><span class="p">,</span> <span class="n">compute_actor</span><span class="o">=</span><span class="kc">False</span>
+        <span class="p">)[</span><span class="s2">"value"</span><span class="p">]</span>
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+            <span class="n">target_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_model</span><span class="p">(</span><span class="n">concat_obs</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">concat_action</span><span class="p">,</span> <span class="n">compute_actor</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span>
+                <span class="s2">"value"</span>
+            <span class="p">]</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_first_half</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+            <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">t</span><span class="p">[:</span><span class="n">batch_size</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">v</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="k">else</span> <span class="n">v</span><span class="p">[:</span><span class="n">batch_size</span><span class="p">]</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_second_half</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+            <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="n">batch_size</span><span class="p">:]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">v</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="k">else</span> <span class="n">v</span><span class="p">[</span><span class="n">batch_size</span><span class="p">:]</span>
+
+        <span class="k">return</span> <span class="n">_first_half</span><span class="p">(</span><span class="n">online_out</span><span class="p">),</span> <span class="n">_second_half</span><span class="p">(</span><span class="n">target_out</span><span class="p">)</span>
+
 <div class="viewcode-block" id="SAC.predict">
 <a class="viewcode-back" href="../../../source/api/algorithms.html#srl.algorithms.sac.SAC.predict">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span>
@@ -684,7 +838,6 @@
         <span class="n">hidden</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">deterministic</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
         <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
             <span class="c1"># compute_critic=False: predict() is the env-collection path --</span>
             <span class="c1"># called on every single environment step -- and never reads</span>
@@ -692,7 +845,7 @@
             <span class="c1"># the flag every action-selection call would also run the critic</span>
             <span class="c1"># encoder(s) and a full TwinQHead forward on a dummy zero action,</span>
             <span class="c1"># for a result nothing downstream uses.</span>
-            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">obs</span><span class="p">,</span> <span class="n">hidden_states</span><span class="o">=</span><span class="n">hidden</span><span class="p">,</span> <span class="n">compute_critic</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward_model</span><span class="p">(</span><span class="s2">"eval"</span><span class="p">,</span> <span class="n">obs</span><span class="p">,</span> <span class="n">hidden_states</span><span class="o">=</span><span class="n">hidden</span><span class="p">,</span> <span class="n">compute_critic</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">actor_out</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">"actor_out"</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">actor_out</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
             <span class="n">action</span> <span class="o">=</span> <span class="p">(</span>
@@ -726,7 +879,13 @@
         <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="p">)</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">batch_size</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">{}</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+        <span class="c1"># Mode is no longer set here once-and-for-all: every `self.model(...)`</span>
+        <span class="c1"># call below goes through `_forward_model`, which sets train/eval</span>
+        <span class="c1"># mode atomically with the forward call itself under `_model_lock`</span>
+        <span class="c1"># -- see that method's docstring for why a single top-level</span>
+        <span class="c1"># `self.model.train()` isn't safe once BatchNorm is in the picture</span>
+        <span class="c1"># and `AsyncOffPolicyRunner` is running `predict()` concurrently on</span>
+        <span class="c1"># another thread.</span>
         <span class="n">batch</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">batch_size</span><span class="p">)</span>
 
         <span class="n">obs</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">batch</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
@@ -754,7 +913,7 @@
             <span class="c1"># from this call. Without the flag, AgentModel.forward() would</span>
             <span class="c1"># also run the critic encoder(s) and a full TwinQHead forward on</span>
             <span class="c1"># a dummy zero action just to throw the result away below.</span>
-            <span class="n">next_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">next_obs</span><span class="p">,</span> <span class="n">compute_critic</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">next_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward_model</span><span class="p">(</span><span class="s2">"train"</span><span class="p">,</span> <span class="n">next_obs</span><span class="p">,</span> <span class="n">compute_critic</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
             <span class="n">next_actor_out</span> <span class="o">=</span> <span class="n">next_result</span><span class="p">[</span><span class="s2">"actor_out"</span><span class="p">]</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">next_actor_out</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
                 <span class="n">next_action</span> <span class="o">=</span> <span class="n">next_actor_out</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"action"</span><span class="p">)</span>
@@ -766,17 +925,6 @@
                     <span class="n">rewards</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span>
                 <span class="p">)</span>
 
-            <span class="c1"># compute_actor=False: next_action was already sampled from the</span>
-            <span class="c1"># (non-target) actor above; the target network's own actor head</span>
-            <span class="c1"># is never consulted in SAC, so running it here would be pure</span>
-            <span class="c1"># waste discarded a line later.</span>
-            <span class="n">next_q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_model</span><span class="p">(</span><span class="n">next_obs</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">next_action</span><span class="p">,</span> <span class="n">compute_actor</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="s2">"value"</span><span class="p">]</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">next_q</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
-                <span class="n">next_q</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="o">*</span><span class="n">next_q</span><span class="p">)</span>
-            <span class="n">target_q</span> <span class="o">=</span> <span class="n">rewards</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">gamma</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">dones</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span>
-                <span class="n">next_q</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span> <span class="o">*</span> <span class="n">next_log_prob</span>
-            <span class="p">)</span>
-
         <span class="c1"># When encoder should NOT receive gradients from critic, detach obs</span>
         <span class="c1"># pixels/features before the critic forward pass.</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_enc_with_critic</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_encoder_param_list</span><span class="p">:</span>
@@ -784,10 +932,19 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">obs_for_critic</span> <span class="o">=</span> <span class="n">obs</span>
 
-        <span class="c1"># compute_actor=False: this call only needs the critic's Q(s, a);</span>
-        <span class="c1"># the actor head's output on obs_for_critic is never read below.</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">obs_for_critic</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">actions</span><span class="p">,</span> <span class="n">compute_actor</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="n">q_out</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">"value"</span><span class="p">]</span>
+        <span class="c1"># Predicted Q(s, a) (online, gradient-tracked) and target Q(s', a')</span>
+        <span class="c1"># (target net, no_grad) -- see `_critic_forward` for why this isn't</span>
+        <span class="c1"># simply the two direct calls it replaces once the critic has</span>
+        <span class="c1"># BatchNorm layers.</span>
+        <span class="n">q_out</span><span class="p">,</span> <span class="n">next_q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_critic_forward</span><span class="p">(</span><span class="n">obs_for_critic</span><span class="p">,</span> <span class="n">actions</span><span class="p">,</span> <span class="n">next_obs</span><span class="p">,</span> <span class="n">next_action</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">next_q</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                <span class="n">next_q</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="o">*</span><span class="n">next_q</span><span class="p">)</span>
+            <span class="n">target_q</span> <span class="o">=</span> <span class="n">rewards</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">gamma</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">dones</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span>
+                <span class="n">next_q</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span> <span class="o">*</span> <span class="n">next_log_prob</span>
+            <span class="p">)</span>
+
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">q_out</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
             <span class="n">q1</span><span class="p">,</span> <span class="n">q2</span> <span class="o">=</span> <span class="n">q_out</span>
             <span class="n">critic_loss</span> <span class="o">=</span> <span class="n">sac_q_loss</span><span class="p">(</span><span class="n">q1</span><span class="p">,</span> <span class="n">q2</span><span class="p">,</span> <span class="n">target_q</span><span class="o">.</span><span class="n">detach</span><span class="p">())</span>
@@ -802,6 +959,8 @@
         <span class="c1"># [3] Critic head step (encoder step deferred to [4])</span>
         <span class="c1"># ------------------------------------------------------------------</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">critic_optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_weight_norm_projection</span><span class="p">:</span>
+            <span class="n">_project_weights_unit_norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">critic</span><span class="p">)</span>
 
         <span class="c1"># ------------------------------------------------------------------</span>
         <span class="c1"># [4] Aux loss backward (accumulates on top of critic encoder grads)</span>
@@ -819,6 +978,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_encoder_update_counter</span> <span class="o">+=</span> <span class="mi">1</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">encoder_optimizer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_encoder_update_counter</span> <span class="o">%</span> <span class="n">freq</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">encoder_optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_weight_norm_projection</span><span class="p">:</span>
+                <span class="n">_project_weights_unit_norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">encoders</span><span class="p">)</span>
 
         <span class="c1"># ------------------------------------------------------------------</span>
         <span class="c1"># [5] Manually zero encoder grads before actor backward</span>
@@ -832,7 +993,7 @@
         <span class="c1"># compute_critic=False: only the fresh action/log_prob sample is</span>
         <span class="c1"># used from this call (the critic pass below, with that action, is</span>
         <span class="c1"># what actually needs the critic head).</span>
-        <span class="n">result_actor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">obs</span><span class="p">,</span> <span class="n">compute_critic</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">result_actor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward_model</span><span class="p">(</span><span class="s2">"train"</span><span class="p">,</span> <span class="n">obs</span><span class="p">,</span> <span class="n">compute_critic</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">actor_out</span> <span class="o">=</span> <span class="n">result_actor</span><span class="p">[</span><span class="s2">"actor_out"</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">actor_out</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
             <span class="n">new_action</span> <span class="o">=</span> <span class="n">actor_out</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"action"</span><span class="p">)</span>
@@ -846,7 +1007,7 @@
         <span class="c1"># exact actor forward pass above (same obs, same still-unstepped</span>
         <span class="c1"># actor/encoder weights) just to discard the result -- new_action is</span>
         <span class="c1"># already fixed from result_actor and is what's passed in below.</span>
-        <span class="n">q_actor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">obs</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">new_action</span><span class="p">,</span> <span class="n">compute_actor</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="s2">"value"</span><span class="p">]</span>
+        <span class="n">q_actor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward_model</span><span class="p">(</span><span class="s2">"train"</span><span class="p">,</span> <span class="n">obs</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">new_action</span><span class="p">,</span> <span class="n">compute_actor</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="s2">"value"</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">q_actor</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
             <span class="n">q_actor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="o">*</span><span class="n">q_actor</span><span class="p">)</span>
 
@@ -870,10 +1031,15 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">actor_optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
         <span class="n">actor_loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">actor_optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_weight_norm_projection</span><span class="p">:</span>
+            <span class="n">_project_weights_unit_norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">actor</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">actor_only_encoder_optimizer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_encoder_update_counter</span> <span class="o">%</span> <span class="n">freq</span> <span class="o">==</span> <span class="mi">0</span>
         <span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">actor_only_encoder_optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_weight_norm_projection</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">enc</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_actor_only_encoder_modules</span><span class="p">:</span>
+                    <span class="n">_project_weights_unit_norm</span><span class="p">(</span><span class="n">enc</span><span class="p">)</span>
 
         <span class="c1"># ------------------------------------------------------------------</span>
         <span class="c1"># [8] Zero encoder grads again — clean for next update() call</span>
@@ -898,6 +1064,19 @@
         <span class="c1"># [10] Soft update target network (unchanged)</span>
         <span class="c1"># ------------------------------------------------------------------</span>
         <span class="n">_soft_update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">tau</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_has_batchnorm</span><span class="p">:</span>
+            <span class="c1"># `_soft_update` only Polyak-averages `.parameters()`; BatchNorm's</span>
+            <span class="c1"># running_mean/running_var/num_batches_tracked are buffers, not</span>
+            <span class="c1"># parameters, so without this the target's BN statistics would</span>
+            <span class="c1"># stay frozen at their step-0 initial values forever (target_model</span>
+            <span class="c1"># is permanently eval()-mode -- see __init__ -- so it never</span>
+            <span class="c1"># accumulates its own running stats via its own forward passes</span>
+            <span class="c1"># either). Hard-copied rather than further EMA'd, matching how</span>
+            <span class="c1"># e.g. SB3's polyak_update treats BatchNorm buffers: the online</span>
+            <span class="c1"># net's running_mean/running_var are already an EMA (BatchNorm's</span>
+            <span class="c1"># own momentum), so Polyak-averaging them again would be</span>
+            <span class="c1"># double-smoothing against a moving target for no benefit.</span>
+            <span class="n">_sync_target_buffers</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_model</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_global_step</span> <span class="o">+=</span> <span class="mi">1</span>
 
         <span class="n">metrics</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
@@ -987,8 +1166,12 @@
             <span class="n">aug2</span> <span class="o">=</span> <span class="p">{</span>
                 <span class="n">k</span><span class="p">:</span> <span class="n">augment</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">float</span><span class="p">(),</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"drq"</span><span class="p">)</span> <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">==</span> <span class="mi">4</span> <span class="k">else</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">obs</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
             <span class="p">}</span>
-            <span class="n">q1_aug</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">aug1</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">actions</span><span class="p">,</span> <span class="n">compute_actor</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="s2">"value"</span><span class="p">]</span>
-            <span class="n">q2_aug</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">aug2</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">actions</span><span class="p">,</span> <span class="n">compute_actor</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="s2">"value"</span><span class="p">]</span>
+            <span class="n">q1_aug</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward_model</span><span class="p">(</span><span class="s2">"train"</span><span class="p">,</span> <span class="n">aug1</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">actions</span><span class="p">,</span> <span class="n">compute_actor</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span>
+                <span class="s2">"value"</span>
+            <span class="p">]</span>
+            <span class="n">q2_aug</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward_model</span><span class="p">(</span><span class="s2">"train"</span><span class="p">,</span> <span class="n">aug2</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">actions</span><span class="p">,</span> <span class="n">compute_actor</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span>
+                <span class="s2">"value"</span>
+            <span class="p">]</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">q1_aug</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
                 <span class="n">q1_aug</span> <span class="o">=</span> <span class="n">q1_aug</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">q2_aug</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
@@ -1097,6 +1280,115 @@
         <span class="n">tp</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">mul_</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">tau</span><span class="p">)</span><span class="o">.</span><span class="n">add_</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">data</span> <span class="o">*</span> <span class="n">tau</span><span class="p">)</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_sync_target_buffers</span><span class="p">(</span><span class="n">src</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">tgt</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Hard-copy every buffer (BatchNorm's running_mean/running_var/</span>
+<span class="sd">    num_batches_tracked, chiefly) from *src* to *tgt*.</span>
+
+<span class="sd">    ``_soft_update`` above only walks ``.parameters()`` -- buffers are</span>
+<span class="sd">    deliberately excluded from a module's parameter list (they're not</span>
+<span class="sd">    learned by gradient descent), so BatchNorm's running statistics need</span>
+<span class="sd">    their own, separate propagation path from the online net to the target</span>
+<span class="sd">    net. A straight copy, not a further Polyak average: BatchNorm's own</span>
+<span class="sd">    ``momentum`` already performs an EMA update of these buffers on every</span>
+<span class="sd">    train-mode forward pass, so re-EMA'ing an already-EMA'd quantity here</span>
+<span class="sd">    would just add an extra, redundant lag on top of the one BatchNorm</span>
+<span class="sd">    itself already applies.</span>
+<span class="sd">    """</span>
+    <span class="n">src_buffers</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">named_buffers</span><span class="p">())</span>
+    <span class="n">tgt_buffers</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">tgt</span><span class="o">.</span><span class="n">named_buffers</span><span class="p">())</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">tb</span> <span class="ow">in</span> <span class="n">tgt_buffers</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">sb</span> <span class="o">=</span> <span class="n">src_buffers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sb</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">sb</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">tb</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">tb</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">sb</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+
+
+<span class="n">_NORM_AFFINE_TYPES</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">LayerNorm</span><span class="p">,</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">modules</span><span class="o">.</span><span class="n">batchnorm</span><span class="o">.</span><span class="n">_BatchNorm</span><span class="p">,</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">GroupNorm</span><span class="p">,</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">modules</span><span class="o">.</span><span class="n">instancenorm</span><span class="o">.</span><span class="n">_InstanceNorm</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_project_weights_unit_norm</span><span class="p">(</span><span class="n">module</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">eps</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-8</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""FlashSAC weight normalization (arXiv:2604.04539 section 4.2).</span>
+
+<span class="sd">    "After each gradient step, we project each weight vector onto the</span>
+<span class="sd">    unit-norm sphere and each normalization parameter vector (gamma, beta)</span>
+<span class="sd">    to norm sqrt(d)." Concretely, in-place and with no extra optimizer</span>
+<span class="sd">    state:</span>
+
+<span class="sd">    * Every ``nn.Linear.weight`` ROW (each output unit's incoming weight</span>
+<span class="sd">      vector, i.e. dim=1 of the ``(out_features, in_features)`` matrix) is</span>
+<span class="sd">      rescaled to unit L2 norm.</span>
+<span class="sd">    * Every normalization layer's affine vector(s) -- LayerNorm/BatchNorm/</span>
+<span class="sd">      GroupNorm/InstanceNorm's weight (gamma) and bias (beta) if present,</span>
+<span class="sd">      RMSNorm's weight -- is rescaled to L2 norm ``sqrt(d)`` where ``d`` is</span>
+<span class="sd">      that vector's length (so its RMS value is ~1 on average).</span>
+
+<span class="sd">    Bounds uncontrolled weight growth that would otherwise inflate Q-value</span>
+<span class="sd">    variance and amplify estimation error under bootstrapping. Meant to be</span>
+<span class="sd">    called right after an optimizer's ``.step()`` -- i.e. once per actual</span>
+<span class="sd">    gradient step applied to the module in question, not once per</span>
+<span class="sd">    ``update()`` call (the encoder optimizer, for instance, only steps</span>
+<span class="sd">    every ``encoder_update_freq`` critic updates).</span>
+
+<span class="sd">    ``nn.Linear.bias`` is deliberately left untouched -- the paper's text</span>
+<span class="sd">    only names "weight vectors" (Linear rows) and normalization-layer</span>
+<span class="sd">    affine vectors, not biases.</span>
+<span class="sd">    """</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">srl.networks.layers.norms</span><span class="w"> </span><span class="kn">import</span> <span class="n">_RMSNorm</span>
+
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">modules</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">):</span>
+                <span class="n">w</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">data</span>
+                <span class="n">row_norm</span> <span class="o">=</span> <span class="n">w</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">p</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">clamp_min</span><span class="p">(</span><span class="n">eps</span><span class="p">)</span>
+                <span class="n">w</span><span class="o">.</span><span class="n">div_</span><span class="p">(</span><span class="n">row_norm</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">_NORM_AFFINE_TYPES</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">_RMSNorm</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"weight"</span><span class="p">,</span> <span class="s2">"bias"</span><span class="p">):</span>
+                    <span class="n">vec</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">attr</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">vec</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">vec</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">d</span> <span class="o">=</span> <span class="n">vec</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span>
+                    <span class="n">vec_norm</span> <span class="o">=</span> <span class="n">vec</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">p</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+                    <span class="c1"># A vector can only be legitimately at (or extremely</span>
+                    <span class="c1"># near) exactly zero norm if it has never actually</span>
+                    <span class="c1"># received a gradient update -- e.g. BatchNorm's bias</span>
+                    <span class="c1"># (beta) starts at all-zeros by default, and stays</span>
+                    <span class="c1"># there for as long as nothing trains it. Scaling by</span>
+                    <span class="c1"># sqrt(d)/vec_norm in that regime is a mathematically</span>
+                    <span class="c1"># meaningless "direction" (there isn't one) and, worse,</span>
+                    <span class="c1"># silently masks the underlying problem: a genuinely</span>
+                    <span class="c1"># zero vector times any finite scale is still zero (no</span>
+                    <span class="c1"># crash, nothing to notice), while a merely-tiny</span>
+                    <span class="c1"># (denormal-ish) one could overflow to inf under</span>
+                    <span class="c1"># `sqrt(d)/vec_norm` for a small `eps`. Skip the rescale</span>
+                    <span class="c1"># entirely below this threshold rather than either --</span>
+                    <span class="c1"># this is what surfaced the actor-only-encoder-never-</span>
+                    <span class="c1"># trains bug in the first place (its BatchNorm bias</span>
+                    <span class="c1"># was suspiciously stuck at an exact 0.0 vector across</span>
+                    <span class="c1"># an entire run, instead of silently "succeeding" at</span>
+                    <span class="c1"># rescaling zero to zero).</span>
+                    <span class="k">if</span> <span class="n">vec_norm</span> <span class="o">&lt;</span> <span class="n">eps</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">vec</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">mul_</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="o">/</span> <span class="n">vec_norm</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_unique_encoder_params</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Collect all encoder parameters, de-duplicated by tensor id."""</span>
+    <span class="n">seen</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="n">params</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">encoders</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="s2">"encoders"</span><span class="p">,</span> <span class="p">{})</span>
+    <span class="k">for</span> <span class="n">enc</span> <span class="ow">in</span> <span class="n">encoders</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">enc</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">id</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+                <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="nb">id</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+                <span class="n">params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">params</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_partition_encoder_params</span><span class="p">(</span>
     <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]]:</span>
@@ -1106,8 +1398,9 @@
 <span class="sd">    actor_only_modules)`` -- the first two are flat, de-duplicated</span>
 <span class="sd">    ``nn.Parameter`` lists (matching ``_unique_encoder_params``'s</span>
 <span class="sd">    de-duplication-by-tensor-id), the third is the actual actor-only</span>
-<span class="sd">    encoder module objects (kept for anything that needs to walk module</span>
-<span class="sd">    structure rather than a flat parameter list).</span>
+<span class="sd">    encoder module objects (needed by weight-norm projection, which walks</span>
+<span class="sd">    module structure to tell a Linear row apart from a norm layer's affine</span>
+<span class="sd">    vector -- a flat parameter list alone can't distinguish them).</span>
 
 <span class="sd">    "Critic-reachable" means named in ``encoder_names_for_head("critic")``</span>
 <span class="sd">    (which already exists on ``AgentModel`` for exactly this "which</span>
@@ -1154,19 +1447,6 @@
                 <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="nb">id</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
                 <span class="n">target</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">critic_reachable_params</span><span class="p">,</span> <span class="n">actor_only_params</span><span class="p">,</span> <span class="n">actor_only_modules</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_unique_encoder_params</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">"""Collect all encoder parameters, de-duplicated by tensor id."""</span>
-    <span class="n">seen</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-    <span class="n">params</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="n">encoders</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="s2">"encoders"</span><span class="p">,</span> <span class="p">{})</span>
-    <span class="k">for</span> <span class="n">enc</span> <span class="ow">in</span> <span class="n">encoders</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
-        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">enc</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
-            <span class="k">if</span> <span class="nb">id</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
-                <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="nb">id</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
-                <span class="n">params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">params</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_zero_param_grads</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -1346,7 +1626,7 @@ By SRL Contributors
   
   <div class="footer-item">
     <p class="last-updated">
-  Last updated on Aug 17, 2026.
+  Last updated on Aug 18, 2026.
   <br/>
 </p>
   </div>
