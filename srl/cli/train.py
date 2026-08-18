@@ -151,20 +151,29 @@ Examples
         default=None,
         help="Parallel environments (defaults to train.n_envs or 1)",
     )
-    p.add_argument("--device", default="auto", help="PyTorch device: cpu|cuda|auto (default: auto)")
+    p.add_argument(
+        "--device",
+        default=None,
+        help="PyTorch device: cpu|cuda|auto (default: train.device, else auto)",
+    )
     p.add_argument(
         "--vec-mode",
         choices=["auto", "sync", "async"],
         default="auto",
         help="Vector env backend for n-envs > 1",
     )
-    p.add_argument("--seed", type=int, default=0, help="Random seed (default: 0)")
+    p.add_argument(
+        "--seed", type=int, default=None, help="Random seed (default: train.seed, else 0)"
+    )
     p.add_argument("--logdir", default="runs", help="TensorBoard log dir (default: runs/)")
     p.add_argument(
         "--ckptdir", default="checkpoints", help="Checkpoint directory (default: checkpoints/)"
     )
     p.add_argument(
-        "--log-interval", type=int, default=2048, help="Console/logging interval in env steps"
+        "--log-interval",
+        type=int,
+        default=None,
+        help="Console/logging interval in env steps (default: train.log_interval, else 2048)",
     )
     p.add_argument(
         "--episode-window", type=int, default=20, help="Rolling window for episode summaries"
@@ -209,8 +218,18 @@ Examples
         action="store_true",
         help="Render requested pipeline PNGs and exit without training",
     )
-    p.add_argument("--eval-freq", type=int, default=50_000, help="Evaluation frequency in steps")
-    p.add_argument("--eval-episodes", type=int, default=10, help="Episodes per evaluation")
+    p.add_argument(
+        "--eval-freq",
+        type=int,
+        default=None,
+        help="Evaluation frequency in steps (default: train.eval_freq, else 50000)",
+    )
+    p.add_argument(
+        "--eval-episodes",
+        type=int,
+        default=None,
+        help="Episodes per evaluation (default: train.eval_episodes, else 10)",
+    )
     p.add_argument("--render", action="store_true", help="Render environment during eval")
     p.add_argument(
         "--visualize",
@@ -911,6 +930,35 @@ def main(argv: list[str] | None = None) -> int:
     from srl.registry.builder import ModelBuilder
     from srl.utils.pipeline_graph import render_pipeline_bundle
 
+    # ── load config early: device/seed/eval-* fallbacks below need train_cfg ───
+    print(f"[srl-train] Loading config: {args.config}")
+    train_cfg, raw_cfg = _train_section(args.config)
+
+    # "CLI flag wins if passed, else fall back to the YAML train: block, else
+    # this flag's original hardcoded default" -- same pattern already used
+    # for --steps/--n-envs further down. These five were previously CLI-only
+    # (a fixed argparse default made the YAML value unreachable no matter
+    # what a config declared), which meant a fully config-driven run always
+    # needed at least `--eval-freq`/`--eval-episodes` typed out by hand to
+    # get any training-progress visibility at all. Must run before the
+    # device/seed resolution immediately below, which reads `args.device`/
+    # `args.seed` directly.
+    args.device = args.device if args.device is not None else str(train_cfg.get("device", "auto"))
+    args.seed = args.seed if args.seed is not None else int(train_cfg.get("seed", 0))
+    args.log_interval = (
+        args.log_interval
+        if args.log_interval is not None
+        else int(train_cfg.get("log_interval", 2048))
+    )
+    args.eval_freq = (
+        args.eval_freq if args.eval_freq is not None else int(train_cfg.get("eval_freq", 50_000))
+    )
+    args.eval_episodes = (
+        args.eval_episodes
+        if args.eval_episodes is not None
+        else int(train_cfg.get("eval_episodes", 10))
+    )
+
     # ── device ────────────────────────────────────────────────────────────────
     if args.device == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -931,8 +979,6 @@ def main(argv: list[str] | None = None) -> int:
             pass
 
     # ── build model ───────────────────────────────────────────────────────────
-    print(f"[srl-train] Loading config: {args.config}")
-    train_cfg, raw_cfg = _train_section(args.config)
 
     # ── infer algorithm from config filename ─────────────────────────────────
     algo_name = args.algo

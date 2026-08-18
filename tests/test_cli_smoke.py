@@ -7,7 +7,13 @@ from srl.cli.visualize import _build_parser as build_visualize_parser
 def test_train_parser_accepts_minimal_args() -> None:
     args = build_train_parser().parse_args(["--config", "cfg.yaml"])
     assert args.config == "cfg.yaml"
-    assert args.device == "auto"
+    # None at the raw-parser level, not "auto" -- main() falls back to
+    # "auto" (or the YAML train.device, if set) only once it knows whether
+    # --device was actually passed on the CLI. See main()'s own comment on
+    # why --device/--seed/--log-interval/--eval-freq/--eval-episodes all
+    # need a None default here rather than their real fallback value
+    # baked in directly.
+    assert args.device is None
 
 
 def test_benchmark_parser_accepts_required_args() -> None:
