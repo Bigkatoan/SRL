@@ -241,8 +241,9 @@ When `use_async=False` (default), the runner falls through to the standard synch
 training loop. When `use_gpu_buffer=True` only, the GPU buffer is used but collection
 and training remain on the same thread.
 
-`AsyncRunnerConfig` is a Python-API object — `srl-train` does not build one from the
-YAML `train:` block, so `use_async`/`use_gpu_buffer` have no effect there.
+`use_async`/`use_gpu_buffer` also work directly in a YAML `train:` block --
+`srl-train` reads them and builds an `AsyncRunnerConfig` automatically, no Python API
+needed. See [async_runner.md](async_runner.md#srl-train--yaml-usage) for the YAML form.
 
 See [async_runner.md](async_runner.md) and [gpu_replay_buffer.md](gpu_replay_buffer.md)
 for detailed usage.

@@ -259,9 +259,9 @@ With that configuration:
 3. There are no CPU↔GPU copies in the hot path.
 
 ```{note}
-`use_async` and `use_gpu_buffer` are Python-API settings. Putting them in a YAML
-`train:` block currently has no effect, because `srl-train` never builds an
-`AsyncRunnerConfig` from it.
+`use_async` and `use_gpu_buffer` also work directly in a YAML `train:` block --
+`srl-train` builds an `AsyncRunnerConfig` from those two keys automatically. See
+[Async Off-Policy Runner](../async_runner.md#srl-train--yaml-usage) for the YAML form.
 ```
 
 ## See also
