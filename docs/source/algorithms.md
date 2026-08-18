@@ -42,8 +42,26 @@ cfg = PPOConfig(
     entropy_coef = 0.0,
     vf_coef      = 0.5,
     max_grad_norm= 0.5,
+    target_kl    = None,    # same-epoch early stop only; see lr_schedule below
+    lr_schedule  = "fixed", # "adaptive" continuously retunes lr from measured
+                            # KL every minibatch, for the whole run (rsl_rl-
+                            # style); "fixed" (default) never touches lr
+    desired_kl   = 0.01,    # target for lr_schedule="adaptive"
+    min_lr       = 1e-5,    # clamp range for lr_schedule="adaptive"
+    max_lr       = 1e-2,
+    kl_lr_factor = 1.5,     # multiplicative step for lr_schedule="adaptive"
 )
 ```
+
+A long on-policy run with a fixed `lr` and no `target_kl` has nothing bounding
+how aggressive any single update is allowed to be — on some tasks this lets the
+policy drift into a worse region over millions of steps despite `approx_kl`
+looking fine update-to-update (each individual update is small; nothing stops
+the *next* one from being just as large, again and again, in the same
+direction). `lr_schedule="adaptive"` (off by default) fixes this the way
+rsl_rl's default PPO schedule does: shrink `lr` whenever measured KL runs hot,
+grow it back when updates are overly conservative, every minibatch, for the
+whole run — not just once, after the fact, within a single update.
 
 ### Recommended environments
 

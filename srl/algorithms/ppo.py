@@ -100,6 +100,12 @@ class PPO(BaseAgent):
 
         self.checkpoint_manager: CheckpointManager | None = None
         self._global_step = 0
+        # Tracks the live LR under lr_schedule="adaptive" -- self.cfg.lr stays
+        # the *initial* value (also what a fresh --resume with no checkpoint
+        # would start from); this is what actually drives the optimizer once
+        # adaptation starts moving it away from that initial value. See
+        # PPOConfig.lr_schedule's docstring for why this exists at all.
+        self._current_lr = float(self.cfg.lr)
 
         # Optional observation/reward normalisation
         self._obs_normalizer: RunningNormalizer | None = None
@@ -145,6 +151,25 @@ class PPO(BaseAgent):
         raise NotImplementedError(
             "Call PPO via a TrainingLoop or pass pre-collected batches to update()."
         )
+
+    def _adapt_lr(self, kl_mean: float) -> None:
+        """Adapt `self._current_lr` from this minibatch's measured KL and push
+        it onto every `self.optimizer` param group, mirroring rsl_rl PPO's
+        `schedule="adaptive"` (`desired_kl` default 0.01 there too): too far
+        above `desired_kl` and the last update was too aggressive, so shrink
+        the LR; comfortably below it and updates are overly conservative, so
+        grow it back. Runs every minibatch, for the whole run -- unlike
+        `target_kl`'s same-epoch early stop, this actually keeps subsequent
+        updates bounded instead of only reacting after one already overshot.
+        """
+        desired = self.cfg.desired_kl
+        factor = self.cfg.kl_lr_factor
+        if kl_mean > desired * 2.0:
+            self._current_lr = max(self.cfg.min_lr, self._current_lr / factor)
+        elif kl_mean < desired / 2.0 and kl_mean > 0.0:
+            self._current_lr = min(self.cfg.max_lr, self._current_lr * factor)
+        for param_group in self.optimizer.param_groups:
+            param_group["lr"] = self._current_lr
 
     def update(self) -> dict[str, float]:
         """Run *n_epochs × n_batches* gradient updates on the filled buffer."""
@@ -216,6 +241,10 @@ class PPO(BaseAgent):
                     entropy=ent_loss,
                 )
                 info["approx_kl"] = float(approx_kl.item())
+
+                if self.cfg.lr_schedule == "adaptive":
+                    self._adapt_lr(float(approx_kl.item()))
+                info["lr"] = self._current_lr
 
                 self.optimizer.zero_grad()
                 total.backward()
@@ -343,6 +372,16 @@ class PPO(BaseAgent):
                 else None
             ),
             "algo_step": self._global_step,
+            # optimizer_state above already carries each param group's
+            # resumed "lr" -- this is saved/restored separately anyway
+            # because _current_lr is PPO's own bookkeeping of that same
+            # value (see _adapt_lr), read on the *next* adaptation before
+            # the optimizer is touched. Without restoring it too, a resumed
+            # run's first adapted step would compute from cfg.lr (the
+            # *initial* value) instead of wherever the schedule had actually
+            # drifted to, then stomp the correctly-resumed optimizer LR with
+            # that wrong starting point.
+            "current_lr": self._current_lr,
         }
 
     def load_checkpoint_payload(self, payload: dict[str, Any]) -> None:
@@ -356,3 +395,5 @@ class PPO(BaseAgent):
         if encoder_opt_state is not None and getattr(self, "encoder_optimizer", None) is not None:
             self.encoder_optimizer.load_state_dict(encoder_opt_state)
         self._global_step = int(payload.get("algo_step", payload.get("step", 0)))
+        if "current_lr" in payload:
+            self._current_lr = float(payload["current_lr"])
