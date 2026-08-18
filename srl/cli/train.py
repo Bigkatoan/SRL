@@ -1558,6 +1558,15 @@ def _run_off_policy(
 
         _eval_freq = int(getattr(args, "eval_freq", 0))
 
+        # Without this, `train/score_mean`/`train/len` (the actual "is this
+        # thing learning" signal, distinct from `sac/*` loss metrics) never
+        # show up on this path -- see `episode_fn`'s docstring on
+        # AsyncOffPolicyRunner for why: the sync loop below calls
+        # `logger.update_episodes(...)` itself every step, but this runner
+        # owns its own collector loop and was never wired to do the same.
+        def _episode_fn(reward, done, truncated, step: int, info) -> None:
+            logger.update_episodes(reward, done, truncated, step=step, info=info)
+
         runner = AsyncOffPolicyRunner(
             agent=agent,
             env=env,
@@ -1570,6 +1579,7 @@ def _run_off_policy(
             update_every=int(_update_every),
             gradient_steps=_gradient_steps,
             eval_fn=_eval_fn if _eval_freq > 0 else None,
+            episode_fn=_episode_fn,
         )
         try:
             runner.run()

@@ -507,3 +507,67 @@ def test_async_runner_eval_freq_actually_produces_eval_metrics(
         "--eval-freq set -- --eval-freq is silently inert for "
         "AsyncOffPolicyRunner"
     )
+
+
+@pytest.mark.parametrize("use_gpu_buffer", [False, True], ids=["cpu_buffer", "gpu_buffer"])
+def test_async_runner_logs_rollout_score_not_just_loss_metrics(
+    monkeypatch, tmp_path, use_gpu_buffer
+) -> None:
+    """Regression test: `train/score_mean`/`train/episode_length_mean` (the
+    actual "is this thing learning" signal, distinct from `sac/*` loss
+    metrics) must appear in a run through `AsyncOffPolicyRunner`, the same
+    way they already do for the classic sync off-policy loop.
+
+    Confirmed on a real GPU run against `Javis-Payload-Rough`: `sac/*` loss
+    metrics and `runner/collect_fps` printed on schedule as expected, but no
+    `score`/`len` ever showed up in the console or metrics.jsonl -- nothing
+    on this runner's collection path called
+    `srl.utils.logger.Logger.update_episodes` per step the way the sync
+    loop's own collector does, so episode returns were never accumulated or
+    detected as complete. `_FakeMjlabBaseEnv` truncates every `EPISODE_LEN`
+    steps, so a long enough run here produces real completed episodes to
+    catch the regression.
+    """
+    monkeypatch.setattr(train_module, "_make_cli_env", _fake_make_cli_env)
+
+    config_dict = {
+        **SAC_CONFIG,
+        "train": {
+            **SAC_CONFIG["train"],
+            "total_steps": 80,
+            "use_async": True,
+            "use_gpu_buffer": use_gpu_buffer,
+        },
+    }
+    config_path = _write_config(tmp_path, "sac_async_score.yaml", config_dict)
+
+    exit_code = train_module.main(
+        [
+            "--config",
+            config_path,
+            "--logdir",
+            str(tmp_path / "runs"),
+            "--ckptdir",
+            str(tmp_path / "checkpoints"),
+            "--eval-freq",
+            "0",
+            "--no-plots",
+            "--seed",
+            "0",
+        ]
+    )
+    assert exit_code == 0
+
+    metrics_path = tmp_path / "runs" / "sac_sac_async_score" / "metrics.jsonl"
+    assert metrics_path.exists(), f"no metrics.jsonl written at {metrics_path}"
+    tags = set()
+    with metrics_path.open() as fh:
+        for line in fh:
+            tags.add(json.loads(line)["tag"])
+
+    assert "train/score_mean" in tags, (
+        "no train/score_mean ever logged for an async-runner run despite "
+        "completed episodes -- episode_fn is not wired to "
+        "logger.update_episodes for this path"
+    )
+    assert "train/episode_length_mean" in tags
