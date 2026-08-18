@@ -60,6 +60,7 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import torch
@@ -119,6 +120,24 @@ class AsyncOffPolicyRunner:
         configured ``--eval-freq``, because ``_run_off_policy`` in
         ``srl.cli.train`` hands off to this class and ``return``s before
         reaching its own (otherwise fully working) eval loop further down.
+    episode_fn:
+        Optional callback ``(reward, done, truncated, step, info) -> None``
+        invoked once per collector-loop iteration, right after
+        ``env.step()``, with that step's raw (possibly batched) reward/
+        done/truncated/info -- the exact positional shape
+        ``srl.utils.logger.Logger.update_episodes`` expects. Without this,
+        the console/TensorBoard ``train/score_mean``/``train/score_max``/
+        ``train/len`` rollout-quality metrics silently never appear whenever
+        this runner is active: `_run_off_policy` in ``srl.cli.train`` calls
+        ``logger.update_episodes(...)`` itself in its own (sync) collector
+        loop, but hands that responsibility entirely to the caller here --
+        confirmed on a real run: `sac/*` loss metrics and `runner/collect_fps`
+        printed every log interval as expected, but no `score`/`len` ever
+        showed up, because nothing was accumulating per-env episode returns
+        or detecting when an episode actually ended. Same class of gap as
+        ``eval_fn`` above (see its docstring) -- the runner steps the env and
+        has the raw per-step reward/done in hand, but was never wired to
+        forward it anywhere.
     """
 
     def __init__(
@@ -135,6 +154,7 @@ class AsyncOffPolicyRunner:
         update_every: int = 1,
         gradient_steps: int = 1,
         eval_fn: Callable[[int], None] | None = None,
+        episode_fn: Callable[[Any, Any, Any, int, Any], None] | None = None,
     ) -> None:
         self.agent = agent
         self.env = env
@@ -147,6 +167,7 @@ class AsyncOffPolicyRunner:
         self.update_every = update_every
         self.gradient_steps = gradient_steps
         self.eval_fn = eval_fn
+        self.episode_fn = episode_fn
 
         if obs_to_tensor_fn is not None:
             self._obs_to_tensor = obs_to_tensor_fn
@@ -271,6 +292,16 @@ class AsyncOffPolicyRunner:
             since_last_update += active_envs
             collect_steps += active_envs
 
+            # `step` here (post-increment) matches `_run_off_policy`'s own
+            # off-policy sync loop, which calls `logger.update_episodes(...)`
+            # with `step=env_step` after that same loop's `env_step +=
+            # active_envs` -- keep this call site's step value consistent
+            # with that convention, not the on-policy loop's pre-increment
+            # one (the two sync loops disagree with each other; this runner
+            # only replaces the off-policy one).
+            if self.episode_fn is not None:
+                self.episode_fn(reward, done, truncated, step, info)
+
             # Update
             if step >= self.update_after and since_last_update >= self.update_every:
                 for _ in range(self.gradient_steps):
@@ -363,6 +394,11 @@ class AsyncOffPolicyRunner:
                 # every parallel env's progress.
 
                 step += active_envs
+
+                # Post-increment step, matching _run_sync's comment on the
+                # equivalent call.
+                if self.episode_fn is not None:
+                    self.episode_fn(reward, done, truncated, step, info)
                 since_last_update += active_envs
                 collect_steps += active_envs
 
