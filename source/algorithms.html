@@ -574,9 +574,26 @@
     <span class="n">entropy_coef</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
     <span class="n">vf_coef</span>      <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
     <span class="n">max_grad_norm</span><span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">target_kl</span>    <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>    <span class="c1"># same-epoch early stop only; see lr_schedule below</span>
+    <span class="n">lr_schedule</span>  <span class="o">=</span> <span class="s2">"fixed"</span><span class="p">,</span> <span class="c1"># "adaptive" continuously retunes lr from measured</span>
+                            <span class="c1"># KL every minibatch, for the whole run (rsl_rl-</span>
+                            <span class="c1"># style); "fixed" (default) never touches lr</span>
+    <span class="n">desired_kl</span>   <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span>    <span class="c1"># target for lr_schedule="adaptive"</span>
+    <span class="n">min_lr</span>       <span class="o">=</span> <span class="mf">1e-5</span><span class="p">,</span>    <span class="c1"># clamp range for lr_schedule="adaptive"</span>
+    <span class="n">max_lr</span>       <span class="o">=</span> <span class="mf">1e-2</span><span class="p">,</span>
+    <span class="n">kl_lr_factor</span> <span class="o">=</span> <span class="mf">1.5</span><span class="p">,</span>     <span class="c1"># multiplicative step for lr_schedule="adaptive"</span>
 <span class="p">)</span>
 </pre></div>
 </div>
+<p>A long on-policy run with a fixed <code class="docutils literal notranslate"><span class="pre">lr</span></code> and no <code class="docutils literal notranslate"><span class="pre">target_kl</span></code> has nothing bounding
+how aggressive any single update is allowed to be — on some tasks this lets the
+policy drift into a worse region over millions of steps despite <code class="docutils literal notranslate"><span class="pre">approx_kl</span></code>
+looking fine update-to-update (each individual update is small; nothing stops
+the <em>next</em> one from being just as large, again and again, in the same
+direction). <code class="docutils literal notranslate"><span class="pre">lr_schedule=&quot;adaptive&quot;</span></code> (off by default) fixes this the way
+rsl_rl’s default PPO schedule does: shrink <code class="docutils literal notranslate"><span class="pre">lr</span></code> whenever measured KL runs hot,
+grow it back when updates are overly conservative, every minibatch, for the
+whole run — not just once, after the fact, within a single update.</p>
 </section>
 <section id="recommended-environments">
 <h3>Recommended environments<a class="headerlink" href="#recommended-environments" title="Link to this heading">#</a></h3>

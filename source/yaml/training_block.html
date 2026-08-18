@@ -732,7 +732,27 @@ optimizer uses <code class="docutils literal notranslate"><span class="pre">lr_c
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">target_kl</span></code></p></td>
 <td><p>float</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">null</span></code></p></td>
-<td><p>Early-stop a PPO update on KL divergence</p></td>
+<td><p>Early-stop a PPO update on KL divergence (same-epoch only — see <code class="docutils literal notranslate"><span class="pre">lr_schedule</span></code> below for a persistent alternative)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lr_schedule</span></code></p></td>
+<td><p>str</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;fixed&quot;</span></code> (PPO)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;adaptive&quot;</span></code> continuously adapts <code class="docutils literal notranslate"><span class="pre">lr</span></code> from measured KL every minibatch, for the whole run (modeled on rsl_rl PPO’s default schedule)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">desired_kl</span></code></p></td>
+<td><p>float</p></td>
+<td><p>0.01 (PPO)</p></td>
+<td><p>Target KL for <code class="docutils literal notranslate"><span class="pre">lr_schedule:</span> <span class="pre">adaptive</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">min_lr</span></code> / <code class="docutils literal notranslate"><span class="pre">max_lr</span></code></p></td>
+<td><p>float</p></td>
+<td><p>1e-5 / 1e-2 (PPO)</p></td>
+<td><p>Clamp range for <code class="docutils literal notranslate"><span class="pre">lr_schedule:</span> <span class="pre">adaptive</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">kl_lr_factor</span></code></p></td>
+<td><p>float</p></td>
+<td><p>1.5 (PPO)</p></td>
+<td><p>Multiplicative step size for <code class="docutils literal notranslate"><span class="pre">lr_schedule:</span> <span class="pre">adaptive</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_fp16</span></code></p></td>
 <td><p>bool</p></td>

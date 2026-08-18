@@ -512,6 +512,12 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">checkpoint_manager</span><span class="p">:</span> <span class="n">CheckpointManager</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_global_step</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="c1"># Tracks the live LR under lr_schedule="adaptive" -- self.cfg.lr stays</span>
+        <span class="c1"># the *initial* value (also what a fresh --resume with no checkpoint</span>
+        <span class="c1"># would start from); this is what actually drives the optimizer once</span>
+        <span class="c1"># adaptation starts moving it away from that initial value. See</span>
+        <span class="c1"># PPOConfig.lr_schedule's docstring for why this exists at all.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_current_lr</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">lr</span><span class="p">)</span>
 
         <span class="c1"># Optional observation/reward normalisation</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_obs_normalizer</span><span class="p">:</span> <span class="n">RunningNormalizer</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
@@ -564,6 +570,25 @@
             <span class="s2">"Call PPO via a TrainingLoop or pass pre-collected batches to update()."</span>
         <span class="p">)</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_adapt_lr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kl_mean</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Adapt `self._current_lr` from this minibatch's measured KL and push</span>
+<span class="sd">        it onto every `self.optimizer` param group, mirroring rsl_rl PPO's</span>
+<span class="sd">        `schedule="adaptive"` (`desired_kl` default 0.01 there too): too far</span>
+<span class="sd">        above `desired_kl` and the last update was too aggressive, so shrink</span>
+<span class="sd">        the LR; comfortably below it and updates are overly conservative, so</span>
+<span class="sd">        grow it back. Runs every minibatch, for the whole run -- unlike</span>
+<span class="sd">        `target_kl`'s same-epoch early stop, this actually keeps subsequent</span>
+<span class="sd">        updates bounded instead of only reacting after one already overshot.</span>
+<span class="sd">        """</span>
+        <span class="n">desired</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">desired_kl</span>
+        <span class="n">factor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">kl_lr_factor</span>
+        <span class="k">if</span> <span class="n">kl_mean</span> <span class="o">&gt;</span> <span class="n">desired</span> <span class="o">*</span> <span class="mf">2.0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_current_lr</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">min_lr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_lr</span> <span class="o">/</span> <span class="n">factor</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">kl_mean</span> <span class="o">&lt;</span> <span class="n">desired</span> <span class="o">/</span> <span class="mf">2.0</span> <span class="ow">and</span> <span class="n">kl_mean</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_current_lr</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">max_lr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_lr</span> <span class="o">*</span> <span class="n">factor</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">param_group</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">param_groups</span><span class="p">:</span>
+            <span class="n">param_group</span><span class="p">[</span><span class="s2">"lr"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_lr</span>
 
 <div class="viewcode-block" id="PPO.update">
 <a class="viewcode-back" href="../../../source/api/algorithms.html#srl.algorithms.ppo.PPO.update">[docs]</a>
@@ -637,6 +662,10 @@
                     <span class="n">entropy</span><span class="o">=</span><span class="n">ent_loss</span><span class="p">,</span>
                 <span class="p">)</span>
                 <span class="n">info</span><span class="p">[</span><span class="s2">"approx_kl"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">approx_kl</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">lr_schedule</span> <span class="o">==</span> <span class="s2">"adaptive"</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_adapt_lr</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">approx_kl</span><span class="o">.</span><span class="n">item</span><span class="p">()))</span>
+                <span class="n">info</span><span class="p">[</span><span class="s2">"lr"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_lr</span>
 
                 <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
                 <span class="n">total</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
@@ -771,6 +800,16 @@
                 <span class="k">else</span> <span class="kc">None</span>
             <span class="p">),</span>
             <span class="s2">"algo_step"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_step</span><span class="p">,</span>
+            <span class="c1"># optimizer_state above already carries each param group's</span>
+            <span class="c1"># resumed "lr" -- this is saved/restored separately anyway</span>
+            <span class="c1"># because _current_lr is PPO's own bookkeeping of that same</span>
+            <span class="c1"># value (see _adapt_lr), read on the *next* adaptation before</span>
+            <span class="c1"># the optimizer is touched. Without restoring it too, a resumed</span>
+            <span class="c1"># run's first adapted step would compute from cfg.lr (the</span>
+            <span class="c1"># *initial* value) instead of wherever the schedule had actually</span>
+            <span class="c1"># drifted to, then stomp the correctly-resumed optimizer LR with</span>
+            <span class="c1"># that wrong starting point.</span>
+            <span class="s2">"current_lr"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_lr</span><span class="p">,</span>
         <span class="p">}</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">load_checkpoint_payload</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">payload</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -783,7 +822,9 @@
         <span class="n">encoder_opt_state</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"encoder_optimizer_state"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">encoder_opt_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"encoder_optimizer"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">encoder_optimizer</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">encoder_opt_state</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_global_step</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"algo_step"</span><span class="p">,</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"step"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)))</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_global_step</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"algo_step"</span><span class="p">,</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"step"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)))</span>
+        <span class="k">if</span> <span class="s2">"current_lr"</span> <span class="ow">in</span> <span class="n">payload</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_current_lr</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">payload</span><span class="p">[</span><span class="s2">"current_lr"</span><span class="p">])</span></div>
 
 </pre></div>
 
