@@ -7,6 +7,20 @@ The format follows Keep a Changelog and the project uses Semantic Versioning as 
 ## [Unreleased]
 
 ### Added
+- **`srl-train --save-best` / `train.save_best`** — opt-in tracking of the best
+  `eval/score_mean` seen so far this run, saving a `best_*.pt` checkpoint
+  (alongside, never replacing, the existing periodic `ckpt_*`/final `final_*`
+  checkpoints) whenever eval produces a new run-best. Off by default. Motivated
+  by a real PPO run where eval score peaked partway through training and then
+  declined continuously for the rest of it (entropy collapse) — with no
+  best-checkpoint mechanism, only the degraded final policy was ever saved and
+  the actual peak was unrecoverable. Uses its own `CheckpointManager`
+  (`max_keep=1`) rather than sharing the periodic manager's save/eviction
+  FIFO, so ordinary periodic checkpoint churn can never evict a best
+  checkpoint before something genuinely better replaces it. On `--resume`,
+  seeds from any `best_*` checkpoint already on disk so a resumed run's first
+  eval isn't automatically treated as "best." See `BestCheckpointTracker` in
+  `srl/utils/checkpoint.py`.
 - **`srl-train --visualize`** — runs one extra single env in a background thread,
   doing live deterministic inference against the *current* (still-training) model
   weights and rendering it, while the main training envs keep running headless and

@@ -213,6 +213,20 @@ Examples
     p.add_argument("--eval-episodes", type=int, default=10, help="Episodes per evaluation")
     p.add_argument("--render", action="store_true", help="Render environment during eval")
     p.add_argument(
+        "--save-best",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Save a best_*.pt checkpoint (alongside, never replacing, the "
+            "existing periodic/final checkpoints) whenever eval/score_mean "
+            "reaches a new run-best, tracked independently of --eval-freq's "
+            "periodic checkpoint rotation. Off by default; can also be set "
+            "via train.save_best in the YAML config (default: train.save_best, "
+            "else False). Needs --eval-freq > 0 to have any effect, since "
+            "eval is what produces eval/score_mean."
+        ),
+    )
+    p.add_argument(
         "--visualize",
         action="store_true",
         help=(
@@ -665,6 +679,38 @@ def _next_eval_step(start_step: int, eval_freq: int) -> int | None:
     return int(math.floor(start_step / eval_freq) + 1) * eval_freq
 
 
+def _seed_best_tracker(best_cm, best_tracker, device: str) -> None:
+    """On `--resume`, seed `best_tracker.best_score` from a `best_*`
+    checkpoint this run already produced before the restart, if any.
+
+    Without this, a resumed run's very first eval would always look like
+    "the best so far" to a freshly-constructed (`best_score=None`) tracker
+    and immediately overwrite an existing `best_*` checkpoint even when the
+    new score is worse than what's already saved -- silently discarding a
+    genuinely-better pre-resume peak the whole feature exists to protect.
+    """
+    import torch
+
+    candidates = sorted(best_cm.save_dir.glob("best_*.pt")) + sorted(
+        best_cm.save_dir.glob("best_*.safetensors")
+    )
+    if not candidates:
+        return
+    latest = candidates[-1]
+    if latest.suffix == ".safetensors":
+        meta_path = latest.with_suffix(".meta.pt")
+        payload = (
+            torch.load(meta_path, map_location=device, weights_only=False)
+            if meta_path.exists()
+            else {}
+        )
+    else:
+        payload = torch.load(latest, map_location=device, weights_only=False)
+    best_tracker.seed_from_checkpoint(payload, monitor="eval/score_mean")
+    if best_tracker.best_score is not None:
+        best_tracker.best_path = latest
+
+
 def _evaluate_agent(
     agent, eval_env, *, env_type: str, seed: int, episodes: int, render: bool
 ) -> dict[str, float]:
@@ -754,6 +800,8 @@ def _maybe_run_evaluation(
     next_eval_step: int | None,
     eval_env=None,
     last_eval_step: int | None = None,
+    best_cm=None,
+    best_tracker=None,
 ) -> tuple[int | None, object | None, int | None]:
     """Returns `(next_eval_step, eval_env, last_eval_step)`.
 
@@ -771,6 +819,11 @@ def _maybe_run_evaluation(
     threshold (rollout_steps is a ceil-division), so the step periodic eval
     actually fires at is not always an exact multiple of eval_freq, even
     though next_eval_step's *schedule* always is.
+
+    `best_cm`/`best_tracker`: when both are given (i.e. `--save-best`/
+    `train.save_best` is on), a `best_*` checkpoint is saved via `best_cm`
+    whenever this eval's `eval/score_mean` improves on everything
+    `best_tracker` has seen so far in this run. No-op when either is None.
     """
     if next_eval_step is None or step < next_eval_step:
         return next_eval_step, eval_env, last_eval_step
@@ -805,6 +858,20 @@ def _maybe_run_evaluation(
         f"{success_part} | episodes={int(eval_metrics['eval/episodes'])}",
         flush=True,
     )
+    if best_tracker is not None and best_cm is not None:
+        saved_path = best_tracker.update(
+            eval_metrics["eval/score_mean"],
+            agent,
+            cm=best_cm,
+            step=step,
+            metrics=eval_metrics,
+        )
+        if saved_path is not None:
+            print(
+                f"[eval] step {step} | new best score_mean="
+                f"{eval_metrics['eval/score_mean']:.4f} -> saved {saved_path}",
+                flush=True,
+            )
     return next_eval_step + eval_freq, eval_env, step
 
 
@@ -933,6 +1000,16 @@ def main(argv: list[str] | None = None) -> int:
     # ── build model ───────────────────────────────────────────────────────────
     print(f"[srl-train] Loading config: {args.config}")
     train_cfg, raw_cfg = _train_section(args.config)
+
+    # "CLI flag wins if passed, else fall back to the YAML train: block, else
+    # False" -- same fallback pattern used elsewhere for --eval-freq/etc.
+    # BooleanOptionalAction gives us a real tri-state (--save-best /
+    # --no-save-best / unset) instead of store_true's binary "off unless
+    # passed", so a YAML train.save_best: true can still be overridden off
+    # from the CLI if needed.
+    args.save_best = (
+        args.save_best if args.save_best is not None else bool(train_cfg.get("save_best", False))
+    )
 
     # ── infer algorithm from config filename ─────────────────────────────────
     algo_name = args.algo
@@ -1090,6 +1167,21 @@ def main(argv: list[str] | None = None) -> int:
     logger.configure_env(getattr(env, "num_envs", args.n_envs))
     cm = CheckpointManager(os.path.join(args.ckptdir, run_name), max_keep=5)
 
+    # `--save-best`/`train.save_best`: track the best eval/score_mean seen
+    # this run and save it as its own `best_*` checkpoint, independent of
+    # `cm` above -- see BestCheckpointTracker's docstring for why it needs
+    # its own CheckpointManager (max_keep=1) rather than sharing `cm`'s
+    # save/eviction FIFO with periodic `ckpt_*`/`final_*` saves.
+    best_cm = None
+    best_tracker = None
+    if args.save_best:
+        from srl.utils.checkpoint import BestCheckpointTracker
+
+        best_cm = CheckpointManager(os.path.join(args.ckptdir, run_name), max_keep=1)
+        best_tracker = BestCheckpointTracker(mode="max")
+        if args.resume:
+            _seed_best_tracker(best_cm, best_tracker, device)
+
     import copy
 
     action_dim = _resolve_env_action_dim(env)
@@ -1118,7 +1210,17 @@ def main(argv: list[str] | None = None) -> int:
         if args.resume:
             start_step = int(cm.load(agent, args.resume, device=device).get("step", 0))
             print(f"[srl-train] Resuming from step {start_step}: {args.resume}")
-        _run_on_policy(agent, env, args, callbacks, logger, start_step=start_step, device=device)
+        _run_on_policy(
+            agent,
+            env,
+            args,
+            callbacks,
+            logger,
+            start_step=start_step,
+            device=device,
+            best_cm=best_cm,
+            best_tracker=best_tracker,
+        )
 
     elif algo_name == "a2c":
         from srl.algorithms.a2c import A2C
@@ -1135,7 +1237,17 @@ def main(argv: list[str] | None = None) -> int:
         if args.resume:
             start_step = int(cm.load(agent, args.resume, device=device).get("step", 0))
             print(f"[srl-train] Resuming from step {start_step}: {args.resume}")
-        _run_on_policy(agent, env, args, callbacks, logger, start_step=start_step, device=device)
+        _run_on_policy(
+            agent,
+            env,
+            args,
+            callbacks,
+            logger,
+            start_step=start_step,
+            device=device,
+            best_cm=best_cm,
+            best_tracker=best_tracker,
+        )
 
     elif algo_name == "a3c":
         from functools import partial
@@ -1183,7 +1295,17 @@ def main(argv: list[str] | None = None) -> int:
         if args.resume:
             start_step = int(cm.load(agent, args.resume, device=device).get("step", 0))
             print(f"[srl-train] Resuming from step {start_step}: {args.resume}")
-        _run_off_policy(agent, env, args, callbacks, logger, start_step=start_step, device=device)
+        _run_off_policy(
+            agent,
+            env,
+            args,
+            callbacks,
+            logger,
+            start_step=start_step,
+            device=device,
+            best_cm=best_cm,
+            best_tracker=best_tracker,
+        )
 
     elif algo_name == "ddpg":
         from srl.algorithms.ddpg import DDPG
@@ -1205,7 +1327,17 @@ def main(argv: list[str] | None = None) -> int:
         if args.resume:
             start_step = int(cm.load(agent, args.resume, device=device).get("step", 0))
             print(f"[srl-train] Resuming from step {start_step}: {args.resume}")
-        _run_off_policy(agent, env, args, callbacks, logger, start_step=start_step, device=device)
+        _run_off_policy(
+            agent,
+            env,
+            args,
+            callbacks,
+            logger,
+            start_step=start_step,
+            device=device,
+            best_cm=best_cm,
+            best_tracker=best_tracker,
+        )
 
     elif algo_name == "td3":
         from srl.algorithms.td3 import TD3
@@ -1227,7 +1359,17 @@ def main(argv: list[str] | None = None) -> int:
         if args.resume:
             start_step = int(cm.load(agent, args.resume, device=device).get("step", 0))
             print(f"[srl-train] Resuming from step {start_step}: {args.resume}")
-        _run_off_policy(agent, env, args, callbacks, logger, start_step=start_step, device=device)
+        _run_off_policy(
+            agent,
+            env,
+            args,
+            callbacks,
+            logger,
+            start_step=start_step,
+            device=device,
+            best_cm=best_cm,
+            best_tracker=best_tracker,
+        )
 
     else:
         print(f"[srl-train] Unknown algorithm: {algo_name}", file=sys.stderr)
@@ -1363,7 +1505,16 @@ def _split_vector_transition(
 
 
 def _run_on_policy(
-    agent, env, args, callbacks, logger, *, start_step: int = 0, device: str = "cpu"
+    agent,
+    env,
+    args,
+    callbacks,
+    logger,
+    *,
+    start_step: int = 0,
+    device: str = "cpu",
+    best_cm=None,
+    best_tracker=None,
 ) -> None:
     import numpy as np
 
@@ -1432,6 +1583,8 @@ def _run_on_policy(
                 next_eval_step=next_eval_step,
                 eval_env=eval_env,
                 last_eval_step=last_eval_step,
+                best_cm=best_cm,
+                best_tracker=best_tracker,
             )
 
         if next_eval_step is not None and last_eval_step != step:
@@ -1444,6 +1597,8 @@ def _run_on_policy(
                 next_eval_step=step,
                 eval_env=eval_env,
                 last_eval_step=last_eval_step,
+                best_cm=best_cm,
+                best_tracker=best_tracker,
             )
     finally:
         if eval_env is not None:
@@ -1480,7 +1635,16 @@ def _warn_if_no_updates_will_run(agent, args, start_step: int) -> None:
 
 
 def _run_off_policy(
-    agent, env, args, callbacks, logger, *, start_step: int = 0, device: str = "cpu"
+    agent,
+    env,
+    args,
+    callbacks,
+    logger,
+    *,
+    start_step: int = 0,
+    device: str = "cpu",
+    best_cm=None,
+    best_tracker=None,
 ) -> None:
     import numpy as np
 
@@ -1551,6 +1715,8 @@ def _run_off_policy(
                 next_eval_step=_eval_state["next_eval_step"],
                 eval_env=_eval_state["eval_env"],
                 last_eval_step=_eval_state["last_eval_step"],
+                best_cm=best_cm,
+                best_tracker=best_tracker,
             )
             _eval_state["next_eval_step"] = next_eval_step
             _eval_state["eval_env"] = eval_env
@@ -1595,6 +1761,8 @@ def _run_off_policy(
                     next_eval_step=args.steps,
                     eval_env=_eval_state["eval_env"],
                     last_eval_step=_eval_state["last_eval_step"],
+                    best_cm=best_cm,
+                    best_tracker=best_tracker,
                 )
                 _eval_state["eval_env"] = _eval_env
             if _eval_state["eval_env"] is not None:
@@ -1786,6 +1954,8 @@ def _run_off_policy(
                 next_eval_step=next_eval_step,
                 eval_env=eval_env,
                 last_eval_step=last_eval_step,
+                best_cm=best_cm,
+                best_tracker=best_tracker,
             )
 
         if next_eval_step is not None and last_eval_step != env_step:
@@ -1798,6 +1968,8 @@ def _run_off_policy(
                 next_eval_step=env_step,
                 eval_env=eval_env,
                 last_eval_step=last_eval_step,
+                best_cm=best_cm,
+                best_tracker=best_tracker,
             )
     finally:
         if eval_env is not None:

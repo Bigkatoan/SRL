@@ -210,3 +210,79 @@ class CheckpointManager:
             and optimizer is None
             and set(payload.keys()) <= {"model_state", "step", "metrics", "rng_state"}
         )
+
+
+class BestCheckpointTracker:
+    """Tracks the best value of a monitored eval metric across a run and
+    saves a ``best_*`` checkpoint whenever a new best is seen.
+
+    This exists because the *final* checkpoint a run produces is not always
+    the *best* one -- PPO/A2C/SAC/... runs can (and on some tasks reliably
+    do) peak partway through and then regress for the remainder of training
+    (entropy collapse driving std/exploration to near-zero is one concrete
+    way this happens on-policy). Without something tracking the best score
+    independently, that peak is unrecoverable once training moves past it:
+    only ``final_*``/periodic ``ckpt_*`` checkpoints exist, and by the time
+    a run ends the periodic ones have long since rotated past whatever step
+    the real peak was at.
+
+    Deliberately keeps its own ``CheckpointManager`` (passed in per call, not
+    owned) with ``max_keep=1`` rather than sharing the periodic-checkpoint
+    manager's save/eviction FIFO: `CheckpointManager._record` evicts its
+    oldest save once more than ``max_keep`` accumulate, tag-agnostically --
+    sharing a manager between a periodic ``ckpt_*``/``final_*`` writer and
+    this tracker would let ordinary periodic saves evict an old "best" file
+    long before anything better has been found to replace it, silently
+    defeating the entire point of this class.
+
+    Parameters
+    ----------
+    mode:
+        ``"max"`` (default) if higher monitored-metric values are better,
+        ``"min"`` if lower is better.
+    """
+
+    def __init__(self, mode: str = "max") -> None:
+        if mode not in ("max", "min"):
+            raise ValueError(f"mode must be 'max' or 'min', got {mode!r}")
+        self.mode = mode
+        self.best_score: float | None = None
+        self.best_path: Path | None = None
+        self.best_step: int | None = None
+
+    def is_better(self, score: float) -> bool:
+        """Whether *score* would improve on the best seen so far."""
+        if self.best_score is None:
+            return True
+        return score > self.best_score if self.mode == "max" else score < self.best_score
+
+    def seed_from_checkpoint(self, payload: dict[str, Any], monitor: str) -> None:
+        """Seed ``best_score`` from a previously-saved best checkpoint's
+        stored metrics -- used on ``--resume`` so a resumed run doesn't
+        treat its first eval as automatically "best" and overwrite a
+        genuinely-better pre-resume checkpoint with a worse one.
+        """
+        metrics = payload.get("metrics") or {}
+        if monitor in metrics:
+            self.best_score = float(metrics[monitor])
+            self.best_step = int(payload.get("step", 0))
+
+    def update(
+        self,
+        score: float,
+        model: Any,
+        *,
+        cm: CheckpointManager,
+        step: int,
+        optimizer: torch.optim.Optimizer | None = None,
+        metrics: dict[str, Any] | None = None,
+    ) -> Path | None:
+        """Record *score*; if it's a new best, save via *cm* and return the
+        checkpoint path. Returns None when *score* did not improve.
+        """
+        if not self.is_better(score):
+            return None
+        self.best_score = score
+        self.best_step = step
+        self.best_path = cm.save(model, optimizer=optimizer, step=step, metrics=metrics, tag="best")
+        return self.best_path
