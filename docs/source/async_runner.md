@@ -89,10 +89,33 @@ The runner's own constructor arguments control the loop: `random_steps` (random-
 warmup), `update_after` (minimum buffer fill), `update_every` (env steps per trigger),
 and `gradient_steps` (updates per trigger).
 
+## `srl-train` / YAML usage
+
+Set `use_async`/`use_gpu_buffer` directly under a SAC/DDPG/TD3 config's `train:` block --
+`srl-train` builds an `AsyncRunnerConfig` from those two keys and switches to
+`AsyncOffPolicyRunner` automatically, no Python-API code needed:
+
+```yaml
+algo: sac
+train:
+  n_envs: 512
+  update_every: 512
+  gradient_steps: 16
+  use_async: true
+  use_gpu_buffer: true
+```
+
+`random_steps`/`update_after`/`update_every`/`gradient_steps` are read from the
+algorithm config the same way the sync path already reads them (`start_steps`,
+`update_after`, `update_every`, `gradient_steps` in the YAML `train:` block) --
+nothing async-specific to configure beyond the two boolean flags themselves.
+
 ```{note}
-`AsyncRunnerConfig` is a Python-API object. `srl-train` maps the YAML `train:` block
-onto the algorithm config dataclasses only and never builds an `AsyncRunnerConfig`, so
-`use_async`/`use_gpu_buffer` in YAML have no effect.
+Real-world reference: [JAVIS](https://github.com/Bigkatoan/JAVIS)'s
+`configs/srl/javis_mjlab_sac.yaml` runs this path against a GPU-batched mjlab task on
+an RTX 3090 -- both flags together measured a ~9.5x wall-clock speedup over the sync
+path once `batch_size`/`gradient_steps` were also restructured toward fewer, larger
+updates (see that file's own comments for the exact numbers and the reasoning).
 ```
 
 ---
