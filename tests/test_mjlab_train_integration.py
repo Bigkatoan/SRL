@@ -507,3 +507,129 @@ def test_async_runner_eval_freq_actually_produces_eval_metrics(
         "--eval-freq set -- --eval-freq is silently inert for "
         "AsyncOffPolicyRunner"
     )
+
+
+@pytest.mark.parametrize("use_gpu_buffer", [False, True], ids=["cpu_buffer", "gpu_buffer"])
+def test_async_runner_logs_rollout_score_not_just_loss_metrics(
+    monkeypatch, tmp_path, use_gpu_buffer
+) -> None:
+    """Regression test: `train/score_mean`/`train/episode_length_mean` (the
+    actual "is this thing learning" signal, distinct from `sac/*` loss
+    metrics) must appear in a run through `AsyncOffPolicyRunner`, the same
+    way they already do for the classic sync off-policy loop.
+
+    Confirmed on a real GPU run against `Javis-Payload-Rough`: `sac/*` loss
+    metrics and `runner/collect_fps` printed on schedule as expected, but no
+    `score`/`len` ever showed up in the console or metrics.jsonl -- nothing
+    on this runner's collection path called
+    `srl.utils.logger.Logger.update_episodes` per step the way the sync
+    loop's own collector does, so episode returns were never accumulated or
+    detected as complete. `_FakeMjlabBaseEnv` truncates every `EPISODE_LEN`
+    steps, so a long enough run here produces real completed episodes to
+    catch the regression.
+    """
+    monkeypatch.setattr(train_module, "_make_cli_env", _fake_make_cli_env)
+
+    config_dict = {
+        **SAC_CONFIG,
+        "train": {
+            **SAC_CONFIG["train"],
+            "total_steps": 80,
+            "use_async": True,
+            "use_gpu_buffer": use_gpu_buffer,
+        },
+    }
+    config_path = _write_config(tmp_path, "sac_async_score.yaml", config_dict)
+
+    exit_code = train_module.main(
+        [
+            "--config",
+            config_path,
+            "--logdir",
+            str(tmp_path / "runs"),
+            "--ckptdir",
+            str(tmp_path / "checkpoints"),
+            "--eval-freq",
+            "0",
+            "--no-plots",
+            "--seed",
+            "0",
+        ]
+    )
+    assert exit_code == 0
+
+    metrics_path = tmp_path / "runs" / "sac_sac_async_score" / "metrics.jsonl"
+    assert metrics_path.exists(), f"no metrics.jsonl written at {metrics_path}"
+    tags = set()
+    with metrics_path.open() as fh:
+        for line in fh:
+            tags.add(json.loads(line)["tag"])
+
+    assert "train/score_mean" in tags, (
+        "no train/score_mean ever logged for an async-runner run despite "
+        "completed episodes -- episode_fn is not wired to "
+        "logger.update_episodes for this path"
+    )
+    assert "train/episode_length_mean" in tags
+
+
+def test_eval_freq_from_yaml_train_block_takes_effect_without_cli_flag(
+    monkeypatch, tmp_path
+) -> None:
+    """`train: {eval_freq: N}` in the YAML must actually schedule
+    evaluation when `--eval-freq` is never passed on the CLI.
+
+    Regression test: `--eval-freq`/`--eval-episodes` (plus `--device`,
+    `--seed`, `--log-interval`) used to have a fixed argparse default
+    (`50_000`, not `None`), so `main()` had no way to tell "the CLI flag
+    was actually passed" apart from "it's just sitting at its hardcoded
+    default" -- the YAML `train:` block's value was silently unreachable no
+    matter what a config declared, unlike `total_steps`/`n_envs`, which
+    already used this exact `None`-default-then-fall-back-to-YAML pattern.
+    SAC_CONFIG's `total_steps=40` is well under the CLI flag's own
+    50_000 default, so if the YAML value isn't actually taking effect, no
+    eval ever fires and this test's assertion fails.
+    """
+    monkeypatch.setattr(train_module, "_make_cli_env", _fake_make_cli_env)
+
+    config_dict = {
+        **SAC_CONFIG,
+        "train": {**SAC_CONFIG["train"], "eval_freq": 20, "eval_episodes": 1},
+    }
+    config_path = _write_config(tmp_path, "sac_yaml_eval_freq.yaml", config_dict)
+
+    exit_code = train_module.main(
+        [
+            "--config",
+            config_path,
+            "--logdir",
+            str(tmp_path / "runs"),
+            "--ckptdir",
+            str(tmp_path / "checkpoints"),
+            "--no-plots",
+            "--seed",
+            "0",
+        ]
+    )
+    assert exit_code == 0
+
+    metrics_path = tmp_path / "runs" / "sac_sac_yaml_eval_freq" / "metrics.jsonl"
+    assert metrics_path.exists(), f"no metrics.jsonl written at {metrics_path}"
+    tags = set()
+    with metrics_path.open() as fh:
+        for line in fh:
+            tags.add(json.loads(line)["tag"])
+
+    assert "eval/score_mean" in tags, (
+        "no eval/score_mean logged even though train.eval_freq=20 (well "
+        "under total_steps=40) was set in the YAML with no --eval-freq CLI "
+        "flag passed -- the YAML value is not reaching args.eval_freq"
+    )
+
+
+def test_cli_eval_freq_flag_overrides_yaml_train_block() -> None:
+    """An explicitly-passed `--eval-freq` must still win over the YAML
+    `train: {eval_freq: ...}` value -- the fallback only fires when the CLI
+    flag is genuinely absent, not just equal to its old hardcoded default."""
+    args = train_module._build_parser().parse_args(["--config", "cfg.yaml", "--eval-freq", "999"])
+    assert args.eval_freq == 999

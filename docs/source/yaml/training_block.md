@@ -26,6 +26,10 @@ Two consequences worth knowing:
   `--eval-episodes`). They are not read from the `train:` block.
 - `action_dim` and the parallel-env count are derived from the environment and
   overwrite whatever the YAML says.
+- `save_best` **is** read from the `train:` block (`train.save_best: true`), unlike
+  `eval_freq`/`eval_episodes` above — it also has a matching `--save-best`/
+  `--no-save-best` CLI flag, which wins over the YAML value when passed. See
+  [`--save-best`](../cli.md#best-checkpoint-tracking-save-best) in the CLI reference.
 
 ## Fields read directly by the CLI
 

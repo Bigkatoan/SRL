@@ -459,3 +459,87 @@ def test_eval_fn_called_from_collector_thread_not_trainer_thread() -> None:
         f"eval_fn was called from thread(s) {set(thread_names)} -- must "
         "only ever run on the collector thread"
     )
+
+
+@pytest.mark.parametrize("use_async", [False, True], ids=["sync", "async"])
+def test_episode_fn_called_after_every_env_step_with_raw_transition(use_async) -> None:
+    """`episode_fn(reward, done, truncated, step, info)` must fire once per
+    collector-loop iteration, right after `env.step()`, with that step's raw
+    (possibly batched) transition data.
+
+    Regression test: before `episode_fn` existed, nothing on this runner's
+    collection path ever called `srl.utils.logger.Logger.update_episodes` --
+    the one call `srl.cli.train._run_off_policy`'s own sync loop makes every
+    step to accumulate per-env episode returns and detect completions. Net
+    effect on a real run: `sac/*` loss metrics and `runner/collect_fps`
+    printed on schedule as expected, but `train/score_mean`/`train/len` (the
+    actual "is this thing learning" signal) never appeared at all, silently,
+    for the entire duration `AsyncOffPolicyRunner` is active.
+    """
+    num_envs = 4
+    n_iters = 5
+    total_steps = num_envs * n_iters
+    env = _FakeVecEnv(num_envs)
+    agent = _FakeAgent()
+    calls: list[tuple] = []
+
+    def _episode_fn(reward, done, truncated, step, info) -> None:
+        calls.append((np.asarray(reward).copy(), np.asarray(done).copy(), step))
+
+    runner = AsyncOffPolicyRunner(
+        agent=agent,
+        env=env,
+        total_steps=total_steps,
+        runner_cfg=AsyncRunnerConfig(use_async=use_async),
+        obs_to_tensor_fn=_obs_to_tensor,
+        device="cpu",
+        random_steps=0,
+        update_after=0,
+        update_every=num_envs,
+        gradient_steps=1,
+        episode_fn=_episode_fn,
+    )
+    runner.run()
+
+    assert len(calls) == n_iters, (
+        f"expected episode_fn called once per collector-loop iteration "
+        f"({n_iters} iterations), got {len(calls)} calls"
+    )
+    # _FakeVecEnv's first step() returns reward=[0,1,2,3] -- confirms the
+    # raw, unreduced per-env array reaches the callback, not e.g. a mean.
+    first_reward, _, first_step = calls[0]
+    assert first_reward.tolist() == [0.0, 1.0, 2.0, 3.0]
+    # Post-increment step, matching `_run_off_policy`'s own off-policy sync
+    # loop (`logger.update_episodes(..., step=env_step, ...)` called after
+    # that loop's `env_step += active_envs`).
+    assert first_step == num_envs
+    # env 0 "terminates" every 3rd env.step() call in _FakeVecEnv -- the
+    # 3rd callback invocation must see that in `done`.
+    _, third_done, _ = calls[2]
+    assert bool(third_done[0]) is True
+    assert not bool(third_done[1])
+
+
+def test_episode_fn_not_called_when_absent() -> None:
+    """`episode_fn=None` (the default) must not change collection behavior
+    at all -- a plain smoke test that the new parameter is truly optional."""
+    num_envs = 4
+    total_steps = num_envs * 5
+    env = _FakeVecEnv(num_envs)
+    agent = _FakeAgent()
+
+    runner = AsyncOffPolicyRunner(
+        agent=agent,
+        env=env,
+        total_steps=total_steps,
+        runner_cfg=AsyncRunnerConfig(use_async=True),
+        obs_to_tensor_fn=_obs_to_tensor,
+        device="cpu",
+        random_steps=0,
+        update_after=0,
+        update_every=num_envs,
+        gradient_steps=1,
+    )
+    runner.run()  # must not raise
+
+    assert env.step_calls == total_steps // num_envs

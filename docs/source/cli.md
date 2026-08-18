@@ -58,6 +58,7 @@ Important flag groups from [train.py](https://github.com/Bigkatoan/SRL/blob/main
 - Checkpointing and resume: `--resume`
 - Pipeline export: `--save-model-pipeline`, `--save-training-pipeline`, `--export-pipeline-only`
 - Evaluation: `--eval-freq`, `--eval-episodes`, `--render`
+- Best-checkpoint tracking: `--save-best` / `--no-save-best`
 - Live viewer: `--visualize`
 
 ### Evaluation semantics
@@ -75,6 +76,32 @@ Evaluation metrics are written into the same run artifacts as training metrics. 
 - `eval/episode_length_mean`
 
 Whether all of these appear depends on the environment and the current training loop, so treat `summary.json` as the source of truth for a specific run.
+
+### Best-checkpoint tracking (`--save-best`)
+
+Some runs peak partway through training and then regress for the rest of it — a
+periodic-checkpoint-only setup has no way to recover that peak once training moves
+past it, since `--resume`'s checkpoints and the final `final_*.pt` both just reflect
+whatever the *most recent* state was, not the *best* one.
+
+`--save-best` (or `train.save_best: true` in the YAML config) turns on independent
+tracking of the best `eval/score_mean` seen so far this run. Every time an evaluation
+phase produces a new run-best score, a `best_*.pt` checkpoint is saved into the same
+`--ckptdir` directory as the regular `ckpt_*`/`final_*` checkpoints — alongside them,
+never replacing them. Off by default; requires `--eval-freq > 0` (with `--eval-freq 0`
+there is no `eval/score_mean` to track against).
+
+```bash
+srl-train --config configs/envs/pendulum_ppo.yaml \
+          --env Pendulum-v1 --algo ppo --steps 200000 \
+          --eval-freq 20000 --eval-episodes 10 \
+          --save-best
+```
+
+`--no-save-best` explicitly disables it even if the YAML config sets
+`train.save_best: true`. On `--resume`, the tracker is seeded from any `best_*`
+checkpoint already present in the run's checkpoint directory, so a resumed run's first
+evaluation is not automatically treated as a new best.
 
 Example: resume from a checkpoint.
 
