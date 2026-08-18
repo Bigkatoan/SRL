@@ -808,9 +808,9 @@ count over from the old buffer:</p>
 </ol>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p><code class="docutils literal notranslate"><span class="pre">use_async</span></code> and <code class="docutils literal notranslate"><span class="pre">use_gpu_buffer</span></code> are Python-API settings. Putting them in a YAML
-<code class="docutils literal notranslate"><span class="pre">train:</span></code> block currently has no effect, because <code class="docutils literal notranslate"><span class="pre">srl-train</span></code> never builds an
-<code class="docutils literal notranslate"><span class="pre">AsyncRunnerConfig</span></code> from it.</p>
+<p><code class="docutils literal notranslate"><span class="pre">use_async</span></code> and <code class="docutils literal notranslate"><span class="pre">use_gpu_buffer</span></code> also work directly in a YAML <code class="docutils literal notranslate"><span class="pre">train:</span></code> block –
+<code class="docutils literal notranslate"><span class="pre">srl-train</span></code> builds an <code class="docutils literal notranslate"><span class="pre">AsyncRunnerConfig</span></code> from those two keys automatically. See
+<a class="reference internal" href="../async_runner.html#srl-train-yaml-usage"><span class="std std-ref">Async Off-Policy Runner</span></a> for the YAML form.</p>
 </div>
 </section>
 <section id="see-also">

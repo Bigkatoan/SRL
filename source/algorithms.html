@@ -810,8 +810,9 @@ safety); the trainer runs on a <strong>daemon thread</strong> with its own CUDA 
 <p>When <code class="docutils literal notranslate"><span class="pre">use_async=False</span></code> (default), the runner falls through to the standard synchronous
 training loop. When <code class="docutils literal notranslate"><span class="pre">use_gpu_buffer=True</span></code> only, the GPU buffer is used but collection
 and training remain on the same thread.</p>
-<p><code class="docutils literal notranslate"><span class="pre">AsyncRunnerConfig</span></code> is a Python-API object — <code class="docutils literal notranslate"><span class="pre">srl-train</span></code> does not build one from the
-YAML <code class="docutils literal notranslate"><span class="pre">train:</span></code> block, so <code class="docutils literal notranslate"><span class="pre">use_async</span></code>/<code class="docutils literal notranslate"><span class="pre">use_gpu_buffer</span></code> have no effect there.</p>
+<p><code class="docutils literal notranslate"><span class="pre">use_async</span></code>/<code class="docutils literal notranslate"><span class="pre">use_gpu_buffer</span></code> also work directly in a YAML <code class="docutils literal notranslate"><span class="pre">train:</span></code> block –
+<code class="docutils literal notranslate"><span class="pre">srl-train</span></code> reads them and builds an <code class="docutils literal notranslate"><span class="pre">AsyncRunnerConfig</span></code> automatically, no Python API
+needed. See <a class="reference internal" href="async_runner.html#srl-train-yaml-usage"><span class="std std-ref">async_runner.md</span></a> for the YAML form.</p>
 <p>See <a class="reference internal" href="async_runner.html"><span class="std std-doc">async_runner.md</span></a> and <a class="reference internal" href="gpu_replay_buffer.html"><span class="std std-doc">gpu_replay_buffer.md</span></a>
 for detailed usage.</p>
 </section>

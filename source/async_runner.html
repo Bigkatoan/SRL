@@ -477,6 +477,7 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-start">Quick start</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sync-fallback">Sync fallback</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#asyncrunnerconfig-fields"><code class="docutils literal notranslate"><span class="pre">AsyncRunnerConfig</span></code> fields</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#srl-train-yaml-usage"><code class="docutils literal notranslate"><span class="pre">srl-train</span></code> / YAML usage</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#isaac-lab-integration">Isaac Lab integration</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#checkpointing">Checkpointing</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
@@ -600,11 +601,32 @@ threading overhead outweighs its benefits (e.g., very fast CPU simulators).</p>
 <p>The runner’s own constructor arguments control the loop: <code class="docutils literal notranslate"><span class="pre">random_steps</span></code> (random-action
 warmup), <code class="docutils literal notranslate"><span class="pre">update_after</span></code> (minimum buffer fill), <code class="docutils literal notranslate"><span class="pre">update_every</span></code> (env steps per trigger),
 and <code class="docutils literal notranslate"><span class="pre">gradient_steps</span></code> (updates per trigger).</p>
+</section>
+<section id="srl-train-yaml-usage">
+<h2><code class="docutils literal notranslate"><span class="pre">srl-train</span></code> / YAML usage<a class="headerlink" href="#srl-train-yaml-usage" title="Link to this heading">#</a></h2>
+<p>Set <code class="docutils literal notranslate"><span class="pre">use_async</span></code>/<code class="docutils literal notranslate"><span class="pre">use_gpu_buffer</span></code> directly under a SAC/DDPG/TD3 config’s <code class="docutils literal notranslate"><span class="pre">train:</span></code> block –
+<code class="docutils literal notranslate"><span class="pre">srl-train</span></code> builds an <code class="docutils literal notranslate"><span class="pre">AsyncRunnerConfig</span></code> from those two keys and switches to
+<code class="docutils literal notranslate"><span class="pre">AsyncOffPolicyRunner</span></code> automatically, no Python-API code needed:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">algo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sac</span>
+<span class="nt">train</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">n_envs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">512</span>
+<span class="w">  </span><span class="nt">update_every</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">512</span>
+<span class="w">  </span><span class="nt">gradient_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
+<span class="w">  </span><span class="nt">use_async</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">use_gpu_buffer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">random_steps</span></code>/<code class="docutils literal notranslate"><span class="pre">update_after</span></code>/<code class="docutils literal notranslate"><span class="pre">update_every</span></code>/<code class="docutils literal notranslate"><span class="pre">gradient_steps</span></code> are read from the
+algorithm config the same way the sync path already reads them (<code class="docutils literal notranslate"><span class="pre">start_steps</span></code>,
+<code class="docutils literal notranslate"><span class="pre">update_after</span></code>, <code class="docutils literal notranslate"><span class="pre">update_every</span></code>, <code class="docutils literal notranslate"><span class="pre">gradient_steps</span></code> in the YAML <code class="docutils literal notranslate"><span class="pre">train:</span></code> block) –
+nothing async-specific to configure beyond the two boolean flags themselves.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p><code class="docutils literal notranslate"><span class="pre">AsyncRunnerConfig</span></code> is a Python-API object. <code class="docutils literal notranslate"><span class="pre">srl-train</span></code> maps the YAML <code class="docutils literal notranslate"><span class="pre">train:</span></code> block
-onto the algorithm config dataclasses only and never builds an <code class="docutils literal notranslate"><span class="pre">AsyncRunnerConfig</span></code>, so
-<code class="docutils literal notranslate"><span class="pre">use_async</span></code>/<code class="docutils literal notranslate"><span class="pre">use_gpu_buffer</span></code> in YAML have no effect.</p>
+<p>Real-world reference: <a class="reference external" href="https://github.com/Bigkatoan/JAVIS">JAVIS</a>’s
+<code class="docutils literal notranslate"><span class="pre">configs/srl/javis_mjlab_sac.yaml</span></code> runs this path against a GPU-batched mjlab task on
+an RTX 3090 – both flags together measured a ~9.5x wall-clock speedup over the sync
+path once <code class="docutils literal notranslate"><span class="pre">batch_size</span></code>/<code class="docutils literal notranslate"><span class="pre">gradient_steps</span></code> were also restructured toward fewer, larger
+updates (see that file’s own comments for the exact numbers and the reasoning).</p>
 </div>
 </section>
 <hr class="docutils" />
@@ -698,6 +720,7 @@ called, so checkpoint files remain portable.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-start">Quick start</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sync-fallback">Sync fallback</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#asyncrunnerconfig-fields"><code class="docutils literal notranslate"><span class="pre">AsyncRunnerConfig</span></code> fields</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#srl-train-yaml-usage"><code class="docutils literal notranslate"><span class="pre">srl-train</span></code> / YAML usage</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#isaac-lab-integration">Isaac Lab integration</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#checkpointing">Checkpointing</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
