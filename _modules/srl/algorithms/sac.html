@@ -1057,6 +1057,14 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">alpha_optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
             <span class="n">temp_loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">alpha_optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+            <span class="c1"># Floor alpha at cfg.min_alpha (permissive 1e-8 default -- see</span>
+            <span class="c1"># SACConfig.min_alpha's docstring for why this exists: log_alpha</span>
+            <span class="c1"># is otherwise unclamped, and a real, observed failure mode on a</span>
+            <span class="c1"># long run is the temperature-loss gradient pushing it down</span>
+            <span class="c1"># without bound once policy entropy stays above target_entropy</span>
+            <span class="c1"># for long enough, with nothing to arrest the resulting spiral.</span>
+            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log_alpha</span><span class="o">.</span><span class="n">clamp_</span><span class="p">(</span><span class="nb">min</span><span class="o">=</span><span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">min_alpha</span><span class="p">,</span> <span class="mf">1e-300</span><span class="p">)))</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">temp_loss</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
