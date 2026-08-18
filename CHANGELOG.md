@@ -7,6 +7,22 @@ The format follows Keep a Changelog and the project uses Semantic Versioning as 
 ## [Unreleased]
 
 ### Added
+- **SAC temperature floor** (`SACConfig.min_alpha`, permissive `1e-8` default —
+  off in effect for existing configs) — clamps the auto-tuned temperature
+  (`log_alpha`) after each alpha-optimizer step so it can't collapse below a
+  configured floor. `log_alpha` was otherwise an unclamped free parameter:
+  found on a real 10M-step SAC (FlashSAC config: `batch_norm` +
+  `weight_norm_projection` + `lr_alpha=3e-5`, already a fix for *immediate*
+  alpha collapse) run against JAVIS's mjlab balance task that alpha still
+  eventually collapsed (to ~3e-4, the same order of magnitude as an
+  unfixed-baseline's full collapse) around step 6-7M, immediately followed
+  by numerical-explosion episode returns (as extreme as -7.1e6) from a
+  known unclamped-reward-term physics-divergence exploit that a
+  fully-collapsed alpha's missing entropy regularization lets the actor
+  find — and it recurred a second time later in the same run. The 10x-lower
+  `lr_alpha` delayed collapse (it was immediate in the unfixed baseline)
+  but did not prevent it over a long enough horizon. See `SAC.update()`'s
+  temperature-update step in `srl/algorithms/sac.py`.
 - **PPO adaptive KL-based learning-rate schedule** (`PPOConfig.lr_schedule:
   "adaptive"`, off by default at `"fixed"`) — every minibatch, adapts the
   optimizer's LR from the measured `approx_kl`: shrinks it when KL exceeds

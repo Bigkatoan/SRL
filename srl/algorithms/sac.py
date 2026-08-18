@@ -638,6 +638,14 @@ class SAC(BaseAgent):
             self.alpha_optimizer.zero_grad()
             temp_loss.backward()
             self.alpha_optimizer.step()
+            # Floor alpha at cfg.min_alpha (permissive 1e-8 default -- see
+            # SACConfig.min_alpha's docstring for why this exists: log_alpha
+            # is otherwise unclamped, and a real, observed failure mode on a
+            # long run is the temperature-loss gradient pushing it down
+            # without bound once policy entropy stays above target_entropy
+            # for long enough, with nothing to arrest the resulting spiral.
+            with torch.no_grad():
+                self.log_alpha.clamp_(min=math.log(max(self.cfg.min_alpha, 1e-300)))
         else:
             temp_loss = torch.zeros(1, device=self.device)
 
