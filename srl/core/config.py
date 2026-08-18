@@ -100,6 +100,25 @@ class SACConfig:
     init_alpha: float = 0.2
     auto_entropy_tuning: bool = True
     target_entropy: str | float = "auto"  # "auto" → -action_dim
+    # Floor on the auto-tuned temperature (never applied when
+    # auto_entropy_tuning=False -- alpha is fixed at `alpha` then anyway).
+    # `log_alpha` is otherwise an unclamped free parameter: if the policy's
+    # measured entropy stays above `target_entropy` for long enough, the
+    # temperature-loss gradient keeps pushing alpha down without bound --
+    # and as alpha shrinks, the entropy bonus in the actor's loss weakens,
+    # which can let actual policy entropy fall too, a self-reinforcing
+    # spiral with nothing to arrest it. Found on a real 10M-step run
+    # (JAVIS's `Javis-Payload-Rough` mjlab task): alpha held a healthy
+    # ~0.2-1.9-score plateau, then collapsed from a healthy magnitude down
+    # to ~3e-4 (same order of magnitude as an earlier, *unfixed* baseline's
+    # 0.0002 collapse) between steps ~6M-7M, immediately followed by
+    # numerical-explosion episode returns as extreme as -7.1e6 -- entropy
+    # regularization was gone, and the actor found the same
+    # `pitch_rate_l2`-triggered divergent-physics-state exploit a prior,
+    # unfixed config's fully-collapsed alpha had already been diagnosed to
+    # trigger. Permissive default (1e-8) preserves every existing run's
+    # behavior byte-for-byte; set a real floor (e.g. 1e-3) to opt in.
+    min_alpha: float = 1e-8
     use_per: bool = False
     per_alpha: float = 0.6
     per_beta_start: float = 0.4

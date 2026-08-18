@@ -61,8 +61,10 @@ Two consequences worth knowing:
 | `use_fp16` | bool | false | Half-precision storage/compute |
 
 SAC also accepts `alpha`, `init_alpha`, `auto_entropy_tuning`, `target_entropy`,
-`target_update_interval`, `train_freq`, and the prioritised-replay fields `use_per`,
-`per_alpha`, `per_beta_start`. DDPG and TD3 accept `action_noise`
+`min_alpha` (floor on the auto-tuned temperature, permissive `1e-8` default —
+see `SACConfig.min_alpha`'s docstring in `srl/core/config.py` for why this
+exists), `target_update_interval`, `train_freq`, and the prioritised-replay
+fields `use_per`, `per_alpha`, `per_beta_start`. DDPG and TD3 accept `action_noise`
 (`gaussian` | `ou`) and `noise_sigma`; TD3 additionally accepts `policy_noise`
 (0.2), `noise_clip` (0.5), and `policy_delay` (2).
 
