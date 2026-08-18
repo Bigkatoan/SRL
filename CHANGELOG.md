@@ -7,6 +7,29 @@ The format follows Keep a Changelog and the project uses Semantic Versioning as 
 ## [Unreleased]
 
 ### Added
+- **PPO adaptive KL-based learning-rate schedule** (`PPOConfig.lr_schedule:
+  "adaptive"`, off by default at `"fixed"`) — every minibatch, adapts the
+  optimizer's LR from the measured `approx_kl`: shrinks it when KL exceeds
+  `desired_kl * 2.0` (divide by `kl_lr_factor`, floored at `min_lr`), grows it
+  when KL is under `desired_kl / 2.0` (multiply by `kl_lr_factor`, capped at
+  `max_lr`). Modeled on rsl_rl PPO's `schedule="adaptive"` (its own default,
+  and what mjlab's own rsl_rl-based reference PPO training path uses on this
+  same task). `PPOConfig.target_kl` (pre-existing) is a much weaker, one-shot
+  safeguard — a same-epoch early stop that reacts only *after* one update
+  already overshot, doing nothing to bound the next one. Real-GPU-verified:
+  substantially raises and delays the peak `eval/score_mean` a long PPO run
+  reaches before declining (e.g. 1.87→3.18 peak height, 3.5M→10M steps to
+  peak, across configs tested) — but did **not**, even combined with also
+  matching rsl_rl's actor std configuration, fully eliminate an eventual
+  decline within a 20-40M step budget on the task this was found on; see
+  [Bigkatoan/SRL#39](https://github.com/Bigkatoan/SRL/pull/39) for full
+  results and honest caveats (including that rsl_rl's own reference config
+  trains for ~295M steps, ~15x what was tested here). Naively setting
+  `max_lr` to rsl_rl's raw hardcoded constant (`1e-2`, 10x this task's tuned
+  base `lr`) was actively *worse* than not using this feature at all — cap
+  `max_lr` near your own tuned `lr` unless you've independently verified a
+  higher ceiling is safe for your setup. See `PPO._adapt_lr` in
+  `srl/algorithms/ppo.py`.
 - **`srl-train --save-best` / `train.save_best`** — opt-in tracking of the best
   `eval/score_mean` seen so far this run, saving a `best_*.pt` checkpoint
   (alongside, never replacing, the existing periodic `ckpt_*`/final `final_*`

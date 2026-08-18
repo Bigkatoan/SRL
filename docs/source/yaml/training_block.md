@@ -90,7 +90,11 @@ optimizer uses `lr_critic`.
 | `entropy_coef` | float | 0.0 (PPO), 0.01 (A2C/A3C) | Entropy regularisation |
 | `vf_coef` | float | 0.5 (PPO/A3C), 0.25 (A2C) | Value-loss coefficient |
 | `max_grad_norm` | float | 0.5 (PPO/A2C), 40.0 (A3C) | Gradient clipping |
-| `target_kl` | float | `null` | Early-stop a PPO update on KL divergence |
+| `target_kl` | float | `null` | Early-stop a PPO update on KL divergence (same-epoch only — see `lr_schedule` below for a persistent alternative) |
+| `lr_schedule` | str | `"fixed"` (PPO) | `"adaptive"` continuously adapts `lr` from measured KL every minibatch, for the whole run (modeled on rsl_rl PPO's default schedule) |
+| `desired_kl` | float | 0.01 (PPO) | Target KL for `lr_schedule: adaptive` |
+| `min_lr` / `max_lr` | float | 1e-5 / 1e-2 (PPO) | Clamp range for `lr_schedule: adaptive` |
+| `kl_lr_factor` | float | 1.5 (PPO) | Multiplicative step size for `lr_schedule: adaptive` |
 | `use_fp16` | bool | false | Half-precision storage/compute |
 
 A2C also accepts `rms_prop_eps`. A3C accepts `n_workers`, but the CLI overrides it with
