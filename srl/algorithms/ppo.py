@@ -114,7 +114,20 @@ class PPO(BaseAgent):
         self.composer = LossComposer()
         self.composer.add("policy", weight=1.0)
         self.composer.add("value", weight=self.cfg.vf_coef)
-        self.composer.add("entropy", weight=self.cfg.entropy_coef)
+        if self.cfg.entropy_coef_anneal_steps:
+            # See PPOConfig.entropy_coef_anneal_steps's docstring for why
+            # this exists. `LossComposer.add`'s `schedule`/`total_steps`/
+            # `min_weight` machinery already implements exactly this decay
+            # -- it just sat unused for this term until now.
+            self.composer.add(
+                "entropy",
+                weight=self.cfg.entropy_coef,
+                schedule="linear_decay",
+                total_steps=self.cfg.entropy_coef_anneal_steps,
+                min_weight=self.cfg.entropy_coef_final,
+            )
+        else:
+            self.composer.add("entropy", weight=self.cfg.entropy_coef)
 
     # ------------------------------------------------------------------
     # BaseAgent interface

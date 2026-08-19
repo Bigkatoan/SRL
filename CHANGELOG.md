@@ -6,6 +6,95 @@ The format follows Keep a Changelog and the project uses Semantic Versioning as 
 
 ## [Unreleased]
 
+### Fixed
+- **PPO GAE off-by-one in `RolloutBuffer.compute_returns_and_advantages`** —
+  `self._dones[t]` (as written by every real caller's own `add()` sequence,
+  e.g. `srl.cli.train._run_on_policy`) means "did stepping slot t's obs end
+  the episode", i.e. whether slot t+1's obs is a fresh reset. The GAE
+  recursion gated slot t's bootstrap on `self._dones[t + 1]` instead of
+  `self._dones[t]` — correct for a reference implementation (e.g. CleanRL)
+  that stores dones the OPPOSITE way, but this class's own convention was
+  never adjusted for when the formula was ported in. Net effect, verified
+  with a hand-traced example: the step right before a real termination
+  wrongly bootstraps through `self._values[t+1]` — a completely unrelated,
+  freshly-reset episode's first-state value — while the step before *that*
+  gets its (harmless, legitimate) bootstrap wrongly zeroed. Not
+  mjlab/isaaclab-specific — this fires any time an episode boundary falls
+  inside a rollout window, on every env type PPO trains on, and JAVIS's own
+  training logs show early-training episode lengths (15-53 steps) well
+  under typical `n_steps` (24-2048) configs, so it fires constantly rather
+  than rarely. Also fixes a related latent bug: the boundary case's
+  `next_non_terminal` always defaulted to "not terminal" (`last_dones`
+  parameter existed but no real caller ever passed it), now correctly
+  reads the buffer's own last-written `done` flag instead. See
+  `srl/core/rollout_buffer.py`'s updated docstring for the full derivation
+  and `tests/test_rollout_buffer_done_indexing.py` for a regression test
+  that fails against the old code and passes against the fix.
+- **mjlab/isaaclab `auto_reset` silently corrupting time-limit
+  bootstrapping** — `_make_cli_env` never set `env_cfg.auto_reset = False`
+  for either backend, so `env.step()`'s returned observation for any
+  sub-env that just terminated OR timed out was already the NEXT episode's
+  first frame (mjlab's own docs: with `auto_reset=True`, "the returned
+  observation is the post-reset state"). Fine for choosing the next action,
+  wrong for value bootstrapping: PPO's GAE and SAC/DDPG/TD3's Q-target both
+  ended up bootstrapping off a completely unrelated, freshly-reset
+  episode's state at every time-limit truncation, not just at the (rarer)
+  off-by-one interaction above. `IsaacLabWrapper` now probes (once, before
+  construction) whether the concrete env class's `reset()` accepts
+  `env_ids` (mjlab's does, verified against its source; real Isaac Lab is
+  assumed to as well per mjlab's own "mirrors the API closely enough"
+  claim, but this repo has no real Isaac Lab install to verify that
+  against, so it's a genuine capability probe, not an assumption) and, only
+  when true, disables the env's own auto-reset and does the equivalent
+  partial reset itself immediately after every `step()`, exposing the true
+  pre-reset observation via `info["true_final_obs"]`. `_run_on_policy` uses
+  it to add a `gamma * V(true_final_obs)` correction to the reward at every
+  truncation (and now treats `terminated | truncated` as a GAE chain-break,
+  matching the off-by-one fix above); `_run_off_policy` and
+  `AsyncOffPolicyRunner` (both its sync and async collector loops) use it
+  as the stored `next_obs` for off-policy bootstrapping. Env types whose
+  `reset()` doesn't support `env_ids` (or that never reached this bug in
+  the first place — a single-env `GymnasiumWrapper` never auto-resets
+  internally, so its returned observation on termination was already
+  correct) are entirely unaffected: this degrades to the exact prior
+  behavior rather than guessing wrong.
+- **PPO entropy bonus with nothing pulling it back down** — real 40M-step
+  verification run of the two fixes above (`javis_mjlab_ppo.yaml`,
+  `lr_schedule="adaptive"` already on): peaks far higher than the original
+  bug (10.05 @ step 11M vs. 3.18 @ step 10M) and holds it much longer, but
+  still declines afterward, ending BELOW the original bug's own eventual
+  plateau (0.77 vs. 1.10-1.23 @ step 40M). Traced directly: `ppo/entropy`
+  climbs continuously and monotonically for the ENTIRE run (-2.76 @
+  ~100k steps to +1.45 @ 40M, never turning over), the opposite of the
+  earlier entropy-COLLAPSE failure mode `lr_schedule="adaptive"` was built
+  for, but the same underlying shape of problem: nothing bounds a
+  monotonic drift over a long enough run. `log_std` (`DiagonalGaussian`)
+  confirmed correctly clamped to `[log_std_min, log_std_max]` and nowhere
+  near that ceiling -- the entropy bonus's constant, one-directional pull
+  (unlike SAC's auto-tuned `alpha`, which targets a specific entropy level
+  and can push either direction) just kept winning against the policy
+  gradient's counter-pressure. New `PPOConfig.entropy_coef_anneal_steps`
+  (default `None` -- off) linearly anneals `entropy_coef` down to
+  `entropy_coef_final` (default `0.0`) over that many GRADIENT steps,
+  wired through `LossComposer`'s existing (previously unused for this
+  term) `schedule="linear_decay"` support. Re-verified with a second real
+  40M-step run (`entropy_coef` 0.005 -> 0.0005 annealed over the first
+  ~65% of the budget): a much longer-sustained elevated plateau (average
+  ~4.2 across steps 6M-28M, vs. the un-annealed fix's brief 10-19M
+  spike-then-crash), then settles into a genuinely STABLE second plateau
+  for the last 12M steps (1.45-1.85, tight band, not still declining at
+  step 40M the way the un-annealed run was) -- ends at 1.45, ~2x the
+  un-annealed fix's final value and above the original bug's own
+  plateau. Also found (while tracing the entropy growth) a real but
+  likely non-causal bug in `GaussianActorHead`: with
+  `state_dependent_std=False` it computes its own `log_std_param` and
+  passes it to `self.dist(mean, log_std)`, but `DiagonalGaussian`
+  silently discards that argument and substitutes its own separate
+  internal `log_std` parameter instead -- `GaussianActorHead.
+  log_std_param` is genuinely dead weight, never receiving a gradient.
+  Not fixed in this PR (the actually-used parameter works correctly
+  independent of this); worth a small, separate follow-up.
+
 ### Added
 - **SAC temperature floor** (`SACConfig.min_alpha`, permissive `1e-8` default —
   off in effect for existing configs) — clamps the auto-tuned temperature
