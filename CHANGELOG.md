@@ -58,6 +58,42 @@ The format follows Keep a Changelog and the project uses Semantic Versioning as 
   internally, so its returned observation on termination was already
   correct) are entirely unaffected: this degrades to the exact prior
   behavior rather than guessing wrong.
+- **PPO entropy bonus with nothing pulling it back down** — real 40M-step
+  verification run of the two fixes above (`javis_mjlab_ppo.yaml`,
+  `lr_schedule="adaptive"` already on): peaks far higher than the original
+  bug (10.05 @ step 11M vs. 3.18 @ step 10M) and holds it much longer, but
+  still declines afterward, ending BELOW the original bug's own eventual
+  plateau (0.77 vs. 1.10-1.23 @ step 40M). Traced directly: `ppo/entropy`
+  climbs continuously and monotonically for the ENTIRE run (-2.76 @
+  ~100k steps to +1.45 @ 40M, never turning over), the opposite of the
+  earlier entropy-COLLAPSE failure mode `lr_schedule="adaptive"` was built
+  for, but the same underlying shape of problem: nothing bounds a
+  monotonic drift over a long enough run. `log_std` (`DiagonalGaussian`)
+  confirmed correctly clamped to `[log_std_min, log_std_max]` and nowhere
+  near that ceiling -- the entropy bonus's constant, one-directional pull
+  (unlike SAC's auto-tuned `alpha`, which targets a specific entropy level
+  and can push either direction) just kept winning against the policy
+  gradient's counter-pressure. New `PPOConfig.entropy_coef_anneal_steps`
+  (default `None` -- off) linearly anneals `entropy_coef` down to
+  `entropy_coef_final` (default `0.0`) over that many GRADIENT steps,
+  wired through `LossComposer`'s existing (previously unused for this
+  term) `schedule="linear_decay"` support. Re-verified with a second real
+  40M-step run (`entropy_coef` 0.005 -> 0.0005 annealed over the first
+  ~65% of the budget): a much longer-sustained elevated plateau (average
+  ~4.2 across steps 6M-28M, vs. the un-annealed fix's brief 10-19M
+  spike-then-crash), then settles into a genuinely STABLE second plateau
+  for the last 12M steps (1.45-1.85, tight band, not still declining at
+  step 40M the way the un-annealed run was) -- ends at 1.45, ~2x the
+  un-annealed fix's final value and above the original bug's own
+  plateau. Also found (while tracing the entropy growth) a real but
+  likely non-causal bug in `GaussianActorHead`: with
+  `state_dependent_std=False` it computes its own `log_std_param` and
+  passes it to `self.dist(mean, log_std)`, but `DiagonalGaussian`
+  silently discards that argument and substitutes its own separate
+  internal `log_std` parameter instead -- `GaussianActorHead.
+  log_std_param` is genuinely dead weight, never receiving a gradient.
+  Not fixed in this PR (the actually-used parameter works correctly
+  independent of this); worth a small, separate follow-up.
 
 ### Added
 - **SAC temperature floor** (`SACConfig.min_alpha`, permissive `1e-8` default —
