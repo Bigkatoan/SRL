@@ -55,7 +55,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
-    <meta name="docbuild:last-update" content="Aug 18, 2026"/>
+    <meta name="docbuild:last-update" content="Aug 19, 2026"/>
   
     
     <script src="../../../_static/searchtools.js"></script>
@@ -526,7 +526,20 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">composer</span> <span class="o">=</span> <span class="n">LossComposer</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">composer</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"policy"</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">composer</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"value"</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">vf_coef</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">composer</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"entropy"</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">entropy_coef</span><span class="p">)</span></div>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">entropy_coef_anneal_steps</span><span class="p">:</span>
+            <span class="c1"># See PPOConfig.entropy_coef_anneal_steps's docstring for why</span>
+            <span class="c1"># this exists. `LossComposer.add`'s `schedule`/`total_steps`/</span>
+            <span class="c1"># `min_weight` machinery already implements exactly this decay</span>
+            <span class="c1"># -- it just sat unused for this term until now.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">composer</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+                <span class="s2">"entropy"</span><span class="p">,</span>
+                <span class="n">weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">entropy_coef</span><span class="p">,</span>
+                <span class="n">schedule</span><span class="o">=</span><span class="s2">"linear_decay"</span><span class="p">,</span>
+                <span class="n">total_steps</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">entropy_coef_anneal_steps</span><span class="p">,</span>
+                <span class="n">min_weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">entropy_coef_final</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">composer</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"entropy"</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">entropy_coef</span><span class="p">)</span></div>
 
 
     <span class="c1"># ------------------------------------------------------------------</span>
@@ -873,7 +886,7 @@ By SRL Contributors
   
   <div class="footer-item">
     <p class="last-updated">
-  Last updated on Aug 18, 2026.
+  Last updated on Aug 19, 2026.
   <br/>
 </p>
   </div>

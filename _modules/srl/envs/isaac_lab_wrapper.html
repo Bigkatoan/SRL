@@ -55,7 +55,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
-    <meta name="docbuild:last-update" content="Aug 18, 2026"/>
+    <meta name="docbuild:last-update" content="Aug 19, 2026"/>
   
     
     <script src="../../../_static/searchtools.js"></script>
@@ -447,17 +447,66 @@
 <span class="sd">    ``_remap_obs_to_encoders`` function in ``srl/cli/train.py`` will then</span>
 <span class="sd">    route each obs tensor to the correct encoder.</span>
 
+<span class="sd">    ``supports_partial_reset`` / ``info["true_final_obs"]``</span>
+<span class="sd">    -----------------------------------------------------------</span>
+<span class="sd">    Isaac Lab/mjlab's own ``env.step()`` defaults to auto-resetting any</span>
+<span class="sd">    sub-env that just terminated or timed out INSIDE the call, handing back</span>
+<span class="sd">    the reset (NEXT episode's first) observation with no way to recover the</span>
+<span class="sd">    true terminal one. That's fine for the "what do I act on next" question</span>
+<span class="sd">    (the reset observation is exactly right for that), but wrong for value</span>
+<span class="sd">    bootstrapping: an off-policy Q-target or an on-policy GAE bootstrap at a</span>
+<span class="sd">    time-limit truncation needs the TRUE final state of the ENDING episode,</span>
+<span class="sd">    not an unrelated fresh episode's first frame. Confirmed via a real</span>
+<span class="sd">    training run investigation (see ``srl.cli.train``'s callers of this</span>
+<span class="sd">    wrapper) that this was silently corrupting exactly that.</span>
+
+<span class="sd">    ``_make_cli_env`` sets this flag (and, only when it's True, disables</span>
+<span class="sd">    the underlying env's own auto-reset via its cfg) after checking whether</span>
+<span class="sd">    the concrete env CLASS's ``reset()`` accepts an ``env_ids`` kwarg --</span>
+<span class="sd">    mjlab's ``ManagerBasedRlEnv`` does (verified directly against its</span>
+<span class="sd">    source); real Isaac Lab is assumed to as well (mjlab's own docs</span>
+<span class="sd">    describe itself as mirroring Isaac Lab's API "closely enough that</span>
+<span class="sd">    IsaacLabWrapper works unchanged"), but this repo has no real Isaac Lab</span>
+<span class="sd">    install to verify that claim against, so the check is a real capability</span>
+<span class="sd">    probe, not an assumption baked into this class. When False (an env</span>
+<span class="sd">    whose `reset()` doesn't take `env_ids`), this class behaves EXACTLY as</span>
+<span class="sd">    it did before this feature existed -- no behavior change, no risk to an</span>
+<span class="sd">    env type this can't be verified against.</span>
+
+<span class="sd">    When True: `step()` disables nothing itself (the caller already set</span>
+<span class="sd">    `auto_reset=False` on the env's own cfg before constructing it) --</span>
+<span class="sd">    instead, after every `env.step()`, this class immediately resets</span>
+<span class="sd">    whichever sub-envs just ended (`env.reset(env_ids=...)`, required by</span>
+<span class="sd">    mjlab's own `auto_reset=False` contract: it raises if `step()` is</span>
+<span class="sd">    called again with a pending reset outstanding) and splices the result</span>
+<span class="sd">    into the observation used for the NEXT action, while additionally</span>
+<span class="sd">    exposing the TRUE pre-reset observation via `info["true_final_obs"]`</span>
+<span class="sd">    for any caller that wants correct bootstrapping. `info["true_final_obs"]`</span>
+<span class="sd">    is always present in the returned `info` (even when nothing ended, in</span>
+<span class="sd">    which case it's simply identical to the returned observation, and even</span>
+<span class="sd">    when `supports_partial_reset` is False, in which case it's whatever the</span>
+<span class="sd">    env already returned -- so callers can uniformly read</span>
+<span class="sd">    `info.get("true_final_obs", next_obs)` regardless of env type).</span>
+
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    env:</span>
 <span class="sd">        A ``ManagerBasedRLEnv`` or ``DirectRLEnv`` instance from Isaac Lab.</span>
 <span class="sd">    obs_key:</span>
 <span class="sd">        Fallback key used when the env returns a bare tensor (not a dict).</span>
+<span class="sd">    supports_partial_reset:</span>
+<span class="sd">        Whether ``env.reset(env_ids=...)`` (a partial, per-sub-env reset) is</span>
+<span class="sd">        available on this env instance -- see the class docstring above.</span>
+<span class="sd">        Must match whatever the caller actually configured the env's own</span>
+<span class="sd">        ``auto_reset`` cfg with; this class does not set that cfg itself</span>
+<span class="sd">        (it doesn't own env construction).</span>
 <span class="sd">    """</span>
 
 <div class="viewcode-block" id="IsaacLabWrapper.__init__">
 <a class="viewcode-back" href="../../../source/api/envs.html#srl.envs.isaac_lab_wrapper.IsaacLabWrapper.__init__">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">obs_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"state"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">obs_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"state"</span><span class="p">,</span> <span class="n">supports_partial_reset</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">env</span> <span class="o">=</span> <span class="n">env</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">obs_key</span> <span class="o">=</span> <span class="n">obs_key</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">num_envs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="s2">"num_envs"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
@@ -469,7 +518,8 @@
         <span class="c1"># `single_act_space` instead. Falls back to `act_space` itself for</span>
         <span class="c1"># envs that don't distinguish the two (already a single-env space).</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">act_space</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="s2">"action_space"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">single_act_space</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="s2">"single_action_space"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">act_space</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">single_act_space</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="s2">"single_action_space"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">act_space</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">supports_partial_reset</span> <span class="o">=</span> <span class="n">supports_partial_reset</span></div>
 
 
     <span class="nd">@property</span>
@@ -503,11 +553,42 @@
             <span class="n">obs</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">done</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">out</span>
             <span class="n">terminated</span><span class="p">,</span> <span class="n">truncated</span> <span class="o">=</span> <span class="n">done</span><span class="p">,</span> <span class="n">done</span>
 
+        <span class="n">terminated_np</span> <span class="o">=</span> <span class="n">_to_np</span><span class="p">(</span><span class="n">terminated</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="n">truncated_np</span> <span class="o">=</span> <span class="n">_to_np</span><span class="p">(</span><span class="n">truncated</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="c1"># With `supports_partial_reset`, `auto_reset=False` on the env's own</span>
+        <span class="c1"># cfg means `obs` here is the TRUE pre-reset observation for any</span>
+        <span class="c1"># sub-env that just ended -- exactly what a correct bootstrap needs.</span>
+        <span class="c1"># Without it (old/unverified env types), `obs` is whatever the env</span>
+        <span class="c1"># already gives back (its own auto-reset semantics, unchanged from</span>
+        <span class="c1"># before this feature existed) -- still assigned to</span>
+        <span class="c1"># `info["true_final_obs"]` below so callers have one uniform place</span>
+        <span class="c1"># to look, even though for that case it isn't actually "true".</span>
+        <span class="n">true_final_obs_wrapped</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wrap_obs</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
+        <span class="n">next_obs_wrapped</span> <span class="o">=</span> <span class="n">true_final_obs_wrapped</span>
+
+        <span class="n">done_mask</span> <span class="o">=</span> <span class="n">terminated_np</span> <span class="o">|</span> <span class="n">truncated_np</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">supports_partial_reset</span> <span class="ow">and</span> <span class="n">done_mask</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="n">done_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">done_mask</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">done_idx_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">done_idx</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+            <span class="c1"># Required by mjlab's own `auto_reset=False` contract: it raises</span>
+            <span class="c1"># on the NEXT `step()` if any sub-env has a reset outstanding --</span>
+            <span class="c1"># so this must happen unconditionally, every time any sub-env</span>
+            <span class="c1"># just ended, not on some later/lazier schedule.</span>
+            <span class="n">reset_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">env_ids</span><span class="o">=</span><span class="n">done_idx_t</span><span class="p">)</span>
+            <span class="n">reset_obs</span> <span class="o">=</span> <span class="n">reset_out</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">reset_out</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="k">else</span> <span class="n">reset_out</span>
+            <span class="n">reset_obs_wrapped</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wrap_obs</span><span class="p">(</span><span class="n">reset_obs</span><span class="p">)</span>
+            <span class="n">next_obs_wrapped</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">true_final_obs_wrapped</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">next_obs_wrapped</span><span class="p">:</span>
+                <span class="n">next_obs_wrapped</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">done_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">reset_obs_wrapped</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">done_idx</span><span class="p">]</span>
+
+        <span class="n">info</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">info</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">"true_final_obs"</span><span class="p">]</span> <span class="o">=</span> <span class="n">true_final_obs_wrapped</span>
+
         <span class="k">return</span> <span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_wrap_obs</span><span class="p">(</span><span class="n">obs</span><span class="p">),</span>
+            <span class="n">next_obs_wrapped</span><span class="p">,</span>
             <span class="n">_to_np</span><span class="p">(</span><span class="n">reward</span><span class="p">),</span>
-            <span class="n">_to_np</span><span class="p">(</span><span class="n">terminated</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">),</span>
-            <span class="n">_to_np</span><span class="p">(</span><span class="n">truncated</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">),</span>
+            <span class="n">terminated_np</span><span class="p">,</span>
+            <span class="n">truncated_np</span><span class="p">,</span>
             <span class="n">info</span><span class="p">,</span>
         <span class="p">)</span>
 
@@ -579,7 +660,7 @@ By SRL Contributors
   
   <div class="footer-item">
     <p class="last-updated">
-  Last updated on Aug 18, 2026.
+  Last updated on Aug 19, 2026.
   <br/>
 </p>
   </div>
