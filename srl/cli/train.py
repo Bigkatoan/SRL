@@ -46,6 +46,33 @@ def _register_robotics_envs_once() -> None:
     _robotics_envs_registered = True
 
 
+def _env_class_supports_partial_reset(env_class) -> bool:
+    """Whether ``env_class.reset`` accepts an ``env_ids`` kwarg.
+
+    Checked against the CLASS (before construction), not an instance --
+    ``env_cfg.auto_reset`` has to be decided before the env object exists,
+    so this has to be knowable up front. Used to gate two things together:
+    whether it's safe to disable the env's own auto-reset (only safe if the
+    caller can do the equivalent partial reset itself afterward) and
+    whether ``IsaacLabWrapper`` should actually attempt to do so.
+
+    mjlab's ``ManagerBasedRlEnv.reset`` takes ``env_ids`` (verified against
+    its real source: ``def reset(self, *, seed=None, env_ids=None,
+    options=None)``). Real Isaac Lab is not installed anywhere this was
+    tested, so this checks it the same generic way rather than assuming --
+    if a future Isaac Lab version's signature doesn't match, this correctly
+    falls back to the old, unfixed-but-not-broken behavior instead of
+    guessing wrong and crashing on the first partial reset.
+    """
+    import inspect
+
+    try:
+        params = inspect.signature(env_class.reset).parameters
+    except (TypeError, ValueError):
+        return False
+    return "env_ids" in params
+
+
 def _make_cli_env(
     env_name: str, device: str, n_envs: int, env_type: str = "flat", render: bool = False
 ):
@@ -73,8 +100,19 @@ def _make_cli_env(
         from isaaclab.envs import ManagerBasedRLEnv
 
         env_cfg = isaaclab_tasks.utils.parse_env_cfg(task_name, device=device, num_envs=n_envs)
+        # See `_env_class_supports_partial_reset` / `IsaacLabWrapper`'s own
+        # docstring: only disable auto-reset when we've confirmed this env
+        # class can do the equivalent partial reset itself, so a real Isaac
+        # Lab env whose `reset()` signature doesn't happen to match mjlab's
+        # degrades to the old (unfixed, but not broken) behavior instead of
+        # crashing on the first `env.reset(env_ids=...)` call.
+        supports_partial_reset = _env_class_supports_partial_reset(
+            ManagerBasedRLEnv
+        ) and hasattr(env_cfg, "auto_reset")
+        if supports_partial_reset:
+            env_cfg.auto_reset = False
         base_env = ManagerBasedRLEnv(cfg=env_cfg)
-        return IsaacLabWrapper(base_env)
+        return IsaacLabWrapper(base_env, supports_partial_reset=supports_partial_reset)
 
     if normalized_env_type == "mjlab" or normalized_env_name.startswith("mjlab:"):
         # mjlab (github.com/mujocolab/mjlab) is a MuJoCo-Warp GPU-batched
@@ -99,8 +137,22 @@ def _make_cli_env(
 
         env_cfg = load_env_cfg(task_name)
         env_cfg.scene.num_envs = n_envs
+        # `auto_reset=False` + `IsaacLabWrapper`'s own manual per-env reset
+        # is what makes `info["true_final_obs"]` (the TRUE terminal
+        # observation, not a freshly-reset unrelated episode's first frame)
+        # available to `_run_on_policy`/`_run_off_policy`/
+        # `AsyncOffPolicyRunner` for correct time-limit bootstrapping. See
+        # `IsaacLabWrapper`'s docstring for the full mechanism and why this
+        # was wrong before (silently corrupting exactly the transitions a
+        # policy good enough to survive to the episode time limit produces
+        # -- i.e. getting WORSE the better training goes).
+        supports_partial_reset = _env_class_supports_partial_reset(
+            ManagerBasedRlEnv
+        ) and hasattr(env_cfg, "auto_reset")
+        if supports_partial_reset:
+            env_cfg.auto_reset = False
         base_env = ManagerBasedRlEnv(env_cfg, device=device)
-        return IsaacLabWrapper(base_env)
+        return IsaacLabWrapper(base_env, supports_partial_reset=supports_partial_reset)
 
     if normalized_env_type == "goal":
         _register_robotics_envs_once()
@@ -1594,11 +1646,54 @@ def _run_on_policy(
                 action_np = action.cpu().numpy()
                 next_obs, reward, done, trunc, info = env.step(action_np)
                 logger.update_episodes(reward, done, trunc, step=step, info=info)
+
+                # Correct time-limit truncation handling. `next_obs` above
+                # is what to ACT on next (right either way -- see
+                # IsaacLabWrapper's docstring), but is NOT what a value
+                # bootstrap at a truncation should use: for isaaclab/mjlab
+                # it's a different, freshly-reset episode's first frame.
+                # `info["true_final_obs"]` (populated by IsaacLabWrapper;
+                # for a single-env GymnasiumWrapper, `next_obs` IS already
+                # the true final obs since that wrapper never auto-resets)
+                # is the real terminal state to bootstrap from. Only pay
+                # for the extra forward pass on steps where something
+                # actually timed out.
+                reward_arr = np.asarray(reward, dtype=np.float32)
+                done_arr = np.asarray(done, dtype=bool)
+                trunc_arr = np.asarray(trunc, dtype=bool)
+                timeout_mask = trunc_arr & ~done_arr
+                if timeout_mask.any():
+                    true_final_obs = (
+                        info.get("true_final_obs", next_obs)
+                        if isinstance(info, dict)
+                        else next_obs
+                    )
+                    tf_remapped = _remap_obs_to_encoders(
+                        true_final_obs,
+                        encoder_names,
+                        encoder_input_names=getattr(agent.model, "encoder_input_names", None),
+                    )
+                    tf_t = _obs_to_tensors(tf_remapped, agent.device, force_batch=False)
+                    _, _, bootstrap_value, _ = agent.predict(tf_t)
+                    if bootstrap_value is not None:
+                        bv = bootstrap_value.detach().cpu().numpy().reshape(-1)
+                        gamma = float(getattr(agent.cfg, "gamma", 0.99))
+                        reward_arr = reward_arr + gamma * bv * timeout_mask.astype(np.float32)
+
                 agent.buffer.add(
                     obs=obs,
                     action=action_np,
-                    reward=np.asarray(reward),
-                    done=np.asarray(done),
+                    reward=reward_arr,
+                    # `terminated OR truncated`, not `terminated` alone --
+                    # RolloutBuffer.compute_returns_and_advantages() uses
+                    # this to break the GAE chain at ANY episode boundary
+                    # (a time-limit cutoff ends the OLD episode's advantage
+                    # trace just as much as a true termination does; the
+                    # `timeout_mask` correction above already adds back
+                    # what continuing would have been worth, so the chain
+                    # itself must still stop here rather than bootstrap a
+                    # second time through the wrong next episode's data).
+                    done=np.asarray(done_arr | trunc_arr),
                     log_prob=log_prob.cpu().numpy() if log_prob is not None else None,
                     value=value.cpu().numpy() if value is not None else None,
                 )
@@ -1911,9 +2006,25 @@ def _run_off_policy(
                 log_info = list(info)[:active_envs]
             logger.update_episodes(log_reward, log_done, log_trunc, step=env_step, info=log_info)
             if vectorized_env:
+                # `next_obs` is right for continuing the rollout (`obs =
+                # next_obs` below), but wrong to STORE for any sub-env that
+                # just ended: for isaaclab/mjlab it's a different, freshly-
+                # reset episode's first frame, not the true terminal state
+                # the Q-target needs (`done` here is already true-
+                # termination-only -- see `_split_vector_transition`'s own
+                # docstring -- so a truncated-but-not-terminated transition
+                # would otherwise bootstrap off an unrelated episode).
+                # `info["true_final_obs"]` (IsaacLabWrapper) is the correct
+                # one to store instead; for a single-env GymnasiumWrapper
+                # (never reached in the `vectorized_env` branch) or any env
+                # type without the fix, this key is simply absent and
+                # `next_obs` is used exactly as before.
+                store_next_obs = (
+                    info.get("true_final_obs", next_obs) if isinstance(info, dict) else next_obs
+                )
                 transitions = _split_vector_transition(
                     obs,
-                    next_obs,
+                    store_next_obs,
                     action_np,
                     reward,
                     done,

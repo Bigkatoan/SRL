@@ -266,9 +266,24 @@ class AsyncOffPolicyRunner:
 
             # `done` is true termination only, never OR'd with `truncated`
             # -- see replay_buffer.py's ReplayBatch docstring for why
-            # SAC/DDPG/TD3's bootstrap target needs that.
+            # SAC/DDPG/TD3's bootstrap target needs that. Separately: store
+            # `info["true_final_obs"]` (IsaacLabWrapper), not `next_obs`,
+            # as the transition's next-state -- for isaaclab/mjlab,
+            # `next_obs` here is already the FOLLOWING episode's first
+            # frame for any sub-env that just ended (right for `obs =
+            # next_obs` below, wrong for a Q-target bootstrap). Falls back
+            # to `next_obs` itself when the key is absent (any env type
+            # without the fix -- same behavior as before this existed).
+            true_final_obs = (
+                info.get("true_final_obs", next_obs) if isinstance(info, dict) else next_obs
+            )
             self._add_transitions(
-                obs_t, action_t, reward, done, self._obs_to_tensor(next_obs, self.device), truncated
+                obs_t,
+                action_t,
+                reward,
+                done,
+                self._obs_to_tensor(true_final_obs, self.device),
+                truncated,
             )
 
             obs = next_obs
@@ -368,14 +383,18 @@ class AsyncOffPolicyRunner:
                 )
                 done = terminated
 
-                # `done` stays true-termination-only -- see _run_sync's
-                # comment on the equivalent call for why.
+                # `done` stays true-termination-only, and the stored next-
+                # state uses `info["true_final_obs"]` when available -- see
+                # _run_sync's comments on both, immediately above.
+                true_final_obs = (
+                    info.get("true_final_obs", next_obs) if isinstance(info, dict) else next_obs
+                )
                 self._add_transitions(
                     obs_t,
                     action_t,
                     reward,
                     done,
-                    self._obs_to_tensor(next_obs, self.device),
+                    self._obs_to_tensor(true_final_obs, self.device),
                     truncated,
                 )
 
