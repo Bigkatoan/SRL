@@ -45,6 +45,39 @@ class PPOConfig:
     min_lr: float = 1e-5
     max_lr: float = 1e-2
     kl_lr_factor: float = 1.5
+    # Entropy coefficient annealing (off by default -- `entropy_coef` stays
+    # fixed for the whole run unless `entropy_coef_anneal_steps` is set).
+    # Unlike SAC's auto-tuned `alpha` (which targets a specific entropy
+    # level and can push either direction), PPO's entropy bonus here is a
+    # constant, one-directional pull toward MORE entropy every single
+    # minibatch, with nothing that naturally pulls it back down once
+    # "enough" exploration has been reached. On a real 40M-step PPO run
+    # against JAVIS's mjlab balance task (with lr_schedule="adaptive"
+    # already enabled -- see above), `ppo/entropy` climbed continuously
+    # for the entire run (-2.76 at step ~100k to +1.07 by step ~27.6M,
+    # still rising, log_std correctly clamped to [log_std_min,
+    # log_std_max] but nowhere near that ceiling yet) while eval score
+    # declined from a step-11M peak -- i.e. the OPPOSITE of the earlier
+    # entropy-COLLAPSE failure mode this file's `lr_schedule="adaptive"`
+    # comment above describes, but plausibly the same class of problem
+    # (nothing bounding a monotonic drift over a long enough run): a
+    # policy getting steadily noisier hurts closed-loop control on a
+    # physical balance task regardless of which direction the drift goes.
+    # When `entropy_coef_anneal_steps` is set, `entropy_coef` is linearly
+    # annealed from its configured value down to `entropy_coef_final`
+    # (default 0.0) over that many GRADIENT steps (`self._global_step`
+    # below -- one increment per minibatch, i.e. the same unit
+    # `lr_schedule="adaptive"`'s own internal bookkeeping already uses,
+    # NOT env steps -- `n_epochs * total_env_steps / batch_size` if you
+    # need to convert from an env-step budget), then held at
+    # `entropy_coef_final` for the rest of the run: real exploration
+    # pressure early, no constant countervailing force once the policy
+    # gradient should be sharpening the policy back down late. See
+    # `PPO.__init__`'s composer setup for where this is wired through
+    # `LossComposer`'s existing (already-implemented, previously unused
+    # for this term) `schedule="linear_decay"` support.
+    entropy_coef_final: float = 0.0
+    entropy_coef_anneal_steps: int | None = None
 
 
 @dataclass
