@@ -60,12 +60,27 @@ from srl.core.rollout_buffer import RolloutBuffer
 
 def _make_filled_buffer() -> RolloutBuffer:
     buf = RolloutBuffer(n_steps=3, n_envs=1, gamma=1.0, gae_lambda=1.0)
-    buf.add(obs={"state": np.array([[0.0]])}, action=np.array([[0.0]]), reward=np.array([1.0]),
-            done=np.array([False]), value=np.array([1.0]))
-    buf.add(obs={"state": np.array([[1.0]])}, action=np.array([[0.0]]), reward=np.array([2.0]),
-            done=np.array([True]), value=np.array([2.0]))
-    buf.add(obs={"state": np.array([[0.0]])}, action=np.array([[0.0]]), reward=np.array([3.0]),
-            done=np.array([False]), value=np.array([5.0]))
+    buf.add(
+        obs={"state": np.array([[0.0]])},
+        action=np.array([[0.0]]),
+        reward=np.array([1.0]),
+        done=np.array([False]),
+        value=np.array([1.0]),
+    )
+    buf.add(
+        obs={"state": np.array([[1.0]])},
+        action=np.array([[0.0]]),
+        reward=np.array([2.0]),
+        done=np.array([True]),
+        value=np.array([2.0]),
+    )
+    buf.add(
+        obs={"state": np.array([[0.0]])},
+        action=np.array([[0.0]]),
+        reward=np.array([3.0]),
+        done=np.array([False]),
+        value=np.array([5.0]),
+    )
     return buf
 
 
@@ -89,10 +104,20 @@ def test_gae_boundary_uses_the_buffers_own_last_done_without_needing_last_dones(
     last slot said otherwise.
     """
     buf = RolloutBuffer(n_steps=2, n_envs=1, gamma=1.0, gae_lambda=1.0)
-    buf.add(obs={"state": np.array([[0.0]])}, action=np.array([[0.0]]), reward=np.array([1.0]),
-            done=np.array([False]), value=np.array([1.0]))
-    buf.add(obs={"state": np.array([[1.0]])}, action=np.array([[0.0]]), reward=np.array([2.0]),
-            done=np.array([True]), value=np.array([2.0]))
+    buf.add(
+        obs={"state": np.array([[0.0]])},
+        action=np.array([[0.0]]),
+        reward=np.array([1.0]),
+        done=np.array([False]),
+        value=np.array([1.0]),
+    )
+    buf.add(
+        obs={"state": np.array([[1.0]])},
+        action=np.array([[0.0]]),
+        reward=np.array([2.0]),
+        done=np.array([True]),
+        value=np.array([2.0]),
+    )
 
     # last_value would (wrongly, pre-fix) leak into slot 1's advantage if the
     # boundary didn't respect slot 1's own done=True.

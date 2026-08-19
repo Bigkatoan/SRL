@@ -106,9 +106,9 @@ def _make_cli_env(
         # Lab env whose `reset()` signature doesn't happen to match mjlab's
         # degrades to the old (unfixed, but not broken) behavior instead of
         # crashing on the first `env.reset(env_ids=...)` call.
-        supports_partial_reset = _env_class_supports_partial_reset(
-            ManagerBasedRLEnv
-        ) and hasattr(env_cfg, "auto_reset")
+        supports_partial_reset = _env_class_supports_partial_reset(ManagerBasedRLEnv) and hasattr(
+            env_cfg, "auto_reset"
+        )
         if supports_partial_reset:
             env_cfg.auto_reset = False
         base_env = ManagerBasedRLEnv(cfg=env_cfg)
@@ -146,9 +146,9 @@ def _make_cli_env(
         # was wrong before (silently corrupting exactly the transitions a
         # policy good enough to survive to the episode time limit produces
         # -- i.e. getting WORSE the better training goes).
-        supports_partial_reset = _env_class_supports_partial_reset(
-            ManagerBasedRlEnv
-        ) and hasattr(env_cfg, "auto_reset")
+        supports_partial_reset = _env_class_supports_partial_reset(ManagerBasedRlEnv) and hasattr(
+            env_cfg, "auto_reset"
+        )
         if supports_partial_reset:
             env_cfg.auto_reset = False
         base_env = ManagerBasedRlEnv(env_cfg, device=device)
@@ -1664,9 +1664,7 @@ def _run_on_policy(
                 timeout_mask = trunc_arr & ~done_arr
                 if timeout_mask.any():
                     true_final_obs = (
-                        info.get("true_final_obs", next_obs)
-                        if isinstance(info, dict)
-                        else next_obs
+                        info.get("true_final_obs", next_obs) if isinstance(info, dict) else next_obs
                     )
                     tf_remapped = _remap_obs_to_encoders(
                         true_final_obs,
