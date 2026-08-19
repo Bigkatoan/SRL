@@ -47,37 +47,97 @@ class PPOConfig:
     kl_lr_factor: float = 1.5
     # Entropy coefficient annealing (off by default -- `entropy_coef` stays
     # fixed for the whole run unless `entropy_coef_anneal_steps` is set).
-    # Unlike SAC's auto-tuned `alpha` (which targets a specific entropy
-    # level and can push either direction), PPO's entropy bonus here is a
-    # constant, one-directional pull toward MORE entropy every single
-    # minibatch, with nothing that naturally pulls it back down once
-    # "enough" exploration has been reached. On a real 40M-step PPO run
-    # against JAVIS's mjlab balance task (with lr_schedule="adaptive"
-    # already enabled -- see above), `ppo/entropy` climbed continuously
-    # for the entire run (-2.76 at step ~100k to +1.07 by step ~27.6M,
-    # still rising, log_std correctly clamped to [log_std_min,
-    # log_std_max] but nowhere near that ceiling yet) while eval score
-    # declined from a step-11M peak -- i.e. the OPPOSITE of the earlier
-    # entropy-COLLAPSE failure mode this file's `lr_schedule="adaptive"`
-    # comment above describes, but plausibly the same class of problem
-    # (nothing bounding a monotonic drift over a long enough run): a
-    # policy getting steadily noisier hurts closed-loop control on a
-    # physical balance task regardless of which direction the drift goes.
+    #
+    # CORRECTION to this field's original design rationale: it was added
+    # after real runs against JAVIS's mjlab balance task showed `ppo/
+    # entropy` climbing continuously for tens of millions of steps, read
+    # (at the time) as an unbounded ENTROPY EXPLOSION with nothing
+    # counteracting the entropy bonus's constant upward pull. That
+    # reading was wrong -- traced (both by re-deriving from source and by
+    # a direct empirical check constructing a real PPO agent and
+    # inspecting `update()`'s own return value) to a sign bug in
+    # INTERPRETING the logged metric, not in the mechanism itself:
+    # `entropy_loss(ent) = -ent.mean()` (srl/losses/rl_losses.py) is what
+    # gets logged as `ppo/entropy` (LossComposer.compute() -> Logger.
+    # record_metrics() is a straight, unmodified passthrough of that
+    # value) -- i.e. `ppo/entropy` in every log/metrics.jsonl is the
+    # NEGATIVE of the true mean entropy, not the entropy itself.
+    # Confirmed against real data too: this task's actor
+    # (log_std_init=0.0, action_dim=2) has a theoretical initial entropy
+    # of ~2.838 (2*0.5*ln(2*pi*e) at std=1) -- every real run's very
+    # first logged `ppo/entropy` value is ~-2.76, matching -2.838, not
+    # +2.838. So the real trajectory (climbing -2.76 -> +6.6 in raw log
+    # terms) is true entropy DECLINING from +2.76 toward -6.6 -- this is
+    # entropy COLLAPSE (policy std shrinking toward log_std_min), the
+    # ORIGINAL failure hypothesis this file's `lr_schedule="adaptive"`
+    # comment above describes, not a distinct "opposite" failure mode.
+    # The entropy_coef MECHANISM itself was never sign-confused (a
+    # positive `entropy_coef` genuinely pushes true entropy up, standard
+    # usage) -- only the earlier narrative describing what was
+    # happening to it was backwards. Consequently, LOWERING
+    # `entropy_coef_final` toward/to 0.0 (tested on real 60M-step runs:
+    # 0.0005 held up longest, hard 0.0 collapsed fastest and regressed
+    # below every other configuration tried on this task, 0.0001 was
+    # in between) makes sense under the corrected picture too --
+    # removing the entropy bonus removes protection AGAINST collapse,
+    # not "removes a runaway pull" as originally framed. Left in place
+    # (rather than removed) as a still-useful, simpler alternative to
+    # `target_entropy` below for configs that don't need the extra
+    # complexity; a NON-zero `entropy_coef_final` is what actually
+    # helps here, and only real GPU verification tells you how much.
+    #
     # When `entropy_coef_anneal_steps` is set, `entropy_coef` is linearly
     # annealed from its configured value down to `entropy_coef_final`
-    # (default 0.0) over that many GRADIENT steps (`self._global_step`
-    # below -- one increment per minibatch, i.e. the same unit
-    # `lr_schedule="adaptive"`'s own internal bookkeeping already uses,
-    # NOT env steps -- `n_epochs * total_env_steps / batch_size` if you
-    # need to convert from an env-step budget), then held at
-    # `entropy_coef_final` for the rest of the run: real exploration
-    # pressure early, no constant countervailing force once the policy
-    # gradient should be sharpening the policy back down late. See
-    # `PPO.__init__`'s composer setup for where this is wired through
-    # `LossComposer`'s existing (already-implemented, previously unused
-    # for this term) `schedule="linear_decay"` support.
+    # over that many GRADIENT steps (`self._global_step` below -- one
+    # increment per minibatch, i.e. the same unit `lr_schedule=
+    # "adaptive"`'s own internal bookkeeping already uses, NOT env steps
+    # -- `n_epochs * total_env_steps / batch_size` if you need to
+    # convert from an env-step budget), then held at `entropy_coef_final`
+    # for the rest of the run. See `PPO.__init__`'s composer setup for
+    # where this is wired through `LossComposer`'s `schedule=
+    # "linear_decay"` support.
+    #
+    # Ignored when `target_entropy` (below) is set -- the two mechanisms
+    # are mutually exclusive; `target_entropy` takes over `entropy_coef`
+    # entirely in that case.
     entropy_coef_final: float = 0.0
     entropy_coef_anneal_steps: int | None = None
+    # Adaptive, TARGET-seeking entropy coefficient (off by default --
+    # `None`). A fixed or annealed `entropy_coef` (above) is a
+    # one-directional dial: it can only ever push true entropy up, never
+    # pull it back down, so it either isn't enough to prevent collapse
+    # (too low) or, in principle, could over-correct (too high) -- there
+    # is no setting that automatically corrects in BOTH directions the
+    # way SAC's auto-tuned `alpha` does for its own entropy term. This
+    # ports that same idea to PPO: `entropy_coef` becomes a learned
+    # parameter (`log_entropy_coef`, exponentiated to stay positive),
+    # updated via its own small optimizer toward whatever value makes
+    # measured entropy track `target_entropy` -- symmetric, self-
+    # correcting, no manual floor/schedule tuning. Dual-ascent update
+    # (same shape as SAC's temperature loss, re-derived here rather than
+    # copied verbatim since SAC's exact formula assumes its own sign/
+    # target conventions): `loss = log_entropy_coef * (entropy.detach()
+    # - target_entropy)`, minimized by gradient descent -- entropy above
+    # target shrinks the coefficient (less push, it's already high
+    # enough), entropy below target grows it (push harder). Verify: at
+    # entropy == target_entropy the loss gradient is zero, a genuine
+    # equilibrium, unlike a fixed/annealed coefficient which has none.
+    # `target_entropy` should be a true-entropy value (this task's own
+    # data: score was still healthy while true entropy was declining
+    # from its ~2.8 init through roughly 0, and degraded once it fell
+    # below there toward -1 and beyond -- 0.0 is a reasonable starting
+    # target, corresponding to roughly std~=0.24 per action dimension
+    # for a 2-action-dim Gaussian, not yet verified as optimal on a real
+    # long run). `min_entropy_coef`/`max_entropy_coef` bound the learned
+    # coefficient itself (same safety-net role as SAC's `min_alpha`),
+    # and `log_std_min`/`log_std_max` (actor head config, NOT here)
+    # remain a direct, mechanism-independent bound on worst-case policy
+    # std regardless of whether this or the coefficient tuning above is
+    # what's actually controlling it day to day.
+    target_entropy: float | None = None
+    entropy_coef_lr: float = 1e-3
+    min_entropy_coef: float = 1e-6
+    max_entropy_coef: float = 0.05
 
 
 @dataclass

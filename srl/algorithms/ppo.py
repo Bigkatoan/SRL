@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import warnings
 from typing import Any
 
@@ -114,20 +115,39 @@ class PPO(BaseAgent):
         self.composer = LossComposer()
         self.composer.add("policy", weight=1.0)
         self.composer.add("value", weight=self.cfg.vf_coef)
-        if self.cfg.entropy_coef_anneal_steps:
-            # See PPOConfig.entropy_coef_anneal_steps's docstring for why
-            # this exists. `LossComposer.add`'s `schedule`/`total_steps`/
-            # `min_weight` machinery already implements exactly this decay
-            # -- it just sat unused for this term until now.
-            self.composer.add(
-                "entropy",
-                weight=self.cfg.entropy_coef,
-                schedule="linear_decay",
-                total_steps=self.cfg.entropy_coef_anneal_steps,
-                min_weight=self.cfg.entropy_coef_final,
+        # `target_entropy` and the fixed/annealed `entropy_coef` are
+        # mutually exclusive -- see PPOConfig.target_entropy's docstring.
+        # When target_entropy is active, the entropy term is NOT
+        # registered with the composer at all: its weight is a learned
+        # parameter updated every minibatch in update(), which the
+        # composer's step-driven schedule machinery has no slot for, so
+        # it's applied manually instead (see update()).
+        self._target_entropy_active = self.cfg.target_entropy is not None
+        if self._target_entropy_active:
+            self.log_entropy_coef = torch.nn.Parameter(
+                torch.log(torch.tensor(max(self.cfg.entropy_coef, self.cfg.min_entropy_coef))),
+            )
+            self.entropy_coef_optimizer: torch.optim.Optimizer | None = torch.optim.Adam(
+                [self.log_entropy_coef], lr=self.cfg.entropy_coef_lr
             )
         else:
-            self.composer.add("entropy", weight=self.cfg.entropy_coef)
+            self.log_entropy_coef = None
+            self.entropy_coef_optimizer = None
+            if self.cfg.entropy_coef_anneal_steps:
+                # See PPOConfig.entropy_coef_anneal_steps's docstring for
+                # why this exists. `LossComposer.add`'s `schedule`/
+                # `total_steps`/`min_weight` machinery already implements
+                # exactly this decay -- it just sat unused for this term
+                # until now.
+                self.composer.add(
+                    "entropy",
+                    weight=self.cfg.entropy_coef,
+                    schedule="linear_decay",
+                    total_steps=self.cfg.entropy_coef_anneal_steps,
+                    min_weight=self.cfg.entropy_coef_final,
+                )
+            else:
+                self.composer.add("entropy", weight=self.cfg.entropy_coef)
 
     # ------------------------------------------------------------------
     # BaseAgent interface
@@ -183,6 +203,32 @@ class PPO(BaseAgent):
             self._current_lr = min(self.cfg.max_lr, self._current_lr * factor)
         for param_group in self.optimizer.param_groups:
             param_group["lr"] = self._current_lr
+
+    def _adapt_entropy_coef(self, true_entropy: torch.Tensor) -> float:
+        """Dual-ascent update of `self.log_entropy_coef` toward whatever
+        value makes measured entropy track `self.cfg.target_entropy` --
+        see PPOConfig.target_entropy's docstring for the full derivation.
+        Only called when `self._target_entropy_active`. `true_entropy`
+        must be the model's own real, correctly-signed mean entropy for
+        this minibatch (already detached) -- never `entropy_loss`'s
+        negated value.
+
+        Returns the scalar dual loss (for logging), matching `_adapt_lr`'s
+        sibling role: both are the "measure something this minibatch,
+        nudge a scalar knob toward a target" adaptation, just for
+        different knobs (LR vs. entropy_coef) and different measured
+        quantities (KL vs. entropy).
+        """
+        entropy_coef_loss = self.log_entropy_coef * (true_entropy - self.cfg.target_entropy)
+        self.entropy_coef_optimizer.zero_grad()
+        entropy_coef_loss.backward()
+        self.entropy_coef_optimizer.step()
+        with torch.no_grad():
+            self.log_entropy_coef.clamp_(
+                math.log(self.cfg.min_entropy_coef),
+                math.log(self.cfg.max_entropy_coef),
+            )
+        return float(entropy_coef_loss.item())
 
     def update(self) -> dict[str, float]:
         """Run *n_epochs × n_batches* gradient updates on the filled buffer."""
@@ -247,12 +293,26 @@ class PPO(BaseAgent):
                     log_ratio = log_prob_eval - mini.log_probs.to(self.device)
                     approx_kl = ((torch.exp(log_ratio) - 1.0) - log_ratio).mean()
 
-                total, info = self.composer.compute(
-                    step=self._global_step,
-                    policy=pol_loss,
-                    value=val_loss,
-                    entropy=ent_loss,
-                )
+                if self._target_entropy_active:
+                    # Entropy term applied manually with the CURRENT learned
+                    # coefficient (detached -- this parameter is trained by
+                    # its own dual-ascent step below, never through the
+                    # main policy/value backward pass), not through the
+                    # composer's step-driven schedule machinery.
+                    current_entropy_coef = self.log_entropy_coef.exp().detach()
+                    total, info = self.composer.compute(
+                        step=self._global_step, policy=pol_loss, value=val_loss
+                    )
+                    total = total + current_entropy_coef * ent_loss
+                    info["entropy"] = float(ent_loss.item())
+                    info["entropy_weight"] = float(current_entropy_coef.item())
+                else:
+                    total, info = self.composer.compute(
+                        step=self._global_step,
+                        policy=pol_loss,
+                        value=val_loss,
+                        entropy=ent_loss,
+                    )
                 info["approx_kl"] = float(approx_kl.item())
 
                 if self.cfg.lr_schedule == "adaptive":
@@ -273,6 +333,16 @@ class PPO(BaseAgent):
                     )
                     nn.utils.clip_grad_norm_(self.model.parameters(), self.cfg.max_grad_norm)
                 self.optimizer.step()
+
+                if self._target_entropy_active:
+                    # `ent` is the model's own real, correctly-signed
+                    # entropy tensor from THIS minibatch's forward pass
+                    # above -- never pass entropy_loss's negated value
+                    # here, that would silently re-introduce the exact
+                    # sign confusion that motivated this feature.
+                    entropy_coef_loss = self._adapt_entropy_coef(ent.detach().mean())
+                    info["entropy_coef_loss"] = entropy_coef_loss
+                    info["true_entropy"] = float(ent.detach().mean().item())
 
                 for k, v in info.items():
                     metrics_accum.setdefault(k, []).append(v)
@@ -395,6 +465,20 @@ class PPO(BaseAgent):
             # drifted to, then stomp the correctly-resumed optimizer LR with
             # that wrong starting point.
             "current_lr": self._current_lr,
+            # log_entropy_coef/its optimizer: only meaningful under
+            # target_entropy (None otherwise) -- same "why save this
+            # separately from the main model/optimizer state" reasoning
+            # as current_lr above: a resumed run needs to continue from
+            # wherever the dual-ascent adaptation actually left the
+            # coefficient, not restart it from cfg.entropy_coef.
+            "log_entropy_coef": (
+                self.log_entropy_coef.detach().cpu() if self.log_entropy_coef is not None else None
+            ),
+            "entropy_coef_optimizer_state": (
+                self.entropy_coef_optimizer.state_dict()
+                if self.entropy_coef_optimizer is not None
+                else None
+            ),
         }
 
     def load_checkpoint_payload(self, payload: dict[str, Any]) -> None:
@@ -410,3 +494,10 @@ class PPO(BaseAgent):
         self._global_step = int(payload.get("algo_step", payload.get("step", 0)))
         if "current_lr" in payload:
             self._current_lr = float(payload["current_lr"])
+        log_entropy_coef = payload.get("log_entropy_coef")
+        if log_entropy_coef is not None and self.log_entropy_coef is not None:
+            with torch.no_grad():
+                self.log_entropy_coef.copy_(log_entropy_coef.to(self.device))
+        entropy_coef_opt_state = payload.get("entropy_coef_optimizer_state")
+        if entropy_coef_opt_state is not None and self.entropy_coef_optimizer is not None:
+            self.entropy_coef_optimizer.load_state_dict(entropy_coef_opt_state)
