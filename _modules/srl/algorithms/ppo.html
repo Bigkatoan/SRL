@@ -410,6 +410,7 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
 
@@ -526,20 +527,39 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">composer</span> <span class="o">=</span> <span class="n">LossComposer</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">composer</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"policy"</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">composer</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"value"</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">vf_coef</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">entropy_coef_anneal_steps</span><span class="p">:</span>
-            <span class="c1"># See PPOConfig.entropy_coef_anneal_steps's docstring for why</span>
-            <span class="c1"># this exists. `LossComposer.add`'s `schedule`/`total_steps`/</span>
-            <span class="c1"># `min_weight` machinery already implements exactly this decay</span>
-            <span class="c1"># -- it just sat unused for this term until now.</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">composer</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
-                <span class="s2">"entropy"</span><span class="p">,</span>
-                <span class="n">weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">entropy_coef</span><span class="p">,</span>
-                <span class="n">schedule</span><span class="o">=</span><span class="s2">"linear_decay"</span><span class="p">,</span>
-                <span class="n">total_steps</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">entropy_coef_anneal_steps</span><span class="p">,</span>
-                <span class="n">min_weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">entropy_coef_final</span><span class="p">,</span>
+        <span class="c1"># `target_entropy` and the fixed/annealed `entropy_coef` are</span>
+        <span class="c1"># mutually exclusive -- see PPOConfig.target_entropy's docstring.</span>
+        <span class="c1"># When target_entropy is active, the entropy term is NOT</span>
+        <span class="c1"># registered with the composer at all: its weight is a learned</span>
+        <span class="c1"># parameter updated every minibatch in update(), which the</span>
+        <span class="c1"># composer's step-driven schedule machinery has no slot for, so</span>
+        <span class="c1"># it's applied manually instead (see update()).</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_target_entropy_active</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">target_entropy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_target_entropy_active</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log_entropy_coef</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">entropy_coef</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">min_entropy_coef</span><span class="p">))),</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">entropy_coef_optimizer</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span>
+                <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">log_entropy_coef</span><span class="p">],</span> <span class="n">lr</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">entropy_coef_lr</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">composer</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"entropy"</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">entropy_coef</span><span class="p">)</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log_entropy_coef</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">entropy_coef_optimizer</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">entropy_coef_anneal_steps</span><span class="p">:</span>
+                <span class="c1"># See PPOConfig.entropy_coef_anneal_steps's docstring for</span>
+                <span class="c1"># why this exists. `LossComposer.add`'s `schedule`/</span>
+                <span class="c1"># `total_steps`/`min_weight` machinery already implements</span>
+                <span class="c1"># exactly this decay -- it just sat unused for this term</span>
+                <span class="c1"># until now.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">composer</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+                    <span class="s2">"entropy"</span><span class="p">,</span>
+                    <span class="n">weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">entropy_coef</span><span class="p">,</span>
+                    <span class="n">schedule</span><span class="o">=</span><span class="s2">"linear_decay"</span><span class="p">,</span>
+                    <span class="n">total_steps</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">entropy_coef_anneal_steps</span><span class="p">,</span>
+                    <span class="n">min_weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">entropy_coef_final</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">composer</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"entropy"</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">entropy_coef</span><span class="p">)</span></div>
 
 
     <span class="c1"># ------------------------------------------------------------------</span>
@@ -602,6 +622,32 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_current_lr</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">max_lr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_lr</span> <span class="o">*</span> <span class="n">factor</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">param_group</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">param_groups</span><span class="p">:</span>
             <span class="n">param_group</span><span class="p">[</span><span class="s2">"lr"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_lr</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_adapt_entropy_coef</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">true_entropy</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Dual-ascent update of `self.log_entropy_coef` toward whatever</span>
+<span class="sd">        value makes measured entropy track `self.cfg.target_entropy` --</span>
+<span class="sd">        see PPOConfig.target_entropy's docstring for the full derivation.</span>
+<span class="sd">        Only called when `self._target_entropy_active`. `true_entropy`</span>
+<span class="sd">        must be the model's own real, correctly-signed mean entropy for</span>
+<span class="sd">        this minibatch (already detached) -- never `entropy_loss`'s</span>
+<span class="sd">        negated value.</span>
+
+<span class="sd">        Returns the scalar dual loss (for logging), matching `_adapt_lr`'s</span>
+<span class="sd">        sibling role: both are the "measure something this minibatch,</span>
+<span class="sd">        nudge a scalar knob toward a target" adaptation, just for</span>
+<span class="sd">        different knobs (LR vs. entropy_coef) and different measured</span>
+<span class="sd">        quantities (KL vs. entropy).</span>
+<span class="sd">        """</span>
+        <span class="n">entropy_coef_loss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_entropy_coef</span> <span class="o">*</span> <span class="p">(</span><span class="n">true_entropy</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">target_entropy</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">entropy_coef_optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+        <span class="n">entropy_coef_loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">entropy_coef_optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log_entropy_coef</span><span class="o">.</span><span class="n">clamp_</span><span class="p">(</span>
+                <span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">min_entropy_coef</span><span class="p">),</span>
+                <span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">max_entropy_coef</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">entropy_coef_loss</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
 
 <div class="viewcode-block" id="PPO.update">
 <a class="viewcode-back" href="../../../source/api/algorithms.html#srl.algorithms.ppo.PPO.update">[docs]</a>
@@ -668,12 +714,26 @@
                     <span class="n">log_ratio</span> <span class="o">=</span> <span class="n">log_prob_eval</span> <span class="o">-</span> <span class="n">mini</span><span class="o">.</span><span class="n">log_probs</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
                     <span class="n">approx_kl</span> <span class="o">=</span> <span class="p">((</span><span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">log_ratio</span><span class="p">)</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-</span> <span class="n">log_ratio</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
 
-                <span class="n">total</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">composer</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span>
-                    <span class="n">step</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_global_step</span><span class="p">,</span>
-                    <span class="n">policy</span><span class="o">=</span><span class="n">pol_loss</span><span class="p">,</span>
-                    <span class="n">value</span><span class="o">=</span><span class="n">val_loss</span><span class="p">,</span>
-                    <span class="n">entropy</span><span class="o">=</span><span class="n">ent_loss</span><span class="p">,</span>
-                <span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_target_entropy_active</span><span class="p">:</span>
+                    <span class="c1"># Entropy term applied manually with the CURRENT learned</span>
+                    <span class="c1"># coefficient (detached -- this parameter is trained by</span>
+                    <span class="c1"># its own dual-ascent step below, never through the</span>
+                    <span class="c1"># main policy/value backward pass), not through the</span>
+                    <span class="c1"># composer's step-driven schedule machinery.</span>
+                    <span class="n">current_entropy_coef</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_entropy_coef</span><span class="o">.</span><span class="n">exp</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+                    <span class="n">total</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">composer</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span>
+                        <span class="n">step</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_global_step</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="n">pol_loss</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">val_loss</span>
+                    <span class="p">)</span>
+                    <span class="n">total</span> <span class="o">=</span> <span class="n">total</span> <span class="o">+</span> <span class="n">current_entropy_coef</span> <span class="o">*</span> <span class="n">ent_loss</span>
+                    <span class="n">info</span><span class="p">[</span><span class="s2">"entropy"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ent_loss</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+                    <span class="n">info</span><span class="p">[</span><span class="s2">"entropy_weight"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">current_entropy_coef</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">total</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">composer</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span>
+                        <span class="n">step</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_global_step</span><span class="p">,</span>
+                        <span class="n">policy</span><span class="o">=</span><span class="n">pol_loss</span><span class="p">,</span>
+                        <span class="n">value</span><span class="o">=</span><span class="n">val_loss</span><span class="p">,</span>
+                        <span class="n">entropy</span><span class="o">=</span><span class="n">ent_loss</span><span class="p">,</span>
+                    <span class="p">)</span>
                 <span class="n">info</span><span class="p">[</span><span class="s2">"approx_kl"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">approx_kl</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
 
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">lr_schedule</span> <span class="o">==</span> <span class="s2">"adaptive"</span><span class="p">:</span>
@@ -694,6 +754,16 @@
                     <span class="p">)</span>
                     <span class="n">nn</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">clip_grad_norm_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">max_grad_norm</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_target_entropy_active</span><span class="p">:</span>
+                    <span class="c1"># `ent` is the model's own real, correctly-signed</span>
+                    <span class="c1"># entropy tensor from THIS minibatch's forward pass</span>
+                    <span class="c1"># above -- never pass entropy_loss's negated value</span>
+                    <span class="c1"># here, that would silently re-introduce the exact</span>
+                    <span class="c1"># sign confusion that motivated this feature.</span>
+                    <span class="n">entropy_coef_loss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_adapt_entropy_coef</span><span class="p">(</span><span class="n">ent</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+                    <span class="n">info</span><span class="p">[</span><span class="s2">"entropy_coef_loss"</span><span class="p">]</span> <span class="o">=</span> <span class="n">entropy_coef_loss</span>
+                    <span class="n">info</span><span class="p">[</span><span class="s2">"true_entropy"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ent</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
 
                 <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">info</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                     <span class="n">metrics_accum</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
@@ -823,6 +893,20 @@
             <span class="c1"># drifted to, then stomp the correctly-resumed optimizer LR with</span>
             <span class="c1"># that wrong starting point.</span>
             <span class="s2">"current_lr"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_lr</span><span class="p">,</span>
+            <span class="c1"># log_entropy_coef/its optimizer: only meaningful under</span>
+            <span class="c1"># target_entropy (None otherwise) -- same "why save this</span>
+            <span class="c1"># separately from the main model/optimizer state" reasoning</span>
+            <span class="c1"># as current_lr above: a resumed run needs to continue from</span>
+            <span class="c1"># wherever the dual-ascent adaptation actually left the</span>
+            <span class="c1"># coefficient, not restart it from cfg.entropy_coef.</span>
+            <span class="s2">"log_entropy_coef"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log_entropy_coef</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_entropy_coef</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="p">),</span>
+            <span class="s2">"entropy_coef_optimizer_state"</span><span class="p">:</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">entropy_coef_optimizer</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">entropy_coef_optimizer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="k">else</span> <span class="kc">None</span>
+            <span class="p">),</span>
         <span class="p">}</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">load_checkpoint_payload</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">payload</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -837,7 +921,14 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">encoder_optimizer</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">encoder_opt_state</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_global_step</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"algo_step"</span><span class="p">,</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"step"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)))</span>
         <span class="k">if</span> <span class="s2">"current_lr"</span> <span class="ow">in</span> <span class="n">payload</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_current_lr</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">payload</span><span class="p">[</span><span class="s2">"current_lr"</span><span class="p">])</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_current_lr</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">payload</span><span class="p">[</span><span class="s2">"current_lr"</span><span class="p">])</span>
+        <span class="n">log_entropy_coef</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"log_entropy_coef"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">log_entropy_coef</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_entropy_coef</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log_entropy_coef</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">log_entropy_coef</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">))</span>
+        <span class="n">entropy_coef_opt_state</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"entropy_coef_optimizer_state"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">entropy_coef_opt_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">entropy_coef_optimizer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">entropy_coef_optimizer</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">entropy_coef_opt_state</span><span class="p">)</span></div>
 
 </pre></div>
 
