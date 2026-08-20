@@ -55,7 +55,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
-    <meta name="docbuild:last-update" content="Aug 19, 2026"/>
+    <meta name="docbuild:last-update" content="Aug 20, 2026"/>
   
     
     <script src="../../../_static/searchtools.js"></script>
@@ -450,7 +450,26 @@
 <div class="viewcode-block" id="CheckpointCallback">
 <a class="viewcode-back" href="../../../source/api/utils.html#srl.utils.callbacks.CheckpointCallback">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">CheckpointCallback</span><span class="p">(</span><span class="n">BaseCallback</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""Save a checkpoint every *save_interval* steps."""</span>
+<span class="w">    </span><span class="sd">"""Save a checkpoint every *save_interval* steps.</span>
+
+<span class="sd">    Triggers on CROSSING a multiple of ``save_interval`` (``step &gt;=</span>
+<span class="sd">    self._next_save_step``), not on landing exactly on one (the previous</span>
+<span class="sd">    ``step % self.save_interval == 0`` -- found via a real run where zero</span>
+<span class="sd">    periodic checkpoints were ever written across a 120M-step PPO run: with</span>
+<span class="sd">    `n_steps=24`/`n_envs=4096`, `step` only ever advances in increments of</span>
+<span class="sd">    98304, and `gcd(98304, 100_000) == 32`, so the first step number that is</span>
+<span class="sd">    ALSO an exact multiple of the default `save_interval=100_000` is</span>
+<span class="sd">    `lcm(98304, 100_000) == 307,200,000` -- past the end of every run this</span>
+<span class="sd">    project has actually done. Any rollout granularity that doesn't happen</span>
+<span class="sd">    to share a large common factor with `save_interval` hits this same</span>
+<span class="sd">    silent no-op. Crossing-based triggering saves exactly once per interval</span>
+<span class="sd">    regardless of the step increment's size, including a single call that</span>
+<span class="sd">    jumps past more than one interval at once (rare, but possible with a</span>
+<span class="sd">    very large rollout granularity relative to `save_interval`) -- it saves</span>
+<span class="sd">    once immediately and reschedules for the next real boundary above the</span>
+<span class="sd">    current step, rather than either double-saving or silently skipping</span>
+<span class="sd">    the skipped-over interval(s) entirely.</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="CheckpointCallback.__init__">
 <a class="viewcode-back" href="../../../source/api/utils.html#srl.utils.callbacks.CheckpointCallback.__init__">[docs]</a>
@@ -460,7 +479,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">cm</span> <span class="o">=</span> <span class="n">checkpoint_manager</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">save_interval</span> <span class="o">=</span> <span class="n">save_interval</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_next_save_step</span> <span class="o">=</span> <span class="n">save_interval</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">bind</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">optimizer</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -468,8 +488,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">on_step_end</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">step</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">info</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">step</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">step</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_interval</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">optimizer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">info</span><span class="p">)</span></div>
+        <span class="k">if</span> <span class="n">step</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_next_save_step</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">optimizer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">info</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_next_save_step</span> <span class="o">=</span> <span class="p">((</span><span class="n">step</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_interval</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_interval</span></div>
 
 
 
@@ -554,7 +575,7 @@ By SRL Contributors
   
   <div class="footer-item">
     <p class="last-updated">
-  Last updated on Aug 19, 2026.
+  Last updated on Aug 20, 2026.
   <br/>
 </p>
   </div>

@@ -58,7 +58,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
-    <meta name="docbuild:last-update" content="Aug 19, 2026"/>
+    <meta name="docbuild:last-update" content="Aug 20, 2026"/>
   
     
     <script src="../../_static/searchtools.js"></script>
@@ -586,6 +586,23 @@
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">srl.utils.callbacks.</span></span><span class="sig-name descname"><span class="pre">CheckpointCallback</span></span><a class="reference internal" href="../../_modules/srl/utils/callbacks.html#CheckpointCallback"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#srl.utils.callbacks.CheckpointCallback" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseCallback</span></code></p>
 <p>Save a checkpoint every <em>save_interval</em> steps.</p>
+<p>Triggers on CROSSING a multiple of <code class="docutils literal notranslate"><span class="pre">save_interval</span></code> (<code class="docutils literal notranslate"><span class="pre">step</span> <span class="pre">&gt;=</span>
+<span class="pre">self._next_save_step</span></code>), not on landing exactly on one (the previous
+<code class="docutils literal notranslate"><span class="pre">step</span> <span class="pre">%</span> <span class="pre">self.save_interval</span> <span class="pre">==</span> <span class="pre">0</span></code> – found via a real run where zero
+periodic checkpoints were ever written across a 120M-step PPO run: with
+<cite>n_steps=24</cite>/<cite>n_envs=4096</cite>, <cite>step</cite> only ever advances in increments of
+98304, and <cite>gcd(98304, 100_000) == 32</cite>, so the first step number that is
+ALSO an exact multiple of the default <cite>save_interval=100_000</cite> is
+<cite>lcm(98304, 100_000) == 307,200,000</cite> – past the end of every run this
+project has actually done. Any rollout granularity that doesn’t happen
+to share a large common factor with <cite>save_interval</cite> hits this same
+silent no-op. Crossing-based triggering saves exactly once per interval
+regardless of the step increment’s size, including a single call that
+jumps past more than one interval at once (rare, but possible with a
+very large rollout granularity relative to <cite>save_interval</cite>) – it saves
+once immediately and reschedules for the next real boundary above the
+current step, rather than either double-saving or silently skipping
+the skipped-over interval(s) entirely.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.utils.callbacks.CheckpointCallback.__init__">
 <span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">checkpoint_manager</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_interval</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimizer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/srl/utils/callbacks.html#CheckpointCallback.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#srl.utils.callbacks.CheckpointCallback.__init__" title="Link to this definition">#</a></dt>
@@ -702,7 +719,7 @@ By SRL Contributors
   
   <div class="footer-item">
     <p class="last-updated">
-  Last updated on Aug 19, 2026.
+  Last updated on Aug 20, 2026.
   <br/>
 </p>
   </div>
