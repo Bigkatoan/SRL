@@ -1924,6 +1924,7 @@ def _run_off_policy(
             gradient_steps=_gradient_steps,
             eval_fn=_eval_fn if _eval_freq > 0 else None,
             episode_fn=_episode_fn,
+            start_step=start_step,
         )
         try:
             runner.run()

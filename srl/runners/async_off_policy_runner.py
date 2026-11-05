@@ -68,7 +68,7 @@ import torch
 from srl.core.base_agent import BaseAgent
 from srl.core.config import AsyncRunnerConfig
 from srl.envs.vector_utils import get_final_obs
-from srl.utils.spaces import sample_action_space
+from srl.utils.spaces import sample_vector_actions
 
 
 class AsyncOffPolicyRunner:
@@ -121,6 +121,10 @@ class AsyncOffPolicyRunner:
         configured ``--eval-freq``, because ``_run_off_policy`` in
         ``srl.cli.train`` hands off to this class and ``return``s before
         reaching its own (otherwise fully working) eval loop further down.
+    start_step:
+        Absolute step count to resume from (default 0). ``total_steps``
+        more steps are collected, i.e. the run ends at
+        ``start_step + total_steps``.
     episode_fn:
         Optional callback ``(reward, done, truncated, step, info) -> None``
         invoked once per collector-loop iteration, right after
@@ -156,10 +160,16 @@ class AsyncOffPolicyRunner:
         gradient_steps: int = 1,
         eval_fn: Callable[[int], None] | None = None,
         episode_fn: Callable[[Any, Any, Any, int, Any], None] | None = None,
+        start_step: int = 0,
     ) -> None:
         self.agent = agent
         self.env = env
         self.total_steps = total_steps
+        # Absolute step to resume from (e.g. a checkpoint's step): the loop
+        # collects `total_steps` more env steps, and every step-gated
+        # threshold plus the step passed to log_fn/eval_fn/episode_fn is
+        # absolute, matching srl.cli.train's sync off-policy loop.
+        self.start_step = int(start_step)
         self.cfg = runner_cfg or AsyncRunnerConfig()
         self.log_fn = log_fn
         self.device = torch.device(device)
@@ -233,14 +243,15 @@ class AsyncOffPolicyRunner:
         obs, _ = self.env.reset()
         num_envs = self._num_envs()
         vectorized = num_envs > 1
-        step = 0
+        step = self.start_step
+        end_step = self.start_step + self.total_steps
         since_last_update = 0
         t_start = time.perf_counter()
         collect_steps = 0
 
-        while step < self.total_steps:
+        while step < end_step:
             obs_t = self._obs_to_tensor(obs, self.device)
-            remaining = max(self.total_steps - step, 0)
+            remaining = max(end_step - step, 0)
             active_envs = min(num_envs, remaining) if vectorized else 1
 
             if step < self.random_steps:
@@ -252,8 +263,10 @@ class AsyncOffPolicyRunner:
                 # draw when the space has no `.sample()` (isaaclab/mjlab's
                 # lightweight space dataclass doesn't). On isaaclab/mjlab,
                 # `act_space` is already the BATCHED `(num_envs, action_dim)`
-                # space, so a single draw is already the right shape.
-                action = sample_action_space(self.env.act_space)
+                # space, while a CPU SyncVectorEnv/AsyncVectorEnv exposes
+                # ONE env's space -- `sample_vector_actions` returns a
+                # `(num_envs, action_dim)` batch either way.
+                action = sample_vector_actions(self.env)
                 action_t = torch.as_tensor(action, dtype=torch.float32, device=self.device)
             else:
                 action_t, _, _, _ = self.agent.predict(obs_t, deterministic=False)
@@ -288,11 +301,9 @@ class AsyncOffPolicyRunner:
 
             obs = next_obs
             if not vectorized:
-                is_done = (
-                    bool(terminated)
-                    if isinstance(terminated, bool)
-                    else bool(np.asarray(terminated).any())
-                )
+                # Reset on truncation too: a time-limited single env must
+                # not be stepped past its episode end.
+                is_done = bool(np.asarray(terminated).any()) or bool(np.asarray(truncated).any())
                 if is_done:
                     obs, _ = self.env.reset()
             # Vectorised envs (isaaclab/mjlab) auto-reset individual
@@ -354,22 +365,23 @@ class AsyncOffPolicyRunner:
         obs, _ = self.env.reset()
         num_envs = self._num_envs()
         vectorized = num_envs > 1
-        step = 0
+        step = self.start_step
+        end_step = self.start_step + self.total_steps
         since_last_update = 0
         t_start = time.perf_counter()
         collect_steps = 0
         log_interval = max(self.update_every, 1000)
-        next_log_step = log_interval
+        next_log_step = step + log_interval
 
         try:
-            while step < self.total_steps:
+            while step < end_step:
                 obs_t = self._obs_to_tensor(obs, self.device)
-                remaining = max(self.total_steps - step, 0)
+                remaining = max(end_step - step, 0)
                 active_envs = min(num_envs, remaining) if vectorized else 1
 
                 if step < self.random_steps:
                     # See _run_sync's comment on the same line.
-                    action = sample_action_space(self.env.act_space)
+                    action = sample_vector_actions(self.env)
                     action_t = torch.as_tensor(action, dtype=torch.float32, device=self.device)
                 else:
                     action_t, _, _, _ = self.agent.predict(obs_t, deterministic=False)
@@ -398,10 +410,8 @@ class AsyncOffPolicyRunner:
 
                 obs = next_obs
                 if not vectorized:
-                    is_done = (
-                        bool(terminated)
-                        if isinstance(terminated, bool)
-                        else bool(np.asarray(terminated).any())
+                    is_done = bool(np.asarray(terminated).any()) or bool(
+                        np.asarray(truncated).any()
                     )
                     if is_done:
                         obs, _ = self.env.reset()

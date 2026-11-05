@@ -65,8 +65,14 @@ def sample_vector_actions(env: Any) -> np.ndarray:
     ``single_act_space``, i.e. isaaclab/mjlab), else one unbatched action.
     """
     num_envs = int(getattr(env, "num_envs", 1) or 1)
+    space = env.act_space
     single = getattr(env, "single_act_space", None)
-    if num_envs > 1 or (single is not None and single is not env.act_space):
-        per_env_space = single if single is not None else env.act_space
-        return np.stack([sample_action_space(per_env_space) for _ in range(num_envs)], axis=0)
-    return sample_action_space(env.act_space)
+    if single is not None and single is not space:
+        return np.stack([sample_action_space(single) for _ in range(num_envs)], axis=0)
+    if num_envs > 1:
+        shape = tuple(getattr(space, "shape", ()) or ())
+        if single is None and len(shape) >= 2 and shape[0] == num_envs:
+            # Already-batched space with no per-env space exposed.
+            return sample_action_space(space)
+        return np.stack([sample_action_space(space) for _ in range(num_envs)], axis=0)
+    return sample_action_space(space)
