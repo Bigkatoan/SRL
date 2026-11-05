@@ -1,9 +1,54 @@
-"""Algorithm and model hyperparameter dataclasses."""
+"""Algorithm and model hyperparameter dataclasses.
+
+Every config validates its enum (``Literal``) fields and numeric ranges in
+``__post_init__`` (see :func:`srl.config._validate.validate_constraints`), so
+``PPOConfig(gamma=1.5)`` or ``DDPGConfig(action_noise="uo")`` raise a
+:class:`~srl.config.ConfigError` immediately instead of misbehaving at
+training time. Building one from a YAML ``train:`` block should go through
+:func:`srl.config.build_algo_config`, which additionally rejects unknown keys.
+"""
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Literal
+
+from srl.config._validate import validate_constraints
+
+LrSchedule = Literal["fixed", "adaptive"]
+ActionNoise = Literal["gaussian", "ou"]
+HerStrategy = Literal["future", "final", "episode", "random"]
+AuxLossType = Literal["none", "ae", "vae", "curl", "byol", "drq", "spr", "barlow"]
+AugmentationMode = Literal["drq", "curl", "aggressive"]
+
+# Legacy off-policy schedule aliases. Kept as fields so existing Python code
+# constructing e.g. ``SACConfig(start_steps=...)`` keeps working, but
+# srl.config.build_algo_config() folds them into the canonical names
+# (learning_starts / update_after / train_freq) with a deprecation warning,
+# and srl.config.normalize_offpolicy_schedule() is the one place that
+# resolves them for configs built directly in Python.
+_ALIAS = {"deprecated_alias": True}
+
+
+def _check_lr_bounds(self) -> list[tuple[str, str]]:
+    errors = []
+    if getattr(self, "min_lr", 0) > getattr(self, "max_lr", float("inf")):
+        errors.append(("min_lr", f"must be <= max_lr ({self.max_lr!r}), got {self.min_lr!r}"))
+    lo, hi = getattr(self, "min_entropy_coef", None), getattr(self, "max_entropy_coef", None)
+    if lo is not None and hi is not None and lo > hi:
+        errors.append(("min_entropy_coef", f"must be <= max_entropy_coef ({hi!r}), got {lo!r}"))
+    return errors
+
+
+class _Validated:
+    """Mixin: run SRL's enum/range validation after dataclass ``__init__``."""
+
+    __srl_check__ = _check_lr_bounds
+
+    def __post_init__(self) -> None:
+        validate_constraints(self)
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Algorithm configs
@@ -11,7 +56,7 @@ from dataclasses import dataclass, field
 
 
 @dataclass
-class PPOConfig:
+class PPOConfig(_Validated):
     lr: float = 3e-4
     n_steps: int = 2048  # steps per env per rollout
     num_envs: int = 1
@@ -54,7 +99,7 @@ class PPOConfig:
     # relative to no target at all, not to a `desired_kl` actually being
     # enforced. See srl/algorithms/ppo.py's PPO.update() for where this is
     # applied.
-    lr_schedule: str = "fixed"  # "fixed" | "adaptive"
+    lr_schedule: LrSchedule = "fixed"
     desired_kl: float = 0.01
     min_lr: float = 1e-5
     max_lr: float = 1e-2
@@ -155,7 +200,7 @@ class PPOConfig:
 
 
 @dataclass
-class A2CConfig:
+class A2CConfig(_Validated):
     lr: float = 7e-4
     n_steps: int = 5
     num_envs: int = 1
@@ -174,7 +219,7 @@ class A2CConfig:
 
 
 @dataclass
-class A3CConfig:
+class A3CConfig(_Validated):
     lr: float = 1e-4
     n_steps: int = 20
     gamma: float = 0.99
@@ -189,7 +234,7 @@ class A3CConfig:
 
 
 @dataclass
-class SACConfig:
+class SACConfig(_Validated):
     lr_actor: float = 3e-4
     lr_critic: float = 3e-4
     lr_alpha: float = 3e-4
@@ -200,15 +245,15 @@ class SACConfig:
     action_dim: int = 0  # required for automatic target entropy
     target_update_interval: int = 1
     learning_starts: int = 10_000
-    start_steps: int | None = None
+    start_steps: int | None = field(default=None, metadata=_ALIAS)  # -> learning_starts
     update_after: int | None = None
-    update_every: int | None = None
+    update_every: int | None = field(default=None, metadata=_ALIAS)  # -> train_freq
     train_freq: int = 1
     gradient_steps: int = 1
     alpha: float | None = None
     init_alpha: float = 0.2
     auto_entropy_tuning: bool = True
-    target_entropy: str | float = "auto"  # "auto" → -action_dim
+    target_entropy: Literal["auto"] | float = "auto"  # "auto" → -action_dim
     # Floor on the auto-tuned temperature (never applied when
     # auto_entropy_tuning=False -- alpha is fixed at `alpha` then anyway).
     # `log_alpha` is otherwise an unclamped free parameter: if the policy's
@@ -276,18 +321,20 @@ class SACConfig:
     # achieved/desired goals that only GoalEnvWrapper surfaces.
     use_her: bool = False
     her_ratio: float = 0.8
-    her_strategy: str = "future"  # "future" | "final" | "episode" | "random"
+    her_strategy: HerStrategy = "future"
     her_max_episode_len: int = 1000
     # Filled in by the CLI from the environment, not from YAML: HER needs the
     # goal split and the env's own sparse reward function to recompute rewards
     # for relabelled goals.
-    her_obs_dim: int = 0
-    her_goal_dim: int = 0
-    her_reward_fn: Callable | None = field(default=None, repr=False, compare=False)
+    her_obs_dim: int = field(default=0, metadata={"yaml": False})
+    her_goal_dim: int = field(default=0, metadata={"yaml": False})
+    her_reward_fn: Callable | None = field(
+        default=None, repr=False, compare=False, metadata={"yaml": False}
+    )
 
 
 @dataclass
-class DDPGConfig:
+class DDPGConfig(_Validated):
     lr_actor: float = 1e-4
     lr_critic: float = 1e-3
     buffer_size: int = 1_000_000
@@ -296,12 +343,12 @@ class DDPGConfig:
     tau: float = 0.005
     action_dim: int = 0  # required for OU noise
     learning_starts: int = 10_000
-    start_steps: int | None = None
+    start_steps: int | None = field(default=None, metadata=_ALIAS)  # -> learning_starts
     update_after: int | None = None
-    update_every: int | None = None
+    update_every: int | None = field(default=None, metadata=_ALIAS)  # -> train_freq
     train_freq: int = 1
     gradient_steps: int = 1
-    action_noise: str = "gaussian"  # "gaussian" | "ou"
+    action_noise: ActionNoise = "gaussian"
     noise_sigma: float = 0.1
     # Prioritized Experience Replay (CPU ReplayBuffer only; not with HER or
     # the GPU buffer). Critic loss is IS-weighted, priorities = |TD error|.
@@ -322,7 +369,7 @@ class DDPGConfig:
 
 
 @dataclass
-class TD3Config:
+class TD3Config(_Validated):
     lr_actor: float = 1e-4
     lr_critic: float = 1e-3
     buffer_size: int = 1_000_000
@@ -332,11 +379,14 @@ class TD3Config:
     action_dim: int = 0
     encoder_update_freq: int = 1
     learning_starts: int = 10_000
-    start_steps: int | None = None
+    start_steps: int | None = field(default=None, metadata=_ALIAS)  # -> learning_starts
     update_after: int | None = None
-    update_every: int | None = None
+    update_every: int | None = field(default=None, metadata=_ALIAS)  # -> train_freq
+    # TD3 had no train_freq field, so `train_freq:` in a TD3 YAML was silently
+    # dropped and the trainer fell back to updating every step.
+    train_freq: int = 1
     gradient_steps: int = 1
-    action_noise: str = "gaussian"
+    action_noise: ActionNoise = "gaussian"
     noise_sigma: float = 0.1
     policy_noise: float = 0.2
     noise_clip: float = 0.5
@@ -366,9 +416,11 @@ class TD3Config:
 @dataclass
 class VisualPPOConfig(PPOConfig):
     encoder_lr: float = 1e-4  # ~0.3× policy lr
-    aux_loss_type: str = "curl"  # "curl" | "ae" | "none"
+    # PPO's aux path only implements reconstruction ("ae"); the remaining
+    # values are accepted for symmetry with VisualSACConfig.
+    aux_loss_type: AuxLossType = "curl"
     aux_weight: float = 0.1
-    augmentation_mode: str = "curl"  # "drq" | "curl" | "aggressive"
+    augmentation_mode: AugmentationMode = "curl"
     latent_dim: int = 256
 
 
@@ -391,26 +443,24 @@ class VisualSACConfig(SACConfig):
     # "drq"     – augmented Q-consistency (DrQ-v2)
     # "spr"     – self-predictive latent forward model (SPR)
     # "barlow"  – Barlow Twins redundancy reduction
-    aux_loss_type: str = "curl"
+    aux_loss_type: AuxLossType = "curl"
     aux_weight: float = 0.1
-    augmentation_mode: str = "curl"  # "drq" | "curl" | "aggressive"
+    augmentation_mode: AugmentationMode = "curl"
     latent_dim: int = 256
     momentum_tau: float = 0.99  # momentum encoder EMA rate
 
 
 @dataclass
-class AsyncRunnerConfig:
-    """Optional async data-collection / training separation."""
+class AsyncRunnerConfig(_Validated):
+    """Optional async data-collection / training separation.
+
+    Read from the YAML ``train:`` block (``use_async`` / ``use_gpu_buffer``)
+    by :func:`srl.config.build_runner_config`. The former ``prefill_steps``
+    and ``queue_maxsize`` fields were never read by
+    :class:`~srl.runners.AsyncOffPolicyRunner` and have been removed: the
+    random-action warmup is the algorithm's ``learning_starts`` and the
+    runner has no collector/trainer queue.
+    """
 
     use_async: bool = False
     use_gpu_buffer: bool = False
-    # Number of transitions the collector pre-fills before starting updates.
-    prefill_steps: int = 0
-    # Internal queue depth between collector and trainer (async mode only).
-    queue_maxsize: int = 2
-
-
-@dataclass
-class RecurrentPPOConfig(PPOConfig):
-    lstm_hidden: int = 256
-    burn_in_steps: int = 32
