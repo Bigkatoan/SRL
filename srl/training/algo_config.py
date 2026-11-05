@@ -19,7 +19,7 @@ Nothing here exits the process: problems raise
 
 from __future__ import annotations
 
-import sys
+import warnings
 from collections.abc import Mapping
 from typing import Any
 
@@ -152,7 +152,7 @@ def _encoder_aux_types(raw_cfg: Any) -> tuple[list[tuple[str, str]], list[tuple[
 
 
 def _warn(message: str) -> None:
-    print(f"[srl-train] Warning: {message}", file=sys.stderr)
+    warnings.warn(message, UserWarning, stacklevel=3)
 
 
 def report_aux_config(algo_name: str, raw_cfg: Mapping[str, Any], algo_cfg: Any = None) -> None:

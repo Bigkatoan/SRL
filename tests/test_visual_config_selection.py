@@ -152,24 +152,21 @@ def test_explicit_aux_loss_type_in_train_block_is_not_overridden() -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def test_aux_type_with_algo_that_has_no_visual_variant_warns_and_stays_plain(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
+def test_aux_type_with_algo_that_has_no_visual_variant_warns_and_stays_plain() -> None:
     """DDPG/TD3 have no Visual config; the run stays valid but says so."""
     train_cfg, raw_cfg = _cfg(aux_type="autoencoder")
 
-    config_cls, extra = _resolve_algo_config_cls("ddpg", raw_cfg, train_cfg)
+    with pytest.warns(UserWarning) as record:
+        config_cls, extra = _resolve_algo_config_cls("ddpg", raw_cfg, train_cfg)
 
     assert config_cls is DDPGConfig
     assert extra == {}
-    err = capsys.readouterr().err
+    err = " ".join(str(w.message) for w in record)
     assert "no visual config variant" in err
     assert "visual_enc" in err
 
 
-def test_unrecognized_aux_type_warns_and_does_not_switch_config(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
+def test_unrecognized_aux_type_warns_and_does_not_switch_config() -> None:
     """A typo'd aux_type builds no head, so it must not select Visual*.
 
     Switching on it would hand PPO a head-only optimizer with no aux modules,
@@ -177,16 +174,13 @@ def test_unrecognized_aux_type_warns_and_does_not_switch_config(
     """
     train_cfg, raw_cfg = _cfg(aux_type="ae")  # not a registered head name
 
-    config_cls, _ = _resolve_algo_config_cls("ppo", raw_cfg, train_cfg)
+    with pytest.warns(UserWarning, match="not a known aux head"):
+        config_cls, _ = _resolve_algo_config_cls("ppo", raw_cfg, train_cfg)
 
     assert config_cls is PPOConfig
-    err = capsys.readouterr().err
-    assert "not a known aux head" in err
 
 
-def test_multiple_distinct_aux_types_warn_and_pick_the_first(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
+def test_multiple_distinct_aux_types_warn_and_pick_the_first() -> None:
     raw_cfg = {
         "encoders": [
             dict(_CNN_ENCODER, name="enc_a", aux_type="autoencoder"),
@@ -198,10 +192,10 @@ def test_multiple_distinct_aux_types_warn_and_pick_the_first(
     config_cls, extra = _resolve_algo_config_cls("ppo", raw_cfg["train"], {})
     assert config_cls is PPOConfig  # no encoders in the (empty) cfg passed above
 
-    config_cls, extra = _resolve_algo_config_cls("ppo", raw_cfg, raw_cfg["train"])
+    with pytest.warns(UserWarning, match="multiple encoder aux_types"):
+        config_cls, extra = _resolve_algo_config_cls("ppo", raw_cfg, raw_cfg["train"])
     assert config_cls is VisualPPOConfig
     assert extra["aux_loss_type"] == "ae"
-    assert "multiple encoder aux_types" in capsys.readouterr().err
 
 
 def test_missing_or_malformed_encoders_section_is_tolerated() -> None:

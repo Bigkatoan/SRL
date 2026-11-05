@@ -257,7 +257,8 @@ def build_algo_config(
         if owners:
             errors.append(
                 f"{path}.{key}: not a {algo_name.upper()} hyperparameter ({config_cls.__name__}); "
-                f"it belongs to {', '.join(o.upper() for o in owners)}"
+                f"it belongs to {', '.join(o.upper() for o in owners)}. Remove it from "
+                f"train: (or run with the algorithm it belongs to) to use {algo_name.upper()}"
             )
             continue
         valid = set(settable) | _non_algo_keys()

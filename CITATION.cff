@@ -9,6 +9,7 @@ type: software
 authors:
   - family-names: Tran
     given-names: Dang An
+    email: bigkatoan6969@gmail.com
 repository-code: "https://github.com/Bigkatoan/SRL"
 url: "https://bigkatoan.github.io/SRL"
 license: MIT

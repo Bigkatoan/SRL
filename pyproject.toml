@@ -13,7 +13,7 @@ readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
-authors = [{ name = "Tran Dang An", email = "bigkatoan@gmail.com" }]
+authors = [{ name = "Tran Dang An", email = "bigkatoan6969@gmail.com" }]
 keywords = ["reinforcement-learning", "deep-learning", "ppo", "sac", "ddpg", "gymnasium", "isaaclab", "ros2"]
 classifiers = [
     "Development Status :: 3 - Alpha",
