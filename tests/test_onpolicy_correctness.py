@@ -151,3 +151,38 @@ def test_ppo_value_loss_none_clip_is_plain_mse():
 
 def test_ppo_config_clip_range_vf_defaults_to_none():
     assert PPOConfig().clip_range_vf is None
+
+
+# ---------------------------------------------------------------------------
+# Bug 7: partial final rollout -> GAE / minibatches ran over empty slots
+# ---------------------------------------------------------------------------
+
+
+def test_rollout_buffer_partial_rollout_uses_only_filled_slots():
+    from srl.core.rollout_buffer import RolloutBuffer
+
+    gamma, lam = 0.9, 0.8
+    buf = RolloutBuffer(capacity=5, num_envs=1, gamma=gamma, lam=lam)
+    rewards = [1.0, 2.0]
+    values = [0.5, 0.25]
+    for r, v in zip(rewards, values, strict=True):
+        buf.add(
+            obs={"state": np.ones(OBS_DIM, dtype=np.float32)},
+            action=np.zeros(ACTION_DIM, dtype=np.float32),
+            reward=r,
+            done=False,
+            value=v,
+            log_prob=0.0,
+        )
+    last_value = 3.0
+    buf.compute_returns_and_advantages(last_value=last_value)
+
+    d1 = rewards[1] + gamma * last_value - values[1]
+    d0 = rewards[0] + gamma * values[1] - values[0]
+    a1 = d1
+    a0 = d0 + gamma * lam * a1
+    np.testing.assert_allclose(buf.advantages[:2, 0], [a0, a1], rtol=1e-6)
+
+    batches = list(buf.get_batches(batch_size=100))
+    assert sum(b.actions.shape[0] for b in batches) == 2
+    assert buf.get_batch().actions.shape[0] == 2

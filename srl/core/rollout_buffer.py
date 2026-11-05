@@ -141,6 +141,16 @@ class RolloutBuffer:
         if self._pos == 0:
             self._full = True
 
+    def _filled_steps(self) -> int:
+        """Number of time slots actually written in this rollout.
+
+        A final rollout can be shorter than ``n_steps`` (the training loop
+        truncates it to the remaining step budget); GAE and mini-batching must
+        then ignore the untouched zero slots instead of treating them as real
+        transitions.
+        """
+        return self.n_steps if self._full else self._pos
+
     def compute_returns_and_advantages(
         self,
         last_value=0.0,
@@ -198,18 +208,20 @@ class RolloutBuffer:
         lv_raw = last_values if last_values is not None else last_value
         lv = np.asarray(lv_raw, dtype=np.float32).reshape(self.n_envs)
 
+        filled = self._filled_steps()
+        self.advantages[:] = 0.0
         last_gae = np.zeros(self.n_envs, dtype=np.float32)
-        for t in reversed(range(self.n_steps)):
+        for t in reversed(range(filled)):
             # `self._dones[t]` is already "does the episode end between slot
             # t and slot t+1" -- correct for every t, including the last one
             # (see docstring above), so this one formula covers both the
             # general case and the old special-cased boundary.
             done_t = self._dones[t]
-            if t == self.n_steps - 1 and last_dones is not None:
+            if t == filled - 1 and last_dones is not None:
                 ld = np.asarray(last_dones, dtype=np.float32).reshape(self.n_envs)
                 done_t = np.maximum(done_t, ld)
             next_non_terminal = 1.0 - done_t
-            next_values = lv if t == self.n_steps - 1 else self._values[t + 1]
+            next_values = lv if t == filled - 1 else self._values[t + 1]
 
             delta = (
                 self._rewards[t] + self.gamma * next_values * next_non_terminal - self._values[t]
@@ -220,12 +232,13 @@ class RolloutBuffer:
         self.returns = self.advantages + self._values
 
     def get_batches(self, batch_size: int) -> Generator[RolloutBatch, None, None]:
-        """Yield shuffled mini-batches over the full buffer."""
-        total = self.n_steps * self.n_envs
+        """Yield shuffled mini-batches over the filled part of the buffer."""
+        filled = self._filled_steps()
+        total = filled * self.n_envs
         indices = np.random.permutation(total)
 
         def _flat(arr: np.ndarray) -> np.ndarray:
-            return arr.reshape(total, *arr.shape[2:])
+            return arr[:filled].reshape(total, *arr.shape[2:])
 
         obs_flat = {k: _flat(v) for k, v in self._obs.items()}
         actions_flat = _flat(self._actions)
@@ -255,11 +268,12 @@ class RolloutBuffer:
             )
 
     def get_batch(self) -> RolloutBatch:
-        """Return the whole buffer as a single batch (no shuffling)."""
-        total = self.n_steps * self.n_envs
+        """Return the filled part of the buffer as a single batch (no shuffling)."""
+        filled = self._filled_steps()
+        total = filled * self.n_envs
 
         def _flat(arr):
-            return arr.reshape(total, *arr.shape[2:])
+            return arr[:filled].reshape(total, *arr.shape[2:])
 
         dev = self.device
 
