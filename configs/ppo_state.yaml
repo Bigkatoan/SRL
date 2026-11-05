@@ -1,5 +1,7 @@
 # PPO on a low-dimensional state-based environment (e.g. HalfCheetah-v4)
 
+algo: ppo
+
 encoders:
   - name: state_enc
     type: mlp

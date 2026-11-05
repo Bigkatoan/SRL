@@ -1,5 +1,7 @@
 # PPO on a visual environment — CNN encoder with autoencoder auxiliary loss
 
+algo: ppo
+
 encoders:
   - name: visual_enc
     type: cnn

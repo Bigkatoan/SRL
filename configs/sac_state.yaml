@@ -1,6 +1,8 @@
 # SAC on a continuous-control task (e.g. Ant-v4)
 # Separate encoder paths for actor and critic (standard SAC setup)
 
+algo: sac
+
 encoders:
   - name: state_enc
     type: mlp
