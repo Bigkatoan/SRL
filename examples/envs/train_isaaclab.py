@@ -47,32 +47,56 @@ from srl.utils.logger import Logger
 ENV_CFGS = {
     "Isaac-Cartpole-v0": dict(
         yaml="configs/envs/isaaclab_cartpole_ppo.yaml",
-        obs_dim=4, action_dim=1,
+        obs_dim=4,
+        action_dim=1,
         total_steps=500_000,
-        n_envs=512,     n_steps=16,  batch_size=8192,
-        n_epochs=5,     lr=5e-4,     gamma=0.99,
-        gae_lambda=0.95, clip_range=0.2,
-        entropy_coef=0.01, vf_coef=1.0, max_grad_norm=1.0,
+        n_envs=512,
+        n_steps=16,
+        batch_size=8192,
+        n_epochs=5,
+        lr=5e-4,
+        gamma=0.99,
+        gae_lambda=0.95,
+        clip_range=0.2,
+        entropy_coef=0.01,
+        vf_coef=1.0,
+        max_grad_norm=1.0,
         target="ep_reward > 400",
     ),
     "Isaac-Ant-v0": dict(
         yaml="configs/envs/isaaclab_ant_ppo.yaml",
-        obs_dim=60, action_dim=8,
+        obs_dim=60,
+        action_dim=8,
         total_steps=5_000_000,
-        n_envs=4096,    n_steps=32,  batch_size=16384,
-        n_epochs=5,     lr=5e-4,     gamma=0.99,
-        gae_lambda=0.95, clip_range=0.2,
-        entropy_coef=0.005, vf_coef=1.0, max_grad_norm=1.0,
+        n_envs=4096,
+        n_steps=32,
+        batch_size=16384,
+        n_epochs=5,
+        lr=5e-4,
+        gamma=0.99,
+        gae_lambda=0.95,
+        clip_range=0.2,
+        entropy_coef=0.005,
+        vf_coef=1.0,
+        max_grad_norm=1.0,
         target="ep_reward > 5000",
     ),
     "Isaac-Humanoid-v0": dict(
         yaml="configs/envs/isaaclab_humanoid_ppo.yaml",
-        obs_dim=87, action_dim=21,
+        obs_dim=87,
+        action_dim=21,
         total_steps=10_000_000,
-        n_envs=4096,    n_steps=32,  batch_size=16384,
-        n_epochs=5,     lr=5e-4,     gamma=0.99,
-        gae_lambda=0.95, clip_range=0.2,
-        entropy_coef=0.0, vf_coef=1.0, max_grad_norm=1.0,
+        n_envs=4096,
+        n_steps=32,
+        batch_size=16384,
+        n_epochs=5,
+        lr=5e-4,
+        gamma=0.99,
+        gae_lambda=0.95,
+        clip_range=0.2,
+        entropy_coef=0.0,
+        vf_coef=1.0,
+        max_grad_norm=1.0,
         target="ep_reward > 5000",
     ),
 }
@@ -93,7 +117,7 @@ def train(env_id: str, n_envs: int | None, device: str, headless: bool, seed: in
     # Isaac Lab env creation
     try:
         import isaaclab_tasks  # noqa: F401 — trigger task registration
-        from omni.isaac.lab_tasks.utils import parse_env_cfg
+
         env_kwargs: dict = {"num_envs": n_envs}
         if headless:
             env_kwargs["headless"] = True
@@ -104,32 +128,32 @@ def train(env_id: str, n_envs: int | None, device: str, headless: bool, seed: in
             "Activate the IsaacLab environment before running this script."
         ) from e
 
-    model   = ModelBuilder.from_yaml(cfg_dict["yaml"])
+    model = ModelBuilder.from_yaml(cfg_dict["yaml"])
     ppo_cfg = PPOConfig(
-        n_steps      = cfg_dict["n_steps"],
-        num_envs     = n_envs,
-        batch_size   = cfg_dict["batch_size"],
-        n_epochs     = cfg_dict["n_epochs"],
-        gamma        = cfg_dict["gamma"],
-        gae_lambda   = cfg_dict["gae_lambda"],
-        clip_range   = cfg_dict["clip_range"],
-        lr           = cfg_dict["lr"],
-        entropy_coef = cfg_dict["entropy_coef"],
-        vf_coef      = cfg_dict["vf_coef"],
-        max_grad_norm= cfg_dict["max_grad_norm"],
+        n_steps=cfg_dict["n_steps"],
+        num_envs=n_envs,
+        batch_size=cfg_dict["batch_size"],
+        n_epochs=cfg_dict["n_epochs"],
+        gamma=cfg_dict["gamma"],
+        gae_lambda=cfg_dict["gae_lambda"],
+        clip_range=cfg_dict["clip_range"],
+        lr=cfg_dict["lr"],
+        entropy_coef=cfg_dict["entropy_coef"],
+        vf_coef=cfg_dict["vf_coef"],
+        max_grad_norm=cfg_dict["max_grad_norm"],
     )
 
-    agent  = PPO(model, config=ppo_cfg, device=device)
-    tag    = env_id.lower().replace("-", "_")
+    agent = PPO(model, config=ppo_cfg, device=device)
+    tag = env_id.lower().replace("-", "_")
     logger = Logger(f"runs/ppo_{tag}")
-    cm     = CheckpointManager(f"checkpoints/ppo_{tag}")
+    cm = CheckpointManager(f"checkpoints/ppo_{tag}")
     callbacks = [
         LogCallback(logger, log_interval=ppo_cfg.n_steps * n_envs),
         CheckpointCallback(cm, save_interval=500_000),
     ]
 
     obs, _ = raw_env.reset(seed=seed)
-    step   = 0
+    step = 0
 
     while step < cfg_dict["total_steps"]:
         for _ in range(ppo_cfg.n_steps):
@@ -138,12 +162,15 @@ def train(env_id: str, n_envs: int | None, device: str, headless: bool, seed: in
             next_obs, reward, done, truncated, info = raw_env.step(action.cpu().numpy())
 
             agent.buffer.add(
-                obs=obs, action=action.cpu().numpy(),
-                reward=reward, done=done, truncated=truncated,
+                obs=obs,
+                action=action.cpu().numpy(),
+                reward=reward,
+                done=done,
+                truncated=truncated,
                 log_prob=log_prob.cpu().numpy() if log_prob is not None else None,
-                value=value.cpu().numpy()       if value   is not None else None,
+                value=value.cpu().numpy() if value is not None else None,
             )
-            obs   = next_obs
+            obs = next_obs
             step += n_envs
 
         last_obs_t = {k: torch.from_numpy(v).float().to(device) for k, v in obs.items()}
@@ -168,13 +195,17 @@ def train(env_id: str, n_envs: int | None, device: str, headless: bool, seed: in
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train PPO on Isaac Lab environments.")
-    parser.add_argument("--env",      default="Isaac-Cartpole-v0",
-                        choices=list(ENV_CFGS))
-    parser.add_argument("--n-envs",   type=int, default=None,
-                        help="Override number of parallel envs (default: per-env config)")
-    parser.add_argument("--device",   default="cuda" if torch.cuda.is_available() else "cpu")
-    parser.add_argument("--headless", action="store_true",
-                        help="Run IsaacSim in headless mode (no GUI)")
-    parser.add_argument("--seed",     type=int, default=0)
+    parser.add_argument("--env", default="Isaac-Cartpole-v0", choices=list(ENV_CFGS))
+    parser.add_argument(
+        "--n-envs",
+        type=int,
+        default=None,
+        help="Override number of parallel envs (default: per-env config)",
+    )
+    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument(
+        "--headless", action="store_true", help="Run IsaacSim in headless mode (no GUI)"
+    )
+    parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
     train(args.env, args.n_envs, args.device, args.headless, args.seed)

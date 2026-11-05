@@ -1,0 +1,63 @@
+name: Bug report
+description: Something in SRL crashes, gives wrong results, or doesn't match the docs.
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please search
+        [existing issues](https://github.com/Bigkatoan/SRL/issues) first.
+        For security problems, follow SECURITY.md instead.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: |
+        The exact command (e.g. `srl-train --config ... --steps ...`) or a minimal
+        Python snippet, plus the YAML config if it isn't one shipped in `configs/`.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error output / logs
+      description: Full traceback or relevant terminal output.
+      render: text
+  - type: dropdown
+    id: algo
+    attributes:
+      label: Algorithm
+      multiple: true
+      options: [PPO, SAC, DDPG, TD3, A2C, A3C, "Not algorithm-specific"]
+  - type: dropdown
+    id: env
+    attributes:
+      label: Environment backend
+      multiple: true
+      options:
+        - Gymnasium classic / Box2D
+        - MuJoCo
+        - Fetch robotics (gymnasium-robotics)
+        - Isaac Lab
+        - mjlab
+        - racecar_gym
+        - ROS 2
+        - Other / not env-specific
+  - type: textarea
+    id: versions
+    attributes:
+      label: Environment
+      description: Output of the command below.
+      value: |
+        <!-- python -c "import srl, torch, gymnasium, sys, platform; print('srl', srl.__version__, '| torch', torch.__version__, '| cuda', torch.cuda.is_available(), '| gymnasium', gymnasium.__version__, '| python', sys.version.split()[0], '|', platform.platform())" -->
+      render: text
+    validations:
+      required: true

@@ -1,0 +1,39 @@
+# Install once:  pip install -e ".[lint]" && pre-commit install
+# Run manually:  pre-commit run --all-files
+#
+# Hook versions must match the pins in pyproject.toml's `lint` extra and
+# .github/workflows/lint.yml.
+exclude: ^(docs/_build/|matrix_runs/|runs/|checkpoints/)
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: check-merge-conflict
+      - id: check-toml
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.2
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^(srl|tests|examples|templates)/
+      # Manual-only for now: CI still enforces black, and the two disagree
+      # on ~16 files (see CONTRIBUTING.md, "Formatting"). Preview with
+      #   pre-commit run ruff-format --hook-stage manual --all-files
+      # When the migration lands, drop `stages` here and the black hook below.
+      - id: ruff-format
+        files: ^(srl|tests|examples|templates)/
+        stages: [manual]
+
+  - repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 26.5.1
+    hooks:
+      - id: black
+        files: ^(srl|tests|examples|templates)/

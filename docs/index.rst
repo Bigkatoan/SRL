@@ -36,32 +36,42 @@ declared as data rather than hand-wired Python.
 Five-minute example
 --------------------
 
+Training is driven by the ``srl-train`` CLI; the Python side loads the
+resulting checkpoint for inference. Run from a clone of the repository so the
+``configs/`` directory is available:
+
+.. code-block:: bash
+
+   srl-train --config configs/envs/pendulum_ppo.yaml --steps 100000 --device auto
+
 .. code-block:: python
 
    import gymnasium as gym
    import torch
+
    from srl.algorithms.ppo import PPO
-   from srl.core.config import PPOConfig
    from srl.envs.gymnasium_wrapper import GymnasiumWrapper
-   from srl.envs.sync_vector_env import SyncVectorEnv
    from srl.registry.builder import ModelBuilder
+   from srl.utils.checkpoint import CheckpointManager
+
+   device = "cuda" if torch.cuda.is_available() else "cpu"
 
    model = ModelBuilder.from_yaml("configs/envs/pendulum_ppo.yaml")
-   env   = SyncVectorEnv([lambda: GymnasiumWrapper(gym.make("Pendulum-v1"))] * 4)
-   agent = PPO(model, PPOConfig(n_steps=512, num_envs=4), device="cuda")
+   agent = PPO(model, device=device)
+   cm = CheckpointManager("checkpoints/ppo_pendulum_ppo")
+   cm.load(agent.model, sorted(cm.save_dir.glob("final_*.pt"))[-1], device=device)
 
-   obs, _ = env.reset()
-   for _ in range(200_000 // 512):
-       for _ in range(512):
-           obs_t  = {k: torch.from_numpy(v).float().cuda() for k, v in obs.items()}
-           action, log_prob, value, _ = agent.predict(obs_t)
-           obs, reward, done, trunc, _ = env.step(action.cpu().numpy())
-           agent.buffer.add(obs=obs, action=action.cpu().numpy(),
-                            reward=reward, done=done, truncated=trunc,
-                            log_prob=log_prob.cpu().numpy(),
-                            value=value.cpu().numpy())
-       agent.buffer.compute_returns_and_advantages()
-       agent.update()
+   env = GymnasiumWrapper(gym.make("Pendulum-v1"))
+   obs, _ = env.reset(seed=0)
+   done, episode_return = False, 0.0
+   while not done:
+       obs_t = {k: torch.as_tensor(v, dtype=torch.float32, device=device).unsqueeze(0)
+                for k, v in obs.items()}
+       action, *_ = agent.predict(obs_t, deterministic=True)
+       obs, reward, terminated, truncated, _ = env.step(action.squeeze(0).cpu().numpy())
+       episode_return += float(reward)
+       done = terminated or truncated
+   print(f"episode return: {episode_return:.1f}")
 
 If you want to understand SRL properly, start from the YAML layer rather than the
 algorithm pages: :doc:`source/yaml_core` explains the declarative model graph and

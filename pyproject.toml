@@ -1,25 +1,30 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+# setuptools>=77: PEP 639 `license = "<SPDX>"` + `license-files`.
+# setuptools-scm: the version is derived from the latest `v*` git tag (see
+# RELEASING.md) and written to srl/_version.py at build time.
+requires = ["setuptools>=77", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "srl-rl"
-version = "0.2.0"
+dynamic = ["version"]
 description = "Simple Reinforcement Learning Library — continuous action spaces, multi-modal, config-driven"
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 authors = [{ name = "Tran Dang An", email = "bigkatoan@gmail.com" }]
 keywords = ["reinforcement-learning", "deep-learning", "ppo", "sac", "ddpg", "gymnasium", "isaaclab", "ros2"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
 ]
 
 dependencies = [
@@ -41,37 +46,41 @@ Homepage      = "https://github.com/Bigkatoan/SRL"
 Documentation = "https://bigkatoan.github.io/SRL"
 Repository    = "https://github.com/Bigkatoan/SRL"
 Issues        = "https://github.com/Bigkatoan/SRL/issues"
-Changelog     = "https://github.com/Bigkatoan/SRL/releases"
+Changelog     = "https://github.com/Bigkatoan/SRL/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 mujoco = ["gymnasium[mujoco]>=0.29.0", "mujoco>=3.0.0"]
 box2d = ["box2d>=2.3.10", "pygame>=2.5.0"]
 robotics = ["gymnasium-robotics>=1.2.0"]
+# racecar_gym itself is not on PyPI, and PyPI rejects direct-URL (`pkg @
+# git+...`) dependencies in published metadata, so it cannot be declared
+# here. Install it manually -- see docs/source/installation.md:
+#   pip install "racecar_gym @ git+https://github.com/axelbr/racecar_gym.git"
 racecar = [
-    "racecar-gym @ git+https://github.com/axelbr/racecar_gym.git ; python_version < '3.11'",
     "yamldataclassconfig==1.5.0 ; python_version < '3.11'",
     "pybullet>=3.2.5",
 ]
-all = [
-    "gymnasium[mujoco]>=0.29.0",
-    "mujoco>=3.0.0",
-    "box2d>=2.3.10",
-    "pygame>=2.5.0",
-    "gymnasium-robotics>=1.2.0",
-    "pybullet>=3.2.5",
-]
-dev = [
+all = ["srl-rl[mujoco,box2d,robotics]", "pybullet>=3.2.5"]
+
+# ── development extras ────────────────────────────────────────────────────
+test = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
+    "pytest-timeout>=2.2.0",
+]
+lint = [
     # Pinned exactly (not >=): both tools' default/inferred rule sets have
     # changed across releases in ways that silently changed what CI enforces
     # (see [tool.ruff.lint] select below for the same reasoning applied to
     # ruff's rule selection). Bump deliberately, not as a side effect of a
-    # routine `pip install -U`.
+    # routine `pip install -U`. Keep in sync with .pre-commit-config.yaml.
     "black==26.5.1",
     "ruff==0.16.2",
     "mypy>=1.8.0",
-    # Docs: Sphinx + sphinx-book-theme (matches mjlab's doc setup), with MyST
+    "pre-commit>=3.5.0",
+]
+docs = [
+    # Sphinx + sphinx-book-theme (matches mjlab's doc setup), with MyST
     # so existing docs stay Markdown instead of a full RST rewrite.
     "sphinx>=7.2.0",
     "sphinx-book-theme>=1.1.0",
@@ -80,6 +89,11 @@ dev = [
     "sphinx-design>=0.5.0",
     "sphinx-tabs>=3.4.0",
 ]
+# Experiment tracking backends. TensorBoard is a core dependency; Weights &
+# Biases is optional (no built-in SRL logger integration yet -- reserved for
+# the upcoming tracking backend work).
+tracking = ["wandb>=0.16.0"]
+dev = ["srl-rl[test,lint,docs,tracking]"]
 
 [project.scripts]
 srl-train = "srl.cli.train:main"
@@ -92,9 +106,19 @@ include = ["srl*"]
 
 [tool.setuptools.package-data]
 "srl" = ["py.typed"]
+# NOTE: configs/ is intentionally not shipped as package data yet (Phase 2):
+# it lives at the repo root and every example references it by relative path.
+
+[tool.setuptools_scm]
+version_file = "srl/_version.py"
+# Used when building from a source tree without git metadata (e.g. a GitHub
+# "Download ZIP" archive). Wheels/sdists built from a tag never hit this.
+fallback_version = "0.0.0+unknown"
 
 [tool.ruff]
 line-length = 100
+target-version = "py310"
+extend-exclude = ["srl/_version.py"]
 
 [tool.ruff.lint]
 # Explicit select so the enforced rule set is pinned by this file, not by
@@ -108,8 +132,22 @@ line-length = 100
 # mechanical fix.
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.per-file-ignores]
+# Example scripts insert the repo root into sys.path (and register optional
+# envs) before importing srl, so module-level imports can't all be at the top.
+"examples/**" = ["E402"]
+
+[tool.ruff.format]
+# Formatting is still enforced with black in CI (`black --check`); ruff
+# format is configured to match so the planned migration (see
+# CONTRIBUTING.md, "Formatting") is a no-op on style options.
+quote-style = "double"
+indent-style = "space"
+
 [tool.black]
 line-length = 100
+target-version = ["py310"]
+extend-exclude = "srl/_version.py"
 
 [tool.mypy]
 python_version = "3.10"
@@ -121,3 +159,26 @@ exclude = ["build", "matrix_runs"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+# Per-test wall-clock limit (needs pytest-timeout, in the `test` extra).
+timeout = 300
+markers = [
+    "slow: long-running learning tests; deselect with -m 'not slow'",
+    "gpu: requires a CUDA-capable GPU; skipped automatically without one",
+    "integration: requires an external simulator or optional runtime",
+]
+
+[tool.coverage.run]
+source = ["srl"]
+omit = ["srl/_version.py"]
+
+[tool.coverage.report]
+# Current line coverage of the non-slow suite is ~68%; ratchet up over time.
+fail_under = 65
+show_missing = true
+skip_covered = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

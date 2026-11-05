@@ -271,6 +271,37 @@ The format follows Keep a Changelog and the project uses Semantic Versioning as 
   `IsaacLabWrapper` now also exposes `single_act_space` (falling back to `act_space`
   for envs that don't distinguish the two) for exactly this per-env sampling case.
 
+### Infrastructure
+- **Packaging:** PEP 639 `license = "MIT"` + `license-files` (setuptools>=77);
+  version is now derived from git tags by setuptools-scm (`srl/_version.py`,
+  `srl.__version__` still works); removed the `racecar-gym` direct-URL
+  dependency that PyPI rejects (install it manually, see installation docs);
+  added Python 3.13 and `Typing :: Typed` classifiers; dev extras split into
+  `test`, `lint`, `docs`, `tracking` (`dev` = all of them).
+- **CI (`test.yml`):** CPU-only torch wheels, uv with caching, read-only
+  token permissions, concurrency cancellation, Python 3.10–3.13 on Ubuntu plus
+  macOS/Windows smoke jobs, coverage upload to Codecov (`fail_under = 65`).
+  New nightly / `run-slow`-label `learning` job runs `pytest -m slow`.
+- **Lint:** ruff + black now also cover `examples/` and `templates/`; added a
+  non-blocking mypy job (baseline ~281 errors). `ruff format` is configured
+  but black stays the enforced formatter until the migration PR.
+- **Docs:** built with `-W --keep-going` on every PR; deployed through GitHub
+  Pages actions without publishing `.doctrees`. Fixed the broken
+  `--save-best` anchor, the `.cuda()`-only index example and the non-existent
+  `CheckpointManager.load(step=...)` call in the quickstart.
+- **Releases:** tag-driven `release.yml` (build, `twine check --strict`,
+  TestPyPI → PyPI via trusted publishing, GitHub Release); see `RELEASING.md`.
+- **Tests:** `tests/conftest.py` registers `slow`/`gpu`/`integration`
+  markers (`--strict-markers`, 300 s per-test timeout);
+  `tests/test_configs_parse.py` builds every shipped config and checks it
+  against its env; `tests/test_learning.py` adds slow end-to-end learning
+  gates (SAC/PPO Pendulum, SAC+HER FetchReach).
+- **Community:** `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`,
+  `CITATION.cff`, issue forms, PR template, pre-commit config and Dependabot.
+- **Scripts:** removed the stale root `run_full_matrix_benchmark.sh` wrapper
+  and `scripts/run_deep_env_tests.sh` (ran deleted tests); the matrix
+  benchmark script no longer hard-codes a dev-machine venv path.
+
 ## [0.2.0] - 2026-04-12
 
 ### Added

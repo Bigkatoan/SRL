@@ -72,6 +72,7 @@ ENV_CFGS = {
 def make_vec_env(env_id: str, n_envs: int):
     def _make():
         return GymnasiumWrapper(gym.make(env_id))
+
     return SyncVectorEnv([_make for _ in range(n_envs)])
 
 
@@ -87,33 +88,33 @@ def train(env_id: str, device: str, seed: int = 0):
     model = ModelBuilder.from_yaml(cfg_dict["yaml"])
 
     cfg = PPOConfig(
-        n_steps      = cfg_dict["n_steps"],
-        num_envs     = cfg_dict["n_envs"],
-        batch_size   = cfg_dict["batch_size"],
-        n_epochs     = cfg_dict["n_epochs"],
-        gamma        = cfg_dict["gamma"],
-        gae_lambda   = cfg_dict["gae_lambda"],
-        clip_range   = cfg_dict["clip_range"],
-        lr           = cfg_dict["lr"],
-        entropy_coef = cfg_dict["entropy_coef"],
-        vf_coef      = cfg_dict["vf_coef"],
-        max_grad_norm= cfg_dict["max_grad_norm"],
+        n_steps=cfg_dict["n_steps"],
+        num_envs=cfg_dict["n_envs"],
+        batch_size=cfg_dict["batch_size"],
+        n_epochs=cfg_dict["n_epochs"],
+        gamma=cfg_dict["gamma"],
+        gae_lambda=cfg_dict["gae_lambda"],
+        clip_range=cfg_dict["clip_range"],
+        lr=cfg_dict["lr"],
+        entropy_coef=cfg_dict["entropy_coef"],
+        vf_coef=cfg_dict["vf_coef"],
+        max_grad_norm=cfg_dict["max_grad_norm"],
     )
 
-    n_envs  = cfg_dict["n_envs"]
-    env     = make_vec_env(env_id, n_envs)
-    agent   = PPO(model, config=cfg, device=device)
+    n_envs = cfg_dict["n_envs"]
+    env = make_vec_env(env_id, n_envs)
+    agent = PPO(model, config=cfg, device=device)
 
-    tag     = env_id.lower().replace("-", "_").replace(".", "_")
-    logger  = Logger(log_dir=f"runs/ppo_{tag}")
-    cm      = CheckpointManager(f"checkpoints/ppo_{tag}")
+    tag = env_id.lower().replace("-", "_").replace(".", "_")
+    logger = Logger(log_dir=f"runs/ppo_{tag}")
+    cm = CheckpointManager(f"checkpoints/ppo_{tag}")
     callbacks = [
         LogCallback(logger, log_interval=cfg.n_steps * n_envs),
         CheckpointCallback(cm, save_interval=100_000),
     ]
 
-    obs, _  = env.reset(seed=seed)
-    step    = 0
+    obs, _ = env.reset(seed=seed)
+    step = 0
     ep_rewards: list[float] = []
 
     while step < cfg_dict["total_steps"]:
@@ -163,8 +164,7 @@ def train(env_id: str, device: str, seed: int = 0):
 
         if step % 50_000 == 0:
             mean_r = (
-                sum(ep_rewards[-10:]) / min(len(ep_rewards), 10)
-                if ep_rewards else float("nan")
+                sum(ep_rewards[-10:]) / min(len(ep_rewards), 10) if ep_rewards else float("nan")
             )
             print(f"  step={step:>10,}  ep_reward_mean={mean_r:+.1f}")
 
@@ -175,9 +175,9 @@ def train(env_id: str, device: str, seed: int = 0):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train PPO on classic control envs.")
-    parser.add_argument("--env", default="Pendulum-v1",
-                        choices=list(ENV_CFGS),
-                        help="Gymnasium env ID to train on.")
+    parser.add_argument(
+        "--env", default="Pendulum-v1", choices=list(ENV_CFGS), help="Gymnasium env ID to train on."
+    )
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()

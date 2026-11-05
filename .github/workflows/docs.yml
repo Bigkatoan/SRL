@@ -1,54 +1,78 @@
-name: Deploy Sphinx docs to GitHub Pages
+name: Docs
 
 on:
   push:
     branches:
       - main
+  pull_request:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Set up Python 3.11
+      - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
-      - name: Cache pip
-        uses: actions/cache@v4
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-docs-${{ hashFiles('pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-docs-
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
 
       - name: Install SRL and docs dependencies
+        # Real (not --no-deps) install: sphinx.ext.autodoc imports the actual
+        # modules, so torch/numpy/gymnasium etc. must be importable. Heavy
+        # optional simulator backends are mocked in docs/conf.py's
+        # autodoc_mock_imports instead of installed here.
         run: |
-          pip install --upgrade pip
-          # Real (not --no-deps) install: unlike the old mkdocstrings setup
-          # (which used griffe's static AST parsing, no import needed),
-          # sphinx.ext.autodoc imports the actual modules to introspect them
-          # -- torch/numpy/gymnasium etc. need to be genuinely importable.
-          # Heavy optional simulator backends (isaaclab, mjlab, mujoco,
-          # viser, racecar_gym, ...) are mocked in docs/conf.py's
-          # autodoc_mock_imports instead of installed here.
-          pip install -e ".[dev]"
+          uv pip install --system torch --index-url https://download.pytorch.org/whl/cpu
+          uv pip install --system -e ".[docs]"
 
-      - name: Build docs
-        run: |
-          python -m sphinx -b html docs docs/_build/html --keep-going
+      - name: Build docs (warnings are errors)
+        # Doctrees go outside the HTML output dir so they are not published.
+        run: >
+          python -m sphinx -b html -W --keep-going
+          -d docs/_build/doctrees docs docs/_build/html
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: docs/_build/html
+          path: docs/_build/html
+
+  deploy:
+    # Requires Settings -> Pages -> Source = "GitHub Actions".
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
