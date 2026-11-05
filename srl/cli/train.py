@@ -8,6 +8,7 @@ import os
 import sys
 from dataclasses import fields
 
+from srl.envs.vector_utils import get_final_obs
 from srl.utils.spaces import sample_action_space as _sample_action_space
 
 # `gymnasium_robotics.register_robotics_envs()` unconditionally re-registers
@@ -1652,9 +1653,9 @@ def _run_on_policy(
                 # IsaacLabWrapper's docstring), but is NOT what a value
                 # bootstrap at a truncation should use: for isaaclab/mjlab
                 # it's a different, freshly-reset episode's first frame.
-                # `info["true_final_obs"]` (populated by IsaacLabWrapper;
-                # for a single-env GymnasiumWrapper, `next_obs` IS already
-                # the true final obs since that wrapper never auto-resets)
+                # `get_final_obs` (info["final_obs"], populated by every SRL
+                # vector env; for a single-env GymnasiumWrapper, `next_obs`
+                # IS already the true final obs since it never auto-resets)
                 # is the real terminal state to bootstrap from. Only pay
                 # for the extra forward pass on steps where something
                 # actually timed out.
@@ -1663,9 +1664,7 @@ def _run_on_policy(
                 trunc_arr = np.asarray(trunc, dtype=bool)
                 timeout_mask = trunc_arr & ~done_arr
                 if timeout_mask.any():
-                    true_final_obs = (
-                        info.get("true_final_obs", next_obs) if isinstance(info, dict) else next_obs
-                    )
+                    true_final_obs = get_final_obs(next_obs, info)
                     tf_remapped = _remap_obs_to_encoders(
                         true_final_obs,
                         encoder_names,
@@ -2012,14 +2011,12 @@ def _run_off_policy(
                 # termination-only -- see `_split_vector_transition`'s own
                 # docstring -- so a truncated-but-not-terminated transition
                 # would otherwise bootstrap off an unrelated episode).
-                # `info["true_final_obs"]` (IsaacLabWrapper) is the correct
-                # one to store instead; for a single-env GymnasiumWrapper
-                # (never reached in the `vectorized_env` branch) or any env
-                # type without the fix, this key is simply absent and
-                # `next_obs` is used exactly as before.
-                store_next_obs = (
-                    info.get("true_final_obs", next_obs) if isinstance(info, dict) else next_obs
-                )
+                # The same holds for SyncVectorEnv/AsyncVectorEnv, which also
+                # auto-reset. `get_final_obs` splices every ended sub-env's
+                # true terminal observation (`info["final_obs"]`, see
+                # srl.envs.vector_utils) back in; it is a no-op when nothing
+                # ended or the env can't recover it.
+                store_next_obs = get_final_obs(next_obs, info)
                 transitions = _split_vector_transition(
                     obs,
                     store_next_obs,

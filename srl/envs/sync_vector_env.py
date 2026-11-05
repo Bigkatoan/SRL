@@ -7,6 +7,8 @@ from typing import Any
 
 import numpy as np
 
+from srl.envs.vector_utils import FINAL_OBS_KEY
+
 
 class SyncVectorEnv:
     """Run *n* copies of an environment sequentially in one process.
@@ -14,6 +16,11 @@ class SyncVectorEnv:
     Compatible with the SRL wrapper interface:
     ``reset() → (dict_obs, infos)``
     ``step(actions) → (dict_obs, rewards, dones, truncateds, infos)``
+
+    Sub-envs whose episode ends are reset automatically; the returned
+    observation holds the new episode's first frame for those slots, and the
+    TRUE terminal observation is kept in ``infos[i]["final_obs"]`` -- see
+    :mod:`srl.envs.vector_utils` (use ``get_final_obs`` to read it).
 
     Parameters
     ----------
@@ -26,6 +33,10 @@ class SyncVectorEnv:
         self.num_envs = len(self.envs)
         self.obs_space = self.envs[0].obs_space
         self.act_space = self.envs[0].act_space
+        # Per-env space (CPU vector envs never batch their spaces) -- same
+        # attribute IsaacLabWrapper exposes, so warmup samplers can treat
+        # every vector env uniformly.
+        self.single_act_space = self.act_space
 
     def reset(self, **kwargs) -> tuple[dict[str, np.ndarray], list[dict]]:
         obs_list, info_list = zip(
@@ -41,6 +52,8 @@ class SyncVectorEnv:
         for i, env in enumerate(self.envs):
             o, r, d, t, info = env.step(actions[i])
             if d or t:
+                info = dict(info) if isinstance(info, dict) else {}
+                info[FINAL_OBS_KEY] = o
                 o, _ = env.reset()
             obs_list.append(o)
             rews.append(r)
