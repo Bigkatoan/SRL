@@ -23,6 +23,7 @@ from collections.abc import Callable
 import torch
 import torch.nn as nn
 
+from srl.algorithms._onpolicy_common import OnPolicyActionMixin, select_action
 from srl.core.base_agent import BaseAgent
 from srl.core.config import A3CConfig
 from srl.losses.rl_losses import a2c_policy_loss, a2c_value_loss, entropy_loss
@@ -189,7 +190,7 @@ def _clone_model(src: nn.Module) -> nn.Module:
     return copy.deepcopy(src)
 
 
-class A3C(BaseAgent):
+class A3C(OnPolicyActionMixin, BaseAgent):
     """Launch N worker processes and train asynchronously."""
 
     def __init__(
@@ -297,18 +298,11 @@ class A3C(BaseAgent):
         self.model.eval()
         with torch.no_grad():
             result = self.model(obs, hidden_states=hidden)
-        actor_out = result["actor_out"]
-        if isinstance(actor_out, dict):
-            action = (
-                actor_out.get("mean", actor_out.get("action"))
-                if deterministic
-                else actor_out.get("action")
-            )
-            log_prob = actor_out.get("log_prob")
-        elif isinstance(actor_out, tuple):
-            action, log_prob = actor_out
-        else:
-            action, log_prob = actor_out, None
+        # Stochastic: raw sample (clip with self.clip_action() at env.step);
+        # deterministic: distribution mode clipped to the action bounds.
+        action, log_prob = select_action(result["actor_out"], deterministic)
+        if deterministic:
+            action = self.clip_action(action)
         return action, log_prob, result["value"], result["new_hidden"]
 
     def learn(self, total_timesteps: int) -> None:
@@ -328,6 +322,7 @@ class A3C(BaseAgent):
         return {
             "model_state": self.model.state_dict(),
             "algo_step": self._global_step,
+            "action_bounds": self._action_bounds_payload(),
         }
 
     def load_checkpoint_payload(self, payload: dict[str, object]) -> None:
@@ -335,3 +330,4 @@ class A3C(BaseAgent):
         if model_state is not None:
             self.model.load_state_dict(model_state)
         self._global_step = int(payload.get("algo_step", payload.get("step", 0)))
+        self._load_action_bounds_payload(payload.get("action_bounds"))

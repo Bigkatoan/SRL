@@ -9,6 +9,7 @@ from typing import Any
 import torch
 import torch.nn as nn
 
+from srl.algorithms._onpolicy_common import OnPolicyActionMixin, select_action
 from srl.core.base_agent import BaseAgent
 from srl.core.config import PPOConfig
 from srl.core.rollout_buffer import RolloutBuffer
@@ -23,7 +24,7 @@ from srl.utils.checkpoint import CheckpointManager
 from srl.utils.normalizer import RunningNormalizer
 
 
-class PPO(BaseAgent):
+class PPO(OnPolicyActionMixin, BaseAgent):
     """Proximal Policy Optimisation.
 
     Parameters
@@ -193,18 +194,12 @@ class PPO(BaseAgent):
             result = self.model(obs, hidden_states=hidden)
         actor_out = result["actor_out"]
 
-        # Actor out: dict from GaussianActorHead/SquashedGaussianActorHead,
-        # or (action, log_prob) tuple from older heads
-        if isinstance(actor_out, dict):
-            if deterministic:
-                action = actor_out.get("mean", actor_out.get("action"))
-            else:
-                action = actor_out.get("action")
-            log_prob = actor_out.get("log_prob")
-        elif isinstance(actor_out, tuple):
-            action, log_prob = actor_out
-        else:
-            action, log_prob = actor_out, None
+        # Stochastic: the raw (unclipped) sample -- callers store it for the
+        # log-prob and clip with self.clip_action() only at env.step().
+        # Deterministic: the distribution mode clipped to the action bounds.
+        action, log_prob = select_action(actor_out, deterministic)
+        if deterministic:
+            action = self.clip_action(action)
 
         value = result["value"]
         return action, log_prob, value, result["new_hidden"]
@@ -483,6 +478,7 @@ class PPO(BaseAgent):
                 else None
             ),
             "algo_step": self._global_step,
+            "action_bounds": self._action_bounds_payload(),
             # optimizer_state above already carries each param group's
             # resumed "lr" -- this is saved/restored separately anyway
             # because _current_lr is PPO's own bookkeeping of that same
@@ -520,6 +516,7 @@ class PPO(BaseAgent):
         if encoder_opt_state is not None and getattr(self, "encoder_optimizer", None) is not None:
             self.encoder_optimizer.load_state_dict(encoder_opt_state)
         self._global_step = int(payload.get("algo_step", payload.get("step", 0)))
+        self._load_action_bounds_payload(payload.get("action_bounds"))
         if "current_lr" in payload:
             self._current_lr = float(payload["current_lr"])
         log_entropy_coef = payload.get("log_entropy_coef")

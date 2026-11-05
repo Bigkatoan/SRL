@@ -1618,6 +1618,13 @@ def _run_on_policy(
 
     n_steps = agent.cfg.n_steps
     obs, _ = env.reset(seed=args.seed)
+    # Gaussian policies sample unbounded actions: clip them to the env's
+    # action bounds at env.step() only (the unclipped sample is what the
+    # buffer stores for the log-prob) -- SB3/CleanRL ClipAction semantics.
+    # Deterministic predict() clips to the same bounds itself.
+    if hasattr(agent, "set_action_bounds_from_env"):
+        agent.set_action_bounds_from_env(env)
+    clip_action = getattr(agent, "clip_action", None)
     step = start_step
     next_eval_step = _next_eval_step(start_step, int(getattr(args, "eval_freq", 0)))
     encoder_names = list(agent.model.encoders.keys())
@@ -1644,7 +1651,8 @@ def _run_on_policy(
                 obs_t = _obs_to_tensors(obs_remapped, agent.device, force_batch=False)
                 action, log_prob, value, _ = agent.predict(obs_t)
                 action_np = action.cpu().numpy()
-                next_obs, reward, done, trunc, info = env.step(action_np)
+                env_action = clip_action(action_np) if clip_action is not None else action_np
+                next_obs, reward, done, trunc, info = env.step(env_action)
                 logger.update_episodes(reward, done, trunc, step=step, info=info)
 
                 # Correct time-limit truncation handling. `next_obs` above

@@ -203,3 +203,144 @@ def test_state_dependent_std_flag_is_passed_through_builder():
     model = ModelBuilder.from_dict(_model_dict(state_dependent_std=True))
     assert model.actor.state_dependent_std is True
     assert model.actor.log_std_head is not None
+
+
+# ---------------------------------------------------------------------------
+# Shared fakes for the training-loop tests
+# ---------------------------------------------------------------------------
+
+
+class _Box:
+    def __init__(self, low, high):
+        self.low = np.asarray(low, dtype=np.float32)
+        self.high = np.asarray(high, dtype=np.float32)
+        self.shape = self.low.shape
+
+
+class _FakeSingleEnv:
+    """Plain (non-auto-resetting) single env, GymnasiumWrapper-style API.
+
+    Terminates after `episode_len` steps; stepping a finished episode
+    without reset() raises, like a real dead env should.
+    """
+
+    num_envs = 1
+
+    def __init__(self, episode_len: int = 3, low=-0.5, high=0.5):
+        self.episode_len = episode_len
+        self.act_space = _Box([low] * ACTION_DIM, [high] * ACTION_DIM)
+        self.obs_space = None
+        self.t = 0
+        self.resets = 0
+        self.dead = True
+        self.actions: list[np.ndarray] = []
+
+    def _obs(self):
+        return {"state": np.full(OBS_DIM, float(self.t), dtype=np.float32)}
+
+    def reset(self, **kwargs):
+        self.t = 0
+        self.resets += 1
+        self.dead = False
+        return self._obs(), {}
+
+    def step(self, action):
+        assert not self.dead, "stepped a finished episode without reset()"
+        self.actions.append(np.asarray(action).copy())
+        self.t += 1
+        done = self.t >= self.episode_len
+        self.dead = done
+        return self._obs(), 1.0, done, False, {}
+
+    def close(self):
+        pass
+
+
+class _FakeLogger:
+    def __init__(self):
+        self.episode_ends = 0
+
+    def update_episodes(self, reward, done, trunc, step=None, info=None):
+        self.episode_ends += int(np.any(np.asarray(done) | np.asarray(trunc)))
+
+    def set_step(self, step):
+        pass
+
+    def record_metrics(self, *a, **k):
+        pass
+
+
+def _loop_args(steps: int):
+    import argparse
+
+    return argparse.Namespace(steps=steps, seed=0, eval_freq=0)
+
+
+def _run_loop(agent, env, steps):
+    from srl.cli import train as train_module
+
+    logger = _FakeLogger()
+    train_module._run_on_policy(agent, env, _loop_args(steps), [], logger, device="cpu")
+    return logger
+
+
+# ---------------------------------------------------------------------------
+# Bug 3: deterministic actions were the raw (unbounded) Gaussian mean, and
+# stochastic samples reached env.step unclipped
+# ---------------------------------------------------------------------------
+
+
+def _agents_for_bounds():
+    from srl.algorithms.a3c import A3C
+    from srl.core.config import A3CConfig
+
+    torch.manual_seed(0)
+    yield PPO(ModelBuilder.from_dict(_model_dict()), config=PPOConfig(), device="cpu")
+    yield A2C(ModelBuilder.from_dict(_model_dict()), config=A2CConfig(), device="cpu")
+    yield A3C(ModelBuilder.from_dict(_model_dict()), config=A3CConfig(), device="cpu")
+
+
+@pytest.mark.parametrize("agent", list(_agents_for_bounds()), ids=["ppo", "a2c", "a3c"])
+def test_deterministic_action_is_clipped_to_bounds(agent):
+    # Push the Gaussian mean far outside the bounds.
+    with torch.no_grad():
+        agent.model.actor.mean_head.bias.fill_(50.0)
+    agent.set_action_bounds(np.full(ACTION_DIM, -0.5), np.full(ACTION_DIM, 0.25))
+    obs = {"state": torch.randn(4, OBS_DIM)}
+    action, *_ = agent.predict(obs, deterministic=True)
+    assert torch.all(action <= 0.25 + 1e-6) and torch.all(action >= -0.5 - 1e-6)
+    # Stochastic predict returns the raw sample (needed for the log-prob).
+    raw, *_ = agent.predict(obs, deterministic=False)
+    assert torch.any(raw > 0.25)
+
+
+def test_action_bounds_roundtrip_through_checkpoint():
+    agent = PPO(ModelBuilder.from_dict(_model_dict()), config=PPOConfig(), device="cpu")
+    agent.set_action_bounds(np.full(ACTION_DIM, -2.0), np.full(ACTION_DIM, 2.0))
+    payload = agent.checkpoint_payload()
+    fresh = PPO(ModelBuilder.from_dict(_model_dict()), config=PPOConfig(), device="cpu")
+    fresh.load_checkpoint_payload(payload)
+    low, high = fresh.action_bounds
+    assert torch.allclose(high, torch.full((ACTION_DIM,), 2.0))
+    assert torch.allclose(low, torch.full((ACTION_DIM,), -2.0))
+
+
+def test_on_policy_loop_clips_env_actions_but_stores_raw_actions():
+    torch.manual_seed(0)
+    model = ModelBuilder.from_dict(_model_dict())
+    with torch.no_grad():
+        model.actor.mean_head.bias.fill_(50.0)
+    agent = PPO(model, config=PPOConfig(n_steps=4, batch_size=4, n_epochs=1), device="cpu")
+    stored = []
+    orig_add = agent.buffer.add
+
+    def _spy_add(**kw):
+        stored.append(np.asarray(kw["action"]).copy())
+        return orig_add(**kw)
+
+    agent.buffer.add = _spy_add
+    env = _FakeSingleEnv(episode_len=100, low=-0.5, high=0.5)
+    _run_loop(agent, env, steps=4)
+    sent = np.stack(env.actions)
+    assert np.all(sent <= 0.5) and np.all(sent >= -0.5)
+    assert np.any(np.stack(stored) > 0.5)  # the unclipped sample was stored
