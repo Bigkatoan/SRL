@@ -6,11 +6,11 @@ Gradients are pushed to a shared model via ``apply_async``.
 
 Usage::
 
-    shared_model = ModelBuilder.from_yaml("configs/ant.yaml")
-    shared_model.share_memory()
+    agent = A3C.from_config("my_a3c.yaml", env=gym.make("Pendulum-v1"))
+    agent.learn(1_000_000)          # worker envs are rebuilt from the env's id
 
-    a3c = A3C(shared_model, config=A3CConfig(num_workers=4))
-    a3c.train(total_timesteps=1_000_000, env_fn=lambda: GymnasiumWrapper(gym.make("Ant-v4")))
+    # or with an explicit (picklable) worker env factory:
+    agent.learn(1_000_000, env_fn=functools.partial(srl.training.make_env, "Pendulum-v1"))
 """
 
 from __future__ import annotations
@@ -23,8 +23,7 @@ from collections.abc import Callable
 import torch
 import torch.nn as nn
 
-from srl.algorithms._onpolicy_common import OnPolicyActionMixin, select_action
-from srl.core.base_agent import BaseAgent
+from srl.core.base_agent import OnPolicyAgent
 from srl.core.config import A3CConfig
 from srl.losses.rl_losses import a2c_policy_loss, a2c_value_loss, entropy_loss
 
@@ -220,22 +219,122 @@ def _clone_model(src: nn.Module) -> nn.Module:
     return copy.deepcopy(src)
 
 
-class A3C(OnPolicyActionMixin, BaseAgent):
-    """Launch N worker processes and train asynchronously."""
+class A3C(OnPolicyAgent):
+    """Launch N worker processes and train asynchronously.
+
+    Each worker builds its own env from a picklable zero-arg factory
+    (``env_fn``); :meth:`learn` derives one from the bound env's Gymnasium id
+    when no ``env_fn`` is given.
+    """
+
+    algo_name = "a3c"
+    config_cls = A3CConfig
 
     def __init__(
         self,
         model: nn.Module,
         config: A3CConfig | None = None,
         device: str | torch.device = "cpu",
+        *,
+        env=None,
+        env_fn: Callable | None = None,
     ) -> None:
-        self.model = model
-        self.cfg = config or A3CConfig()
-        self._device = torch.device(device)
+        if torch.device(device).type != "cpu":
+            # Workers are CPU processes sharing the model's memory; the model
+            # has always stayed on the CPU (only the device label differed).
+            device = "cpu"
+        super().__init__(model, config, device, env=env)
         self.model.share_memory()
-        self._global_step = 0
-
+        self.env_fn = env_fn
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.cfg.lr)
+
+    def _fit_config_to_env(self, env) -> None:
+        # n_workers is the parallelism knob for A3C, not the env's num_envs.
+        return None
+
+    def learn(
+        self,
+        total_timesteps: int,
+        env=None,
+        eval_env=None,
+        callbacks=None,
+        log_dir: str | None = None,
+        progress: bool = False,
+        *,
+        env_fn: Callable | None = None,
+        eval_freq: int | None = None,
+        n_eval_episodes: int = 5,
+        seed: int | None = None,
+        reset_num_timesteps: bool = True,
+        logger=None,
+        evaluator=None,
+        log_interval: int = 1_000,
+        env_type: str | None = None,
+    ) -> A3C:
+        """Train with ``cfg.n_workers`` worker processes (delegates to :meth:`train`).
+
+        Same arguments as :meth:`OnPolicyAgent.learn`, plus *env_fn* (a
+        picklable zero-arg env factory for the workers). The workers report
+        to the logger; ``on_step``/``on_rollout_end``/``on_update`` callbacks
+        are not called (training happens in other processes), but
+        ``on_training_start``/``on_eval``/``on_training_end`` are, and
+        evaluation runs once at the end.
+        """
+        from srl.training.callbacks import CallbackList
+        from srl.training.envs import env_factory_for
+
+        if env is not None:
+            if callable(env) and not hasattr(env, "reset"):
+                env_fn, env = env, None
+            else:
+                self.set_env(env)
+        env_fn = env_fn or self.env_fn
+        if env_fn is None and self.env is not None:
+            env_fn = env_factory_for(self.env, env_type or self._env_type or "flat")
+        if env_fn is None:
+            raise ValueError(
+                "A3C.learn() needs a picklable env factory for its worker processes: pass "
+                "env_fn=... (or an env created with gym.make so its id can be reused)."
+            )
+        setup = self._build_learn_setup(
+            total_timesteps,
+            eval_env=eval_env,
+            callbacks=callbacks,
+            log_dir=log_dir,
+            progress=progress,
+            eval_freq=eval_freq,
+            n_eval_episodes=n_eval_episodes,
+            seed=seed,
+            logger=logger,
+            evaluator=evaluator,
+            reset_num_timesteps=reset_num_timesteps,
+        )
+        cbs = CallbackList(callbacks)
+        trainer = _A3CTrainerView(self, setup)
+        cbs.on_training_start(trainer)
+        try:
+            self.train(
+                total_timesteps=setup["total_steps"],
+                env_fn=env_fn,
+                logger=setup["logger"],
+                log_interval=log_interval,
+                seed=seed,
+                start_step=setup["start_step"],
+            )
+            trainer.step = self.num_timesteps
+            evaluator = setup["evaluator"]
+            if evaluator is not None:
+                try:
+                    metrics = evaluator.finalize(
+                        self, trainer.step, logger=setup["logger"], total_steps=trainer.total_steps
+                    )
+                    if metrics is not None:
+                        cbs.on_eval(trainer.step, metrics)
+                finally:
+                    evaluator.close()
+        finally:
+            cbs.on_training_end(trainer)
+        return self
 
     def train(
         self,
@@ -244,11 +343,13 @@ class A3C(OnPolicyActionMixin, BaseAgent):
         logger=None,
         log_interval: int = 1_000,
         seed: int | None = None,
+        start_step: int = 0,
     ) -> None:
+        """Run the workers until the shared step counter reaches *total_timesteps*."""
         if seed is not None:
             self.cfg.seed = int(seed)
         ctx = mp.get_context("spawn")
-        counter = ctx.Value("i", 0)
+        counter = ctx.Value("i", int(start_step))
         lock = ctx.Lock()
         stop_event = ctx.Event()
         stats_queue = ctx.Queue() if logger is not None else None
@@ -330,41 +431,29 @@ class A3C(OnPolicyActionMixin, BaseAgent):
                         prefix="a3c",
                     )
         self._global_step = counter.value
-
-    def predict(self, obs, hidden=None, deterministic=False):
-        self.model.eval()
-        with torch.no_grad():
-            result = self.model(obs, hidden_states=hidden)
-        # Stochastic: raw sample (clip with self.clip_action() at env.step);
-        # deterministic: distribution mode clipped to the action bounds.
-        action, log_prob = select_action(result["actor_out"], deterministic)
-        if deterministic:
-            action = self.clip_action(action)
-        return action, log_prob, result["value"], result["new_hidden"]
-
-    def learn(self, total_timesteps: int) -> None:
-        raise NotImplementedError("Use A3C.train(total_timesteps, env_fn=...)")
+        self.num_timesteps = int(counter.value)
 
     def update(self) -> dict[str, float]:
+        """No-op: A3C updates happen inside the worker processes."""
         return {}
 
-    def save(self, path: str) -> None:
-        torch.save(self.checkpoint_payload(), path)
+    def _algo_payload(self) -> dict[str, object]:
+        return self._base_payload()
 
-    def load(self, path: str) -> None:
-        ckpt = torch.load(path, map_location="cpu", weights_only=False)
-        self.load_checkpoint_payload(ckpt)
+    def _load_algo_payload(self, payload: dict[str, object]) -> None:
+        self._load_base_payload(payload)
 
-    def checkpoint_payload(self) -> dict[str, object]:
-        return {
-            "model_state": self.model.state_dict(),
-            "algo_step": self._global_step,
-            "action_bounds": self._action_bounds_payload(),
-        }
 
-    def load_checkpoint_payload(self, payload: dict[str, object]) -> None:
-        model_state = payload.get("model_state", payload.get("model"))
-        if model_state is not None:
-            self.model.load_state_dict(model_state)
-        self._global_step = int(payload.get("algo_step", payload.get("step", 0)))
-        self._load_action_bounds_payload(payload.get("action_bounds"))
+class _A3CTrainerView:
+    """Minimal trainer-shaped object handed to callbacks by :meth:`A3C.learn`."""
+
+    def __init__(self, agent: A3C, setup: dict) -> None:
+        self.agent = agent
+        self.env = agent.env
+        self.logger = setup["logger"]
+        self.total_steps = setup["total_steps"]
+        self.start_step = setup["start_step"]
+        self.step = setup["start_step"]
+        self.evaluator = setup["evaluator"]
+        self.env_type = agent._env_type
+        self.stop_training = False

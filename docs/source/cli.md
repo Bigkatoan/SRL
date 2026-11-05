@@ -52,10 +52,15 @@ srl-train --config configs/envs/pendulum_ppo.yaml \
 
 Important flag groups from [train.py](https://github.com/Bigkatoan/SRL/blob/main/srl/cli/train.py):
 
-- Core inputs: `--config`, `--env`, `--algo`, `--steps`, `--n-envs`, `--device`
+- Core inputs: `--config`, `--env`, `--algo`, `--steps`, `--n-envs`, `--device`.
+  The algorithm comes from `--algo` or the YAML's `algo:` key; a config with
+  neither is an error (exit code 2). Guessing it from the file name still works
+  for now but is deprecated and prints a warning.
 - Vectorization: `--vec-mode auto|sync|async`
 - Logging and artifacts: `--logdir`, `--ckptdir`, `--log-interval`, `--episode-window`, `--console-layout`, `--plot-metrics`, `--no-plots`
-- Checkpointing and resume: `--resume`
+- Checkpointing and resume: `--resume`; periodic checkpoints every
+  `train.save_interval` env steps (default 100 000), plus `final_*`/`best_*`.
+  Every checkpoint is loadable from Python with `Cls.load(path)`.
 - Pipeline export: `--save-model-pipeline`, `--save-training-pipeline`, `--export-pipeline-only`
 - Evaluation: `--eval-freq`, `--eval-episodes`, `--render`
 - Best-checkpoint tracking: `--save-best` / `--no-save-best`

@@ -17,11 +17,7 @@ from __future__ import annotations
 import pytest
 import torch
 
-from srl.cli.train import (
-    _build_algo_config,
-    _resolve_algo_config_cls,
-    _train_section,
-)
+from srl.cli.train import _train_section
 from srl.core.config import (
     DDPGConfig,
     PPOConfig,
@@ -29,6 +25,8 @@ from srl.core.config import (
     VisualPPOConfig,
     VisualSACConfig,
 )
+from srl.training.algo_config import build_algo_config as _build_algo_config
+from srl.training.algo_config import resolve_algo_config_cls as _resolve_algo_config_cls
 
 _CNN_ENCODER = {
     "name": "visual_enc",

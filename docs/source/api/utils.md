@@ -18,8 +18,6 @@
 
 ## Callbacks
 
-```{eval-rst}
-.. automodule:: srl.utils.callbacks
-   :members: LogCallback, CheckpointCallback
-   :show-inheritance:
-```
+The callbacks moved to {mod}`srl.training.callbacks` (see the
+[srl.training reference](training.md#callbacks)); `srl.utils.callbacks`
+re-exports them for backward compatibility.

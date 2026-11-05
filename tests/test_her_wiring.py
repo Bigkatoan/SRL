@@ -367,7 +367,7 @@ def test_sac_checkpoint_round_trip_with_her() -> None:
 
 
 def test_configure_her_from_env_fills_dims_and_reward_fn() -> None:
-    from srl.cli.train import _configure_her_from_env
+    from srl.training.algo_config import configure_her_from_env as _configure_her_from_env
 
     cfg = SACConfig(action_dim=ACTION_DIM, use_her=True)
     env = _make_goal_env()
@@ -380,7 +380,7 @@ def test_configure_her_from_env_fills_dims_and_reward_fn() -> None:
 
 
 def test_configure_her_from_env_is_noop_when_disabled() -> None:
-    from srl.cli.train import _configure_her_from_env
+    from srl.training.algo_config import configure_her_from_env as _configure_her_from_env
 
     cfg = SACConfig(action_dim=ACTION_DIM)
     _configure_her_from_env(cfg, _make_goal_env(), "goal")
@@ -389,17 +389,19 @@ def test_configure_her_from_env_is_noop_when_disabled() -> None:
 
 
 def test_configure_her_from_env_rejects_non_goal_env() -> None:
-    from srl.cli.train import _configure_her_from_env
+    from srl.training.algo_config import configure_her_from_env as _configure_her_from_env
 
     cfg = SACConfig(action_dim=ACTION_DIM, use_her=True)
-    with pytest.raises(SystemExit, match="env_type"):
+    from srl.training.algo_config import ConfigurationError
+
+    with pytest.raises(ConfigurationError, match="env_type"):
         _configure_her_from_env(cfg, _make_goal_env(), "flat")
 
 
 def test_her_goal_obs_parts_matches_wrapper_flat_layout() -> None:
     """The stored obs + the appended goal must reproduce the wrapper's flat
     observation exactly, or the sampled batch won't match the encoder."""
-    from srl.cli.train import _her_goal_obs_parts
+    from srl.training.algo_config import her_goal_obs_parts as _her_goal_obs_parts
 
     env = _make_goal_env()
     flat_obs, info = env.reset(seed=0)
@@ -411,7 +413,7 @@ def test_her_goal_obs_parts_matches_wrapper_flat_layout() -> None:
 
 
 class _StubLogger:
-    """Just enough Logger surface for _run_off_policy."""
+    """Just enough Logger surface for OffPolicyTrainer."""
 
     def __init__(self) -> None:
         self.metrics: list[dict] = []
@@ -429,7 +431,8 @@ class _StubLogger:
 def test_run_off_policy_collects_her_episodes_end_to_end() -> None:
     """The real CLI off-policy loop, against a goal env, with HER enabled:
     episodes must accumulate in the HER buffer and updates must actually run."""
-    from srl.cli.train import _configure_her_from_env, _run_off_policy
+    from srl.training.algo_config import configure_her_from_env as _configure_her_from_env
+    from srl.training.off_policy import OffPolicyTrainer
 
     env = _make_goal_env(episode_len=5)
     cfg = SACConfig(
@@ -455,7 +458,7 @@ def test_run_off_policy_collects_her_episodes_end_to_end() -> None:
         log_interval=1000,
     )
     logger = _StubLogger()
-    _run_off_policy(agent, env, args, [], logger, start_step=0, device="cpu")
+    OffPolicyTrainer(agent, env, total_steps=args.steps, seed=args.seed, logger=logger).run()
 
     # 60 steps of 5-step episodes, collected through add_transition().
     assert len(agent.buffer) == 12, f"expected 12 committed episodes, got {len(agent.buffer)}"
@@ -471,7 +474,7 @@ def test_run_off_policy_collects_her_episodes_end_to_end() -> None:
 
 def test_run_off_policy_without_her_still_uses_plain_buffer() -> None:
     """Guard against the HER branch capturing the non-HER path."""
-    from srl.cli.train import _run_off_policy
+    from srl.training.off_policy import OffPolicyTrainer
 
     env = _make_goal_env(episode_len=5)
     agent = _build_sac(
@@ -489,5 +492,5 @@ def test_run_off_policy_without_her_still_uses_plain_buffer() -> None:
     args = types.SimpleNamespace(
         seed=0, steps=30, env="FakeGoal-v0", env_type="goal", eval_freq=0, log_interval=1000
     )
-    _run_off_policy(agent, env, args, [], _StubLogger(), start_step=0, device="cpu")
+    OffPolicyTrainer(agent, env, total_steps=args.steps, seed=args.seed, logger=_StubLogger()).run()
     assert len(agent.buffer) == 30

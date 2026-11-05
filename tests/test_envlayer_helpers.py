@@ -135,23 +135,22 @@ def mlp_config(algo: str, obs_dim: int = 2, action_dim: int = 1, **train) -> dic
 
 def run_cli(monkeypatch, tmp_path, cfg: dict, extra=(), env_id="SRLCounter-v0", on_agent=None):
     from srl.cli import train as train_module
+    from srl.training.base import Trainer
 
     register_test_envs()
     captured = {}
-    for name in ("_run_off_policy", "_run_on_policy"):
-        # Always wrap the REAL loop (not a spy left by an earlier run_cli
-        # call in the same test), so hooks never stack across runs.
-        original = getattr(train_module, name)
-        original = getattr(original, "_srl_test_original", original)
+    # Always wrap the REAL Trainer.run (not a spy left by an earlier run_cli
+    # call in the same test), so hooks never stack across runs.
+    original = getattr(Trainer.run, "_srl_test_original", Trainer.run)
 
-        def _spy(agent, *a, _orig=original, **k):
-            captured["agent"] = agent
-            if on_agent is not None:
-                on_agent(agent)
-            return _orig(agent, *a, **k)
+    def _spy(self, _orig=original):
+        captured["agent"] = self.agent
+        if on_agent is not None:
+            on_agent(self.agent)
+        return _orig(self)
 
-        _spy._srl_test_original = original
-        monkeypatch.setattr(train_module, name, _spy)
+    _spy._srl_test_original = original
+    monkeypatch.setattr(Trainer, "run", _spy)
     tmp_path.mkdir(parents=True, exist_ok=True)
     path = tmp_path / "cfg.yaml"
     path.write_text(yaml.safe_dump(cfg))

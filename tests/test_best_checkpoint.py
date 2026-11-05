@@ -17,8 +17,9 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import torch.nn as nn
+from evaluator_compat import maybe_run_evaluation, patch_evaluate_agent
 
-import srl.cli.train as train_module
+from srl.training.evaluation import seed_best_tracker
 from srl.utils.checkpoint import BestCheckpointTracker, CheckpointManager
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -170,9 +171,7 @@ def test_best_checkpoint_tracks_true_peak_across_rise_then_decline(monkeypatch, 
         call_index["i"] += 1
         return {"eval/score_mean": score, "eval/score_max": score, "eval/episodes": 1.0}
 
-    monkeypatch.setattr(train_module, "_evaluate_agent", _fake_evaluate_agent)
-    monkeypatch.setattr(train_module, "_make_cli_env", lambda *a, **k: object())
-
+    patch_evaluate_agent(monkeypatch, _fake_evaluate_agent)
     eval_freq = 1_000_000
     total_steps = eval_freq * len(score_sequence)
     args = _fake_args(eval_freq=eval_freq, steps=total_steps)
@@ -186,7 +185,7 @@ def test_best_checkpoint_tracks_true_peak_across_rise_then_decline(monkeypatch, 
     last_eval_step = None
     for cycle in range(len(score_sequence)):
         step = eval_freq * (cycle + 1)
-        next_eval_step, eval_env, last_eval_step = train_module._maybe_run_evaluation(
+        next_eval_step, eval_env, last_eval_step = maybe_run_evaluation(
             agent,
             args,
             _FakeLogger(),
@@ -224,11 +223,9 @@ def test_save_best_disabled_by_default_never_saves(monkeypatch, tmp_path) -> Non
     def _fake_evaluate_agent(agent, eval_env, **kwargs):
         return {"eval/score_mean": 1.0, "eval/score_max": 1.0, "eval/episodes": 1.0}
 
-    monkeypatch.setattr(train_module, "_evaluate_agent", _fake_evaluate_agent)
-    monkeypatch.setattr(train_module, "_make_cli_env", lambda *a, **k: object())
-
+    patch_evaluate_agent(monkeypatch, _fake_evaluate_agent)
     args = _fake_args(eval_freq=1000, steps=1000, save_best=False)
-    next_eval_step, eval_env, last_eval_step = train_module._maybe_run_evaluation(
+    next_eval_step, eval_env, last_eval_step = maybe_run_evaluation(
         nn.Linear(2, 2),
         args,
         _FakeLogger(),
@@ -284,7 +281,7 @@ def test_seed_best_tracker_from_existing_checkpoint_on_disk(tmp_path) -> None:
     # Simulate a fresh process (a real --resume): a brand new tracker with no
     # in-memory history, seeded only from what's on disk.
     resumed_tracker = BestCheckpointTracker(mode="max")
-    train_module._seed_best_tracker(best_cm, resumed_tracker, device="cpu")
+    seed_best_tracker(best_cm, resumed_tracker, device="cpu")
 
     assert resumed_tracker.best_score == 1.6
     assert resumed_tracker.best_step == 4_000_000
@@ -300,5 +297,5 @@ def test_seed_best_tracker_from_existing_checkpoint_on_disk(tmp_path) -> None:
 def test_seed_best_tracker_noop_when_no_prior_checkpoint(tmp_path) -> None:
     best_cm = CheckpointManager(tmp_path, max_keep=1)
     tracker = BestCheckpointTracker(mode="max")
-    train_module._seed_best_tracker(best_cm, tracker, device="cpu")
+    seed_best_tracker(best_cm, tracker, device="cpu")
     assert tracker.best_score is None

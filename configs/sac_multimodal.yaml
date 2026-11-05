@@ -1,6 +1,8 @@
 # Multi-modal SAC: visual + state + text description
 # Contrastive self-supervised representation for the visual branch
 
+algo: sac
+
 encoders:
   - name: visual_enc
     type: cnn

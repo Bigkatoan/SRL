@@ -1,0 +1,67 @@
+# SAC on Pendulum-v1  (obs=3, act=1)
+# rl-baselines3-zoo Pendulum-v1 SAC hyperparameters. Eval return > -250 by
+# ~20k steps (random policy ~ -1200; ~-150 when solved). Also the config used
+# by the Python-API quickstart:
+#
+#   agent = SAC.from_config("configs/envs/pendulum_sac.yaml", env=gym.make("Pendulum-v1"))
+#   agent.learn(20_000)
+
+env_id: "Pendulum-v1"
+env_type: "flat"
+
+algo: sac
+
+encoders:
+  - name: actor_state_enc
+    type: mlp
+    input_dim: 3
+    latent_dim: 256
+    layers:
+      - {out_features: 256, activation: relu}
+      - {out_features: 256, activation: relu}
+  - name: critic_state_enc
+    type: mlp
+    input_dim: 3
+    latent_dim: 256
+    layers:
+      - {out_features: 256, activation: relu}
+      - {out_features: 256, activation: relu}
+
+flows:
+  - "actor_state_enc -> actor"
+  - "critic_state_enc -> critic"
+
+actor:
+  name: actor
+  type: squashed_gaussian
+  action_dim: 1
+  log_std_min: -5.0
+  log_std_max: 2.0
+  layers:
+    - {out_features: 256, activation: relu}
+
+critic:
+  name: critic
+  type: twin_q
+  action_dim: 1
+  layers:
+    - {out_features: 256, activation: relu}
+
+losses:
+  - {name: sac_q,           weight: 1.0}
+  - {name: sac_policy,      weight: 1.0}
+  - {name: sac_temperature, weight: 1.0}
+
+train:
+  total_steps: 20_000
+  n_envs: 1
+  lr_actor: 1e-3
+  lr_critic: 1e-3
+  lr_alpha: 1e-3
+  buffer_size: 200_000
+  batch_size: 256
+  gamma: 0.99
+  tau: 0.005
+  learning_starts: 1_000
+  eval_freq: 5_000
+  eval_episodes: 10

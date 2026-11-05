@@ -60,7 +60,7 @@ def _fill_buffer(agent, n_steps: int, num_envs: int, seed: int = 0) -> None:
     rng = np.random.default_rng(seed)
     for _ in range(n_steps):
         obs = {"state": rng.standard_normal((num_envs, OBS_DIM)).astype(np.float32)}
-        action, log_prob, value, _ = agent.predict({"state": torch.from_numpy(obs["state"])})
+        action, log_prob, value, _ = agent.act({"state": torch.from_numpy(obs["state"])})
         agent.buffer.add(
             obs=obs,
             action=action.numpy(),
@@ -268,17 +268,11 @@ class _FakeLogger:
         pass
 
 
-def _loop_args(steps: int):
-    import argparse
-
-    return argparse.Namespace(steps=steps, seed=0, eval_freq=0)
-
-
 def _run_loop(agent, env, steps):
-    from srl.cli import train as train_module
+    from srl.training.on_policy import OnPolicyTrainer
 
     logger = _FakeLogger()
-    train_module._run_on_policy(agent, env, _loop_args(steps), [], logger, device="cpu")
+    OnPolicyTrainer(agent, env, total_steps=steps, seed=0, logger=logger).run()
     return logger
 
 
@@ -305,10 +299,10 @@ def test_deterministic_action_is_clipped_to_bounds(agent):
         agent.model.actor.mean_head.bias.fill_(50.0)
     agent.set_action_bounds(np.full(ACTION_DIM, -0.5), np.full(ACTION_DIM, 0.25))
     obs = {"state": torch.randn(4, OBS_DIM)}
-    action, *_ = agent.predict(obs, deterministic=True)
+    action, *_ = agent.act(obs, deterministic=True)
     assert torch.all(action <= 0.25 + 1e-6) and torch.all(action >= -0.5 - 1e-6)
     # Stochastic predict returns the raw sample (needed for the log-prob).
-    raw, *_ = agent.predict(obs, deterministic=False)
+    raw, *_ = agent.act(obs, deterministic=False)
     assert torch.any(raw > 0.25)
 
 
@@ -428,7 +422,7 @@ def test_ppo_obs_normalization_in_loop_predict_and_checkpoint():
 
     # predict() applies the same transform to raw obs ...
     raw = {"state": torch.full((1, OBS_DIM), 110.0)}
-    a1, *_ = agent.predict(raw, deterministic=True)
+    a1, *_ = agent.act(raw, deterministic=True)
     agent_no_norm_view = agent.normalize_obs(raw)
     assert not torch.allclose(next(iter(agent_no_norm_view.values())), raw["state"])
 
@@ -439,7 +433,7 @@ def test_ppo_obs_normalization_in_loop_predict_and_checkpoint():
         device="cpu",
     )
     fresh.load_checkpoint_payload(agent.checkpoint_payload())
-    a2, *_ = fresh.predict(raw, deterministic=True)
+    a2, *_ = fresh.act(raw, deterministic=True)
     assert torch.allclose(a1, a2)
     assert fresh._ret_normalizer.count == pytest.approx(agent._ret_normalizer.count)
 

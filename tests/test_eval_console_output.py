@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import srl.cli.train as train_module
+from evaluator_compat import maybe_run_evaluation, patch_evaluate_agent
 
 
 class _FakeLogger:
@@ -34,10 +34,8 @@ def _fake_args(eval_freq: int) -> SimpleNamespace:
 
 
 def test_eval_line_includes_success_mean_for_goal_conditioned_tasks(monkeypatch, capsys) -> None:
-    monkeypatch.setattr(train_module, "_make_cli_env", lambda *a, **k: object())
-    monkeypatch.setattr(
-        train_module,
-        "_evaluate_agent",
+    patch_evaluate_agent(
+        monkeypatch,
         lambda *a, **k: {
             "eval/score_mean": -49.5,
             "eval/score_max": -40.0,
@@ -47,7 +45,7 @@ def test_eval_line_includes_success_mean_for_goal_conditioned_tasks(monkeypatch,
         },
     )
 
-    train_module._maybe_run_evaluation(
+    maybe_run_evaluation(
         agent=object(),
         args=_fake_args(eval_freq=100),
         logger=_FakeLogger(),
@@ -63,10 +61,8 @@ def test_eval_line_includes_success_mean_for_goal_conditioned_tasks(monkeypatch,
 
 
 def test_eval_line_omits_success_mean_when_not_present(monkeypatch, capsys) -> None:
-    monkeypatch.setattr(train_module, "_make_cli_env", lambda *a, **k: object())
-    monkeypatch.setattr(
-        train_module,
-        "_evaluate_agent",
+    patch_evaluate_agent(
+        monkeypatch,
         lambda *a, **k: {
             "eval/score_mean": -900.0,
             "eval/score_max": -500.0,
@@ -75,7 +71,7 @@ def test_eval_line_omits_success_mean_when_not_present(monkeypatch, capsys) -> N
         },
     )
 
-    train_module._maybe_run_evaluation(
+    maybe_run_evaluation(
         agent=object(),
         args=_fake_args(eval_freq=100),
         logger=_FakeLogger(),

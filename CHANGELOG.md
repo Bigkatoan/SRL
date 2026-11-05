@@ -6,6 +6,13 @@ The format follows Keep a Changelog and the project uses Semantic Versioning as 
 
 ## [Unreleased]
 
+### Python API (Phase 2)
+- Every algorithm has `from_config(yaml, env=...)`, `learn(total_timesteps, env=None, eval_env=None, callbacks=None, log_dir=None, progress=False)`, `predict(obs) -> (action, state)` (numpy in, env-unit action out), `save(dir)` and `Cls.load(dir_or_checkpoint, env=None)`. `srl-train` checkpoints load with `Cls.load(path)`.
+- New `srl.training` package: `OnPolicyTrainer`, `OffPolicyTrainer`, `Evaluator`, callbacks (`CheckpointCallback`, `EvalCallback`, `EarlyStopping`, `LogCallback`) with ordered hooks; `srl-train` is now a thin layer over `agent.learn()`.
+- `BaseAgent` / `OnPolicyAgent` / `OffPolicyAgent` hold the shared agent code; `srl.algorithms.ALGORITHMS` registry.
+- Deprecated: `agent.predict(tensor_dict)` returning a 4-tuple (use `agent.act(...)`), `agent.save("file.pt")`, guessing the algorithm from the config file name. Removed: `srl.core.BasePolicy`, `srl.envs.collector.Collector`, the private `srl.cli.train._run_*`/eval helpers (now public in `srl.training`).
+- `srl-train` requires `algo:` (YAML) or `--algo`; periodic checkpoint interval is `train.save_interval`. `EarlyStopping` monitors `eval/score_mean` and actually stops training.
+
 ### Breaking / behaviour changes (correctness audit, planned 0.3.0)
 - Continuous actions now live in a normalized `[-1, 1]` domain: `RescaleActionWrapper` maps them to env bounds at `env.step`; warmup samples uniformly in `[-1, 1]`.
 - Gaussian actor heads default to state-independent std (`state_dependent_std: false`); old checkpoints trained with the implicit state-dependent std need `state_dependent_std: true`.

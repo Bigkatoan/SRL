@@ -25,6 +25,7 @@ import yaml
 
 from srl.cli import train as train_module
 from srl.envs.isaac_lab_wrapper import IsaacLabWrapper
+from srl.training import envs as envs_module
 
 OBS_DIM = 4
 ACTION_DIM = 1
@@ -204,7 +205,7 @@ def _write_config(tmp_path, name: str, data: dict) -> str:
 def test_srl_train_main_runs_full_loop_on_fake_mjlab_env(
     monkeypatch, tmp_path, config_dict, config_name
 ) -> None:
-    monkeypatch.setattr(train_module, "_make_cli_env", _fake_make_cli_env)
+    monkeypatch.setattr(envs_module, "make_env", _fake_make_cli_env)
 
     config_path = _write_config(tmp_path, config_name, config_dict)
     total_steps = config_dict["train"]["total_steps"]
@@ -251,7 +252,7 @@ def test_eval_env_is_built_once_and_reused_across_multiple_eval_cycles(
         call_count += 1
         return real_fake_make_cli_env(*args, **kwargs)
 
-    monkeypatch.setattr(train_module, "_make_cli_env", _counting_fake_make_cli_env)
+    monkeypatch.setattr(envs_module, "make_env", _counting_fake_make_cli_env)
 
     config_path = _write_config(tmp_path, config_name, config_dict)
     total_steps = config_dict["train"]["total_steps"]
@@ -299,7 +300,7 @@ def test_resolve_env_action_dim_uses_single_env_space_not_batched() -> None:
     assert env.act_space.shape == (64, ACTION_DIM)  # the batched space
     assert env.single_act_space.shape == (ACTION_DIM,)  # the per-env space
 
-    assert train_module._resolve_env_action_dim(env) == ACTION_DIM
+    assert envs_module.env_action_dim(env) == ACTION_DIM
 
 
 def test_resolve_env_action_dim_falls_back_when_no_single_act_space() -> None:
@@ -310,7 +311,7 @@ def test_resolve_env_action_dim_falls_back_when_no_single_act_space() -> None:
     class _PlainEnv:
         act_space = _FakeActionSpace((3,))
 
-    assert train_module._resolve_env_action_dim(_PlainEnv()) == 3
+    assert envs_module.env_action_dim(_PlainEnv()) == 3
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -331,7 +332,7 @@ def test_async_runner_activates_when_config_sets_use_async(monkeypatch, tmp_path
     `_run_off_policy` loop as if the key were never set."""
     import srl.runners as runners_module
 
-    monkeypatch.setattr(train_module, "_make_cli_env", _fake_make_cli_env)
+    monkeypatch.setattr(envs_module, "make_env", _fake_make_cli_env)
 
     calls: dict = {"constructed": False, "ran": False, "runner_cfg": None}
     real_runner_cls = runners_module.AsyncOffPolicyRunner
@@ -405,7 +406,7 @@ def test_srl_train_main_runs_full_loop_with_async_runner_on_fake_mjlab_env(
       transitions into a single buffer slot (mean-reduced reward,
       any()-reduced done) and would outright crash with a CUDA obs tensor.
     """
-    monkeypatch.setattr(train_module, "_make_cli_env", _fake_make_cli_env)
+    monkeypatch.setattr(envs_module, "make_env", _fake_make_cli_env)
 
     config_dict = {
         **SAC_CONFIG,
@@ -463,7 +464,7 @@ def test_async_runner_eval_freq_actually_produces_eval_metrics(
     (metrics.jsonl content), which the existing async e2e test above does
     not, so it would have caught that regression.
     """
-    monkeypatch.setattr(train_module, "_make_cli_env", _fake_make_cli_env)
+    monkeypatch.setattr(envs_module, "make_env", _fake_make_cli_env)
 
     config_dict = {
         **SAC_CONFIG,
@@ -528,7 +529,7 @@ def test_async_runner_logs_rollout_score_not_just_loss_metrics(
     steps, so a long enough run here produces real completed episodes to
     catch the regression.
     """
-    monkeypatch.setattr(train_module, "_make_cli_env", _fake_make_cli_env)
+    monkeypatch.setattr(envs_module, "make_env", _fake_make_cli_env)
 
     config_dict = {
         **SAC_CONFIG,
@@ -590,7 +591,7 @@ def test_eval_freq_from_yaml_train_block_takes_effect_without_cli_flag(
     50_000 default, so if the YAML value isn't actually taking effect, no
     eval ever fires and this test's assertion fails.
     """
-    monkeypatch.setattr(train_module, "_make_cli_env", _fake_make_cli_env)
+    monkeypatch.setattr(envs_module, "make_env", _fake_make_cli_env)
 
     config_dict = {
         **SAC_CONFIG,
