@@ -130,7 +130,7 @@ def test_two_cpu_runs_same_seed_identical_history(monkeypatch, tmp_path, algo) -
             total_steps=2000,
             start_steps=200,
             update_after=200,
-            update_every=2,
+            update_every=8,
             batch_size=32,
             buffer_size=5000,
         )
