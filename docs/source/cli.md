@@ -77,6 +77,7 @@ Evaluation metrics are written into the same run artifacts as training metrics. 
 
 Whether all of these appear depends on the environment and the current training loop, so treat `summary.json` as the source of truth for a specific run.
 
+(best-checkpoint-tracking)=
 ### Best-checkpoint tracking (`--save-best`)
 
 Some runs peak partway through training and then regress for the rest of it — a

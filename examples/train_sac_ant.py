@@ -11,13 +11,13 @@ from srl.registry.builder import ModelBuilder
 from srl.utils.checkpoint import CheckpointManager
 from srl.utils.logger import Logger
 
-YAML_CONFIG   = "configs/sac_state.yaml"
-TOTAL_STEPS   = 3_000_000
-WARMUP_STEPS  = 10_000
-DEVICE        = "cuda" if torch.cuda.is_available() else "cpu"
+YAML_CONFIG = "configs/sac_state.yaml"
+TOTAL_STEPS = 3_000_000
+WARMUP_STEPS = 10_000
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # ---- Build model + target ------------------------------------------------
-model  = ModelBuilder.from_yaml(YAML_CONFIG)
+model = ModelBuilder.from_yaml(YAML_CONFIG)
 target = ModelBuilder.from_yaml(YAML_CONFIG)
 
 cfg = SACConfig(

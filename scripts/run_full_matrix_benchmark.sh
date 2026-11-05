@@ -2,11 +2,24 @@
 
 set -uo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEFAULT_PYTHON_BIN="$ROOT_DIR/venv/bin/python"
-if [[ -x "$DEFAULT_PYTHON_BIN" ]]; then
-  PYTHON_BIN="${PYTHON_BIN:-$DEFAULT_PYTHON_BIN}"
-else
+# Every path below can be overridden from the environment (or the matching
+# CLI flag) so the script works outside the original dev machine:
+#   SRL_ROOT     repo root (default: parent of this script's directory)
+#   PYTHON_BIN   interpreter (default: $VIRTUAL_ENV, then <root>/.venv,
+#                <root>/venv, then python3 on PATH)  -- or --python
+#   OUTPUT_ROOT  output directory (default: <root>/matrix_runs/<label>)
+#                                                    -- or --output-dir
+ROOT_DIR="${SRL_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+if [[ -z "${PYTHON_BIN:-}" ]]; then
+  for candidate in \
+    "${VIRTUAL_ENV:+$VIRTUAL_ENV/bin/python}" \
+    "$ROOT_DIR/.venv/bin/python" \
+    "$ROOT_DIR/venv/bin/python"; do
+    if [[ -n "$candidate" && -x "$candidate" ]]; then
+      PYTHON_BIN="$candidate"
+      break
+    fi
+  done
   PYTHON_BIN="${PYTHON_BIN:-python3}"
 fi
 
@@ -18,7 +31,7 @@ LOG_INTERVAL="2000"
 EVAL_FREQ="5000"
 EVAL_EPISODES="10"
 LABEL=""
-OUTPUT_ROOT=""
+OUTPUT_ROOT="${OUTPUT_ROOT:-}"
 TARGET_FILE=""
 BUDGET_MODE="convergence"
 CONVERGENCE_STEPS_DEFAULT="20000"
@@ -34,7 +47,8 @@ Run every YAML config under configs/envs, preserve per-case artifacts, and
 write a master log plus aggregate JSONL summary.
 
 Options:
-  --python PATH           Python executable to use.
+  --python PATH           Python executable to use. Default: $PYTHON_BIN, else
+                          $VIRTUAL_ENV, <repo>/.venv, <repo>/venv, python3.
   --device DEVICE         Device passed to srl-train. Default: auto.
   --seed SEED             Shared seed for all cases. Default: 0.
   --steps N               Override train.total_steps for every case.

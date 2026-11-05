@@ -1,4 +1,5 @@
 # SAC on FetchSlide-v4  (obs_flat=31, act=4)
+# SAC + HER (future, k=4) with observation normalization.
 # Target: success_rate > 0.60 (convergence ~5M steps — hardest Fetch task)
 
 env_id: "FetchSlide-v4"
@@ -56,8 +57,24 @@ train:
   batch_size: 256
   gamma: 0.98
   tau: 0.005
-  learning_starts: 10_000
-  train_freq: 1
+  learning_starts: 1_000
+  # HER "cycle" recipe: 40 gradient steps per 50-step episode.
+  train_freq: 50
   gradient_steps: 40
+
+  # ── Hindsight Experience Replay ──────────────────────────────────────────
+  # Sparse-reward manipulation is not learnable without relabelling (plain
+  # replay: FetchSlide stayed at 0% success while Q diverged to ~+1290).
+  use_her: true
+  her_strategy: "future"
+  # k = 4 relabelled goals per real one -> her_ratio = k / (k + 1) = 0.8.
+  her_ratio: 0.8
+  her_max_episode_len: 50
+
+  # Running mean/std normalization of [observation | achieved | desired],
+  # clipped to +-5 (as in the original HER implementation).
+  normalize_obs: true
+  obs_norm_clip: 5.0
+
   env_id: "FetchSlide-v4"
   include_goal: true

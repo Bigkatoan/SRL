@@ -8,6 +8,7 @@ import numpy as np
 import torch
 
 from srl.core.rollout_buffer import RolloutBuffer
+from srl.envs.vector_utils import get_final_obs
 
 
 class Collector:
@@ -80,7 +81,8 @@ class Collector:
                     obs=self._obs,
                     action=action_np,
                     reward=reward,
-                    next_obs=next_obs,
+                    # True terminal obs for auto-reset (vector) envs.
+                    next_obs=get_final_obs(next_obs, info),
                     done=done,
                     truncated=truncated,
                 )

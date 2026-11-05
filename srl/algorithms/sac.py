@@ -50,11 +50,22 @@ import threading
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
+from srl.algorithms._common import (
+    _partition_encoder_params,
+    _soft_update,
+    _sync_target_buffers,
+    _unique_encoder_params,  # noqa: F401 -- re-exported for backwards compat
+    _zero_param_grads,
+    batch_discounts,
+    is_weighted_mse,
+    maybe_build_obs_normalizer,
+    maybe_update_priorities,
+    prepare_obs,
+)
 from srl.core.base_agent import BaseAgent
 from srl.core.config import SACConfig, VisualSACConfig
-from srl.core.replay_buffer import ReplayBuffer
+from srl.core.prioritized_replay_buffer import build_replay_buffer
 from srl.losses.aux_losses import (
     barlow_twins_loss,
     byol_loss,
@@ -259,15 +270,17 @@ class SAC(BaseAgent):
             self.target_entropy = float(self.cfg.target_entropy)
 
         if getattr(self.cfg, "use_her", False):
+            if getattr(self.cfg, "use_per", False):
+                raise ValueError("SACConfig: use_per and use_her cannot be combined.")
+            if int(getattr(self.cfg, "replay_n_step", 1)) > 1:
+                raise ValueError("SACConfig: replay_n_step > 1 is not supported with use_her.")
             self.buffer = self._build_her_buffer()
         else:
-            self.buffer = ReplayBuffer(
-                capacity=self.cfg.buffer_size,
-                num_envs=self.cfg.replay_num_envs,
-                n_step=self.cfg.replay_n_step,
-                gamma=self.cfg.gamma,
-                use_fp16=self.cfg.use_fp16,
-            )
+            self.buffer = build_replay_buffer(self.cfg)
+
+        # Optional running obs normalizer (cfg.normalize_obs), updated from
+        # every sampled training batch and applied in predict()/update().
+        self.obs_normalizer = maybe_build_obs_normalizer(self.cfg)
 
         self._global_step = 0
 
@@ -430,14 +443,26 @@ class SAC(BaseAgent):
             # the flag every action-selection call would also run the critic
             # encoder(s) and a full TwinQHead forward on a dummy zero action,
             # for a result nothing downstream uses.
+            obs = prepare_obs(self.model, self.obs_normalizer, obs)
             result = self._forward_model("eval", obs, hidden_states=hidden, compute_critic=False)
         actor_out = result["actor_out"]
         if isinstance(actor_out, dict):
-            action = (
-                actor_out.get("mean", actor_out.get("action"))
-                if deterministic
-                else actor_out.get("action")
-            )
+            if deterministic:
+                # The deterministic SAC policy is the *squashed* mode,
+                # tanh(mean). actor_out["mean"] is the pre-tanh Gaussian
+                # mean -- returning it put most eval actions outside
+                # [-1, 1] (then clipped by the env), i.e. evaluated a
+                # different policy than the one being trained.
+                dist = actor_out.get("dist")
+                mode = getattr(dist, "mode", None)
+                if callable(mode):
+                    action = mode()
+                elif actor_out.get("mean") is not None:
+                    action = torch.tanh(actor_out["mean"])
+                else:
+                    action = actor_out.get("action")
+            else:
+                action = actor_out.get("action")
             log_prob = actor_out.get("log_prob")
         elif isinstance(actor_out, tuple):
             action, log_prob = actor_out
@@ -471,9 +496,13 @@ class SAC(BaseAgent):
 
         obs = {k: v.to(self.device) for k, v in batch.obs.items()}
         next_obs = {k: v.to(self.device) for k, v in batch.next_obs.items()}
+        obs = prepare_obs(self.model, self.obs_normalizer, obs, update_stats=True)
+        next_obs = prepare_obs(self.model, self.obs_normalizer, next_obs)
         actions = batch.actions.to(self.device)
         rewards = batch.rewards.to(self.device)
         dones = batch.dones.to(self.device)
+        discount = batch_discounts(batch, self.cfg.gamma, self.device)
+        is_weights = batch.weights.to(self.device) if batch.weights is not None else None
 
         freq = self.cfg.encoder_update_freq
 
@@ -502,8 +531,9 @@ class SAC(BaseAgent):
             elif isinstance(next_actor_out, tuple):
                 next_action, next_log_prob = next_actor_out
             else:
-                next_action, next_log_prob = next_actor_out, torch.zeros(
-                    rewards.shape, device=self.device
+                next_action, next_log_prob = (
+                    next_actor_out,
+                    torch.zeros(rewards.shape, device=self.device),
                 )
 
         # When encoder should NOT receive gradients from critic, detach obs
@@ -522,15 +552,25 @@ class SAC(BaseAgent):
         with torch.no_grad():
             if isinstance(next_q, tuple):
                 next_q = torch.min(*next_q)
-            target_q = rewards + self.cfg.gamma * (1.0 - dones) * (
+            # `discount` is gamma**k per transition (k = steps the stored
+            # n-step reward spans), or plain gamma for one-step buffers.
+            target_q = rewards + discount * (1.0 - dones) * (
                 next_q - self.alpha.detach() * next_log_prob
             )
 
         if isinstance(q_out, tuple):
             q1, q2 = q_out
-            critic_loss = sac_q_loss(q1, q2, target_q.detach())
+            if is_weights is None:
+                critic_loss = sac_q_loss(q1, q2, target_q.detach())
+            else:
+                critic_loss = is_weighted_mse(q1, target_q, is_weights) + is_weighted_mse(
+                    q2, target_q, is_weights
+                )
+            td_error = 0.5 * ((q1 - target_q).abs() + (q2 - target_q).abs())
         else:
-            critic_loss = F.mse_loss(q_out, target_q.detach())
+            critic_loss = is_weighted_mse(q_out, target_q.detach(), is_weights)
+            td_error = (q_out - target_q).abs()
+        maybe_update_priorities(self.buffer, batch, td_error)
 
         # [2b] Backward through critic (+ encoder if enc_with_critic)
         self.critic_optimizer.zero_grad()
@@ -818,6 +858,8 @@ class SAC(BaseAgent):
             payload["actor_only_encoder_optimizer_state"] = (
                 self.actor_only_encoder_optimizer.state_dict()
             )
+        if self.obs_normalizer is not None:
+            payload["obs_normalizer_state"] = self.obs_normalizer.state_dict()
         return payload
 
     def load_checkpoint_payload(self, payload: dict[str, object]) -> None:
@@ -850,39 +892,14 @@ class SAC(BaseAgent):
             self.log_alpha.data.copy_(log_alpha.to(self.device))
         self._global_step = int(payload.get("algo_step", payload.get("step", 0)))
         self._encoder_update_counter = int(payload.get("encoder_update_counter", 0))
+        norm_state = payload.get("obs_normalizer_state")
+        if self.obs_normalizer is not None and norm_state is not None:
+            self.obs_normalizer.load_state_dict(norm_state)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Module-level helpers
 # ──────────────────────────────────────────────────────────────────────────────
-
-
-def _soft_update(src: nn.Module, tgt: nn.Module, tau: float) -> None:
-    for sp, tp in zip(src.parameters(), tgt.parameters(), strict=True):
-        tp.data.mul_(1.0 - tau).add_(sp.data * tau)
-
-
-def _sync_target_buffers(src: nn.Module, tgt: nn.Module) -> None:
-    """Hard-copy every buffer (BatchNorm's running_mean/running_var/
-    num_batches_tracked, chiefly) from *src* to *tgt*.
-
-    ``_soft_update`` above only walks ``.parameters()`` -- buffers are
-    deliberately excluded from a module's parameter list (they're not
-    learned by gradient descent), so BatchNorm's running statistics need
-    their own, separate propagation path from the online net to the target
-    net. A straight copy, not a further Polyak average: BatchNorm's own
-    ``momentum`` already performs an EMA update of these buffers on every
-    train-mode forward pass, so re-EMA'ing an already-EMA'd quantity here
-    would just add an extra, redundant lag on top of the one BatchNorm
-    itself already applies.
-    """
-    src_buffers = dict(src.named_buffers())
-    tgt_buffers = dict(tgt.named_buffers())
-    for name, tb in tgt_buffers.items():
-        sb = src_buffers.get(name)
-        if sb is None or sb.shape != tb.shape:
-            continue
-        tb.data.copy_(sb.data)
 
 
 _NORM_AFFINE_TYPES = (
@@ -956,86 +973,6 @@ def _project_weights_unit_norm(module: nn.Module, eps: float = 1e-8) -> None:
                     if vec_norm < eps:
                         continue
                     vec.data.mul_(math.sqrt(d) / vec_norm)
-
-
-def _unique_encoder_params(model: nn.Module) -> list[nn.Parameter]:
-    """Collect all encoder parameters, de-duplicated by tensor id."""
-    seen: set[int] = set()
-    params: list[nn.Parameter] = []
-    encoders = getattr(model, "encoders", {})
-    for enc in encoders.values():
-        for p in enc.parameters():
-            if id(p) not in seen:
-                seen.add(id(p))
-                params.append(p)
-    return params
-
-
-def _partition_encoder_params(
-    model: nn.Module,
-) -> tuple[list[nn.Parameter], list[nn.Parameter], list[nn.Module]]:
-    """Split a model's encoders into (critic-reachable, actor-only).
-
-    Returns ``(critic_reachable_params, actor_only_params,
-    actor_only_modules)`` -- the first two are flat, de-duplicated
-    ``nn.Parameter`` lists (matching ``_unique_encoder_params``'s
-    de-duplication-by-tensor-id), the third is the actual actor-only
-    encoder module objects (needed by weight-norm projection, which walks
-    module structure to tell a Linear row apart from a norm layer's affine
-    vector -- a flat parameter list alone can't distinguish them).
-
-    "Critic-reachable" means named in ``encoder_names_for_head("critic")``
-    (which already exists on ``AgentModel`` for exactly this "which
-    encoders does this head actually need" question, and conservatively
-    returns *every* encoder name when a model has no explicit `flows:`
-    routing for its critic -- e.g. one implicit encoder shared by both
-    heads -- so single-encoder configs are unaffected: nothing ends up
-    actor-only for them). Every encoder not in that set feeds only the
-    actor, and is actor-only.
-
-    See ``SAC.__init__``'s comment above this function's call site for why
-    this split exists: an actor-only encoder has no valid gradient source
-    under the old "train encoders only through critic backward" rule
-    (critic_loss's graph never touches it; actor_loss's does, but that
-    contribution used to always be discarded) -- it would sit frozen at
-    random initialization forever otherwise.
-    """
-    encoders: dict[str, nn.Module] = dict(getattr(model, "encoders", {}) or {})
-    if not encoders:
-        return [], [], []
-
-    encoder_names_for_head = getattr(model, "encoder_names_for_head", None)
-    critic = getattr(model, "critic", None)
-    if encoder_names_for_head is None or critic is None:
-        # No critic head (or a model type without the reachability query)
-        # -- fall back to the old, conservative "every encoder is
-        # critic-reachable" behaviour; nothing is actor-only.
-        return _unique_encoder_params(model), [], []
-
-    critic_name = getattr(critic, "name", "critic")
-    critic_reachable_names = set(encoder_names_for_head(critic_name))
-
-    critic_reachable_params: list[nn.Parameter] = []
-    actor_only_params: list[nn.Parameter] = []
-    actor_only_modules: list[nn.Module] = []
-    seen: set[int] = set()
-    for name, enc in encoders.items():
-        is_critic_reachable = name in critic_reachable_names
-        target = critic_reachable_params if is_critic_reachable else actor_only_params
-        if not is_critic_reachable:
-            actor_only_modules.append(enc)
-        for p in enc.parameters():
-            if id(p) not in seen:
-                seen.add(id(p))
-                target.append(p)
-    return critic_reachable_params, actor_only_params, actor_only_modules
-
-
-def _zero_param_grads(params: list[nn.Parameter]) -> None:
-    for p in params:
-        if p.grad is not None:
-            p.grad.detach_()
-            p.grad.zero_()
 
 
 def _detach_visual_obs(obs: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:

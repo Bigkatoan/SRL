@@ -6,6 +6,32 @@ The format follows Keep a Changelog and the project uses Semantic Versioning as 
 
 ## [Unreleased]
 
+### Breaking / behaviour changes (correctness audit, planned 0.3.0)
+- Continuous actions now live in a normalized `[-1, 1]` domain: `RescaleActionWrapper` maps them to env bounds at `env.step`; warmup samples uniformly in `[-1, 1]`.
+- Gaussian actor heads default to state-independent std (`state_dependent_std: false`); old checkpoints trained with the implicit state-dependent std need `state_dependent_std: true`.
+- PPO enables `normalize_obs` / `normalize_reward` by default and `clip_range_vf` defaults to `None` (= no value clipping).
+- `eval/success_mean` is the per-episode final-step success rate (was averaged over all timesteps).
+
+### Fixed (correctness audit)
+- PPO trained only its heads: encoders were always detached from the RL loss and stayed at random init.
+- On-policy training with `n_envs=1` never reset the env after the first episode.
+- n-step replay dropped (n-1)/n of transitions; it is now a per-env sliding window (CPU and GPU), and SAC/TD3/DDPG bootstrap with per-transition `gamma**k`.
+- GPU replay buffer mixed n-step returns across envs and episodes.
+- SAC deterministic actions returned the pre-tanh mean; now `tanh(mean)`. PPO/A2C/A3C deterministic actions are the mode clipped to bounds.
+- CPU vector envs dropped the true terminal observation on auto-reset (wrong truncation bootstrap); added `info["final_obs"]` and `srl.envs.get_final_obs`.
+- TD3/DDPG actor-only encoders never trained; TD3 trained in eval mode after the first `predict()`.
+- HER relabelled transitions were marked terminal when reward == 0; "future" goals now sampled from t+1..T.
+- A3C ignored `truncated` (time-limit envs never reset) and seeded workers by rank only.
+- PPO value clipping used max of batch means instead of elementwise max; GAE ran over empty slots of partial rollouts.
+- Seeding: `seed_offset` ignored and action spaces unseeded; `AsyncOffPolicyRunner` warmup shape and resume step; DDPG noise shared across envs.
+
+### Added
+- `srl.utils.set_random_seed`, `--deterministic` flag.
+- `normalize_obs` / `obs_norm_clip` running normalizer for SAC/TD3/DDPG (on in Fetch configs); PPO VecNormalize-style obs/reward normalization.
+- `use_per` prioritized replay (importance weights, priority updates) for SAC/TD3/DDPG.
+- Fetch push/slide/pick-and-place configs enable HER (future, k=4); `pendulum_ppo.yaml` uses rl-zoo-like hyperparameters.
+- ~120 regression tests, config-parse matrix over every YAML, and `slow` learning tests (SAC/PPO Pendulum, FetchReach+HER).
+
 ### Fixed
 - **PPO GAE off-by-one in `RolloutBuffer.compute_returns_and_advantages`** —
   `self._dones[t]` (as written by every real caller's own `add()` sequence,
@@ -270,6 +296,37 @@ The format follows Keep a Changelog and the project uses Semantic Versioning as 
   produced an `(N, num_envs, action_dim)` array instead of `(num_envs, action_dim)`.
   `IsaacLabWrapper` now also exposes `single_act_space` (falling back to `act_space`
   for envs that don't distinguish the two) for exactly this per-env sampling case.
+
+### Infrastructure
+- **Packaging:** PEP 639 `license = "MIT"` + `license-files` (setuptools>=77);
+  version is now derived from git tags by setuptools-scm (`srl/_version.py`,
+  `srl.__version__` still works); removed the `racecar-gym` direct-URL
+  dependency that PyPI rejects (install it manually, see installation docs);
+  added Python 3.13 and `Typing :: Typed` classifiers; dev extras split into
+  `test`, `lint`, `docs`, `tracking` (`dev` = all of them).
+- **CI (`test.yml`):** CPU-only torch wheels, uv with caching, read-only
+  token permissions, concurrency cancellation, Python 3.10–3.13 on Ubuntu plus
+  macOS/Windows smoke jobs, coverage upload to Codecov (`fail_under = 65`).
+  New nightly / `run-slow`-label `learning` job runs `pytest -m slow`.
+- **Lint:** ruff + black now also cover `examples/` and `templates/`; added a
+  non-blocking mypy job (baseline ~281 errors). `ruff format` is configured
+  but black stays the enforced formatter until the migration PR.
+- **Docs:** built with `-W --keep-going` on every PR; deployed through GitHub
+  Pages actions without publishing `.doctrees`. Fixed the broken
+  `--save-best` anchor, the `.cuda()`-only index example and the non-existent
+  `CheckpointManager.load(step=...)` call in the quickstart.
+- **Releases:** tag-driven `release.yml` (build, `twine check --strict`,
+  TestPyPI → PyPI via trusted publishing, GitHub Release); see `RELEASING.md`.
+- **Tests:** `tests/conftest.py` registers `slow`/`gpu`/`integration`
+  markers (`--strict-markers`, 300 s per-test timeout);
+  `tests/test_configs_parse.py` builds every shipped config and checks it
+  against its env; `tests/test_learning.py` adds slow end-to-end learning
+  gates (SAC/PPO Pendulum, SAC+HER FetchReach).
+- **Community:** `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`,
+  `CITATION.cff`, issue forms, PR template, pre-commit config and Dependabot.
+- **Scripts:** removed the stale root `run_full_matrix_benchmark.sh` wrapper
+  and `scripts/run_deep_env_tests.sh` (ran deleted tests); the matrix
+  benchmark script no longer hard-codes a dev-machine venv path.
 
 ## [0.2.0] - 2026-04-12
 

@@ -223,3 +223,4 @@ wandb/
 .vscode/
 matrix_runs/
 example.txt
+srl/_version.py

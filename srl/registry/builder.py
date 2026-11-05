@@ -159,6 +159,11 @@ def _build_head(cfg: HeadConfig, input_dim: int):
     if head_type in ("gaussian", "squashed_gaussian", "deterministic"):
         from srl.networks.heads.actor_head import build_actor_head
 
+        extra_kw = {}
+        if head_type == "gaussian":
+            # Previously never forwarded, so every YAML/dict setting of
+            # `state_dependent_std` was silently ignored.
+            extra_kw["state_dependent_std"] = bool(cfg.state_dependent_std)
         return build_actor_head(
             head_type=head_type,
             input_dim=input_dim,
@@ -167,6 +172,7 @@ def _build_head(cfg: HeadConfig, input_dim: int):
             log_std_init=cfg.log_std_init,
             log_std_min=cfg.log_std_min,
             log_std_max=cfg.log_std_max,
+            **extra_kw,
         )
     elif head_type in ("value", "twin_q", "q", "q_function"):
         from srl.networks.heads.critic_head import build_critic_head

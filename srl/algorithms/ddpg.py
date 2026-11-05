@@ -6,52 +6,101 @@ Changes in v0.2.0
   Encoder is updated only through critic backward — actor backward never touches
   encoder weights, eliminating the effective 2× encoder LR bug.
 * encoder_update_freq (DDPGConfig): encoder_optimizer steps every N critic updates.
+
+Fixes
+-----
+* Actor-only encoders now train (own optimizer, stepped off the actor loss).
+* train/eval mode is set atomically per forward under a lock (``predict()`` on
+  the async collector thread used to flip the shared model's mode mid-update).
+* Exploration noise is per env (one independent OU/Gaussian process per row
+  of the action batch) and :meth:`DDPG.reset_noise` resets it at episode ends.
+* n-step bootstrap uses the per-transition ``gamma**k`` discount.
 """
 
 from __future__ import annotations
 
+import threading
+
+import numpy as np
 import torch
 import torch.nn as nn
 
+from srl.algorithms._common import (
+    _soft_update,
+    _unique_encoder_params,  # noqa: F401 -- re-exported for backwards compat
+    _zero_param_grads,
+    batch_discounts,
+    build_encoder_optimizers,
+    forward_with_mode,
+    is_weighted_mse,
+    maybe_build_obs_normalizer,
+    maybe_update_priorities,
+    prepare_obs,
+)
 from srl.core.base_agent import BaseAgent
 from srl.core.config import DDPGConfig
-from srl.core.replay_buffer import ReplayBuffer
-from srl.losses.rl_losses import ddpg_policy_loss, ddpg_q_loss
+from srl.core.prioritized_replay_buffer import build_replay_buffer
+from srl.losses.rl_losses import ddpg_policy_loss
+
+
+def _reset_mask(n: int, env_ids) -> torch.Tensor:
+    if env_ids is None:
+        return torch.ones(n, dtype=torch.bool)
+    m = torch.as_tensor(np.asarray(env_ids))
+    if m.dtype == torch.bool:
+        return m.reshape(-1)[:n] if m.numel() >= n else torch.ones(n, dtype=torch.bool)
+    out = torch.zeros(n, dtype=torch.bool)
+    out[m.long().reshape(-1)] = True
+    return out
 
 
 class OrnsteinUhlenbeckNoise:
-    """OU process for temporally correlated exploration noise."""
+    """OU process for temporally correlated exploration noise.
+
+    Keeps one independent process per env: ``sample(n)`` returns an
+    ``(n, action_dim)`` draw (``sample()`` -> ``(action_dim,)`` for the
+    single-env case). ``reset(env_ids)`` restarts the processes of the given
+    envs (all when ``None``) at ``mu`` -- call it at each episode end, or the
+    correlated noise carries over from the previous episode.
+    """
 
     def __init__(self, action_dim: int, mu: float = 0.0, theta: float = 0.15, sigma: float = 0.2):
+        self.action_dim = action_dim
         self.mu = mu * torch.ones(action_dim)
         self.theta = theta
         self.sigma = sigma
-        self.state: torch.Tensor | None = None
+        self.state: torch.Tensor | None = None  # (n_envs, action_dim)
 
-    def reset(self) -> None:
-        self.state = self.mu.clone()
-
-    def sample(self) -> torch.Tensor:
+    def reset(self, env_ids=None) -> None:
         if self.state is None:
-            self.state = self.mu.clone()
+            return
+        mask = _reset_mask(self.state.shape[0], env_ids)
+        self.state[mask] = self.mu
+
+    def sample(self, n: int | None = None) -> torch.Tensor:
+        rows = 1 if n is None else int(n)
+        if self.state is None or self.state.shape[0] != rows:
+            self.state = self.mu.expand(rows, -1).clone()
         x = self.state
         dx = self.theta * (self.mu - x) + self.sigma * torch.randn_like(x)
         self.state = x + dx
-        return self.state
+        return self.state[0].clone() if n is None else self.state.clone()
 
 
 class GaussianActionNoise:
-    """Independent Gaussian exploration noise."""
+    """Independent Gaussian exploration noise (stateless, so reset is a no-op)."""
 
     def __init__(self, action_dim: int, sigma: float = 0.1):
         self.action_dim = action_dim
         self.sigma = sigma
 
-    def reset(self) -> None:
+    def reset(self, env_ids=None) -> None:
         return None
 
-    def sample(self) -> torch.Tensor:
-        return torch.randn(self.action_dim) * self.sigma
+    def sample(self, n: int | None = None) -> torch.Tensor:
+        if n is None:
+            return torch.randn(self.action_dim) * self.sigma
+        return torch.randn(int(n), self.action_dim) * self.sigma
 
 
 class DDPG(BaseAgent):
@@ -84,17 +133,17 @@ class DDPG(BaseAgent):
         self.target_model.load_state_dict(self.model.state_dict())
         for p in self.target_model.parameters():
             p.requires_grad = False
+        self.target_model.eval()
+        self._model_lock = threading.Lock()
 
-        # ------------------------------------------------------------------
-        # Three-optimizer design (v0.2.0): encoder separated from heads
-        # ------------------------------------------------------------------
-        self._encoder_param_list: list[nn.Parameter] = _unique_encoder_params(self.model)
         _encoder_lr = getattr(self.cfg, "encoder_lr", self.cfg.lr_critic)
-        self.encoder_optimizer: torch.optim.Optimizer | None = (
-            torch.optim.Adam(self._encoder_param_list, lr=_encoder_lr)
-            if self._encoder_param_list
-            else None
-        )
+        (
+            self._encoder_param_list,
+            self._actor_only_encoder_param_list,
+            _,
+            self.encoder_optimizer,
+            self.actor_only_encoder_optimizer,
+        ) = build_encoder_optimizers(self.model, _encoder_lr)
         self.actor_optimizer = torch.optim.Adam(
             list(self.model.actor.parameters()),
             lr=self.cfg.lr_actor,
@@ -111,27 +160,35 @@ class DDPG(BaseAgent):
         else:
             self.noise = GaussianActionNoise(action_dim, sigma=self.cfg.noise_sigma)
 
-        self.buffer = ReplayBuffer(
-            capacity=self.cfg.buffer_size,
-            num_envs=self.cfg.replay_num_envs,
-            n_step=self.cfg.replay_n_step,
-            gamma=self.cfg.gamma,
-            use_fp16=self.cfg.use_fp16,
-        )
+        self.buffer = build_replay_buffer(self.cfg)
+        self.obs_normalizer = maybe_build_obs_normalizer(self.cfg)
         self._global_step = 0
 
+    def _forward_model(self, mode: str, *args, **kwargs):
+        return forward_with_mode(self.model, self._model_lock, mode, *args, **kwargs)
+
+    def reset_noise(self, env_ids=None) -> None:
+        """Reset exploration noise for the envs whose episode just ended.
+
+        *env_ids*: ``None`` (all), a boolean mask over envs, or indices.
+        """
+        self.noise.reset(env_ids)
+
     def predict(self, obs, hidden=None, deterministic=False):
-        self.model.eval()
         with torch.no_grad():
-            result = self.model(obs, hidden_states=hidden)
+            obs = prepare_obs(self.model, self.obs_normalizer, obs)
+            result = self._forward_model("eval", obs, hidden_states=hidden, compute_critic=False)
         actor_out = result["actor_out"]
         if isinstance(actor_out, dict):
             action = actor_out.get("action")
         else:
             action = actor_out
         if not deterministic and action is not None:
-            action = action + self.noise.sample().to(self.device)
-            action = action.clamp(-1.0, 1.0)
+            if action.dim() > 1:
+                noise = self.noise.sample(action.shape[0])
+            else:
+                noise = self.noise.sample()
+            action = (action + noise.to(device=action.device, dtype=action.dtype)).clamp(-1.0, 1.0)
         return action, None, None, result["new_hidden"]
 
     def learn(self, total_timesteps: int) -> None:
@@ -141,38 +198,50 @@ class DDPG(BaseAgent):
         if len(self.buffer) < self.cfg.batch_size:
             return {}
 
-        self.model.train()
         batch = self.buffer.sample(self.cfg.batch_size)
 
         obs = {k: v.to(self.device) for k, v in batch.obs.items()}
         next_obs = {k: v.to(self.device) for k, v in batch.next_obs.items()}
+        obs = prepare_obs(self.model, self.obs_normalizer, obs, update_stats=True)
+        next_obs = prepare_obs(self.model, self.obs_normalizer, next_obs)
         actions = batch.actions.to(self.device)
         rewards = batch.rewards.to(self.device)
         dones = batch.dones.to(self.device)
+        discount = batch_discounts(batch, self.cfg.gamma, self.device)
+        is_weights = batch.weights.to(self.device) if batch.weights is not None else None
 
         with torch.no_grad():
-            next_actor_out = self.target_model(next_obs)["actor_out"]
+            next_actor_out = self.target_model(next_obs, compute_critic=False)["actor_out"]
             if isinstance(next_actor_out, dict):
                 next_action = next_actor_out.get("action")
             else:
                 next_action = next_actor_out
-            next_q_raw = self.target_model(next_obs, action=next_action)["value"]
+            next_q_raw = self.target_model(next_obs, action=next_action, compute_actor=False)[
+                "value"
+            ]
             # TwinQHead returns (q1, q2); take min to prevent overestimation
             if isinstance(next_q_raw, tuple):
                 next_q = torch.min(next_q_raw[0], next_q_raw[1])
             else:
                 next_q = next_q_raw
-            target_q = rewards.float() + self.cfg.gamma * (1.0 - dones.float()) * next_q
+            target_q = rewards.float() + discount * (1.0 - dones.float()) * next_q
 
-        q_raw = self.model(obs, action=actions)["value"]
+        q_raw = self._forward_model("train", obs, action=actions, compute_actor=False)["value"]
         # TwinQHead: compute loss for both Q networks
         if isinstance(q_raw, tuple):
-            critic_loss = ddpg_q_loss(q_raw[0], target_q) + ddpg_q_loss(q_raw[1], target_q)
+            critic_loss = is_weighted_mse(q_raw[0], target_q, is_weights) + is_weighted_mse(
+                q_raw[1], target_q, is_weights
+            )
+            td_error = 0.5 * ((q_raw[0] - target_q).abs() + (q_raw[1] - target_q).abs())
         else:
-            critic_loss = ddpg_q_loss(q_raw, target_q)
+            critic_loss = is_weighted_mse(q_raw, target_q, is_weights)
+            td_error = (q_raw - target_q).abs()
+        maybe_update_priorities(self.buffer, batch, td_error)
 
         if self.encoder_optimizer is not None:
             self.encoder_optimizer.zero_grad()
+        if self.actor_only_encoder_optimizer is not None:
+            self.actor_only_encoder_optimizer.zero_grad()
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
@@ -183,16 +252,18 @@ class DDPG(BaseAgent):
         if self.encoder_optimizer is not None and (self._encoder_update_counter % freq == 0):
             self.encoder_optimizer.step()
 
-        # Zero encoder grads before actor backward
+        # Zero critic-reachable encoder grads before actor backward
         _zero_param_grads(self._encoder_param_list)
 
         # Actor
-        actor_out = self.model(obs)["actor_out"]
+        actor_out = self._forward_model("train", obs, compute_critic=False)["actor_out"]
         if isinstance(actor_out, dict):
             new_action = actor_out.get("action")
         else:
             new_action = actor_out
-        q_actor_raw = self.model(obs, action=new_action)["value"]
+        q_actor_raw = self._forward_model("train", obs, action=new_action, compute_actor=False)[
+            "value"
+        ]
         # For actor loss use Q1 (or mean of twin) — maximise Q
         q_actor = q_actor_raw[0] if isinstance(q_actor_raw, tuple) else q_actor_raw
         actor_loss = ddpg_policy_loss(q_actor)
@@ -200,6 +271,8 @@ class DDPG(BaseAgent):
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
+        if self.actor_only_encoder_optimizer is not None:
+            self.actor_only_encoder_optimizer.step()
 
         # Zero encoder grads again — clean for next update() call
         _zero_param_grads(self._encoder_param_list)
@@ -210,6 +283,7 @@ class DDPG(BaseAgent):
         return {
             "ddpg/critic_loss": critic_loss.item(),
             "ddpg/actor_loss": actor_loss.item(),
+            "ddpg/target_q_mean": target_q.mean().item(),
         }
 
     def save(self, path: str) -> None:
@@ -231,6 +305,12 @@ class DDPG(BaseAgent):
         }
         if self.encoder_optimizer is not None:
             payload["encoder_optimizer_state"] = self.encoder_optimizer.state_dict()
+        if self.actor_only_encoder_optimizer is not None:
+            payload["actor_only_encoder_optimizer_state"] = (
+                self.actor_only_encoder_optimizer.state_dict()
+            )
+        if self.obs_normalizer is not None:
+            payload["obs_normalizer_state"] = self.obs_normalizer.state_dict()
         return payload
 
     def load_checkpoint_payload(self, payload: dict[str, object]) -> None:
@@ -254,30 +334,12 @@ class DDPG(BaseAgent):
         enc_opt = payload.get("encoder_optimizer_state")
         if self.encoder_optimizer is not None and enc_opt is not None:
             self.encoder_optimizer.load_state_dict(enc_opt)
-
-
-def _soft_update(src, tgt, tau):
-    for sp, tp in zip(src.parameters(), tgt.parameters(), strict=True):
-        tp.data.mul_(1.0 - tau).add_(sp.data * tau)
-
-
-def _unique_encoder_params(model: nn.Module) -> list[nn.Parameter]:
-    seen: set[int] = set()
-    params: list[nn.Parameter] = []
-    encoders = getattr(model, "encoders", {})
-    for enc in encoders.values():
-        for p in enc.parameters():
-            if id(p) not in seen:
-                seen.add(id(p))
-                params.append(p)
-    return params
-
-
-def _zero_param_grads(params: list[nn.Parameter]) -> None:
-    for p in params:
-        if p.grad is not None:
-            p.grad.detach_()
-            p.grad.zero_()
+        actor_enc_opt = payload.get("actor_only_encoder_optimizer_state")
+        if self.actor_only_encoder_optimizer is not None and actor_enc_opt is not None:
+            self.actor_only_encoder_optimizer.load_state_dict(actor_enc_opt)
+        norm_state = payload.get("obs_normalizer_state")
+        if self.obs_normalizer is not None and norm_state is not None:
+            self.obs_normalizer.load_state_dict(norm_state)
 
 
 def _encoder_params_for_head(model: nn.Module, head_name: str) -> list[nn.Parameter]:

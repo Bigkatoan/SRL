@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use SRL in your research, please cite it as below."
+title: "SRL: Simple Reinforcement Learning"
+abstract: >-
+  A modular, YAML-first PyTorch reinforcement learning library for continuous
+  control (PPO, SAC, DDPG, TD3, A2C, A3C) with Gymnasium, MuJoCo, Fetch
+  robotics, Isaac Lab and mjlab adapters.
+type: software
+authors:
+  - family-names: Tran
+    given-names: Dang An
+repository-code: "https://github.com/Bigkatoan/SRL"
+url: "https://bigkatoan.github.io/SRL"
+license: MIT
+keywords:
+  - reinforcement learning
+  - deep learning
+  - continuous control
+  - robotics
+  - pytorch

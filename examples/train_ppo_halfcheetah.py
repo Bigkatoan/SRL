@@ -14,17 +14,19 @@ from srl.utils.logger import Logger
 
 # ---- Config ---------------------------------------------------------------
 YAML_CONFIG = "configs/ppo_state.yaml"
-TOTAL_STEPS  = 1_000_000
-N_ENVS       = 4
-N_STEPS      = 2048
-DEVICE       = "cuda" if torch.cuda.is_available() else "cpu"
+TOTAL_STEPS = 1_000_000
+N_ENVS = 4
+N_STEPS = 2048
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # ---- Build model ----------------------------------------------------------
 model = ModelBuilder.from_yaml(YAML_CONFIG)
 
+
 # ---- Vectorised envs -------------------------------------------------------
 def make_env():
     return GymnasiumWrapper(gym.make("HalfCheetah-v4"))
+
 
 env = SyncVectorEnv([make_env for _ in range(N_ENVS)])
 

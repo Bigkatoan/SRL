@@ -58,14 +58,18 @@ pip install "srl-rl[box2d] @ git+https://github.com/Bigkatoan/SRL.git"
 # gymnasium-robotics (Fetch, AntMaze, …)
 pip install "srl-rl[robotics] @ git+https://github.com/Bigkatoan/SRL.git"
 
-# racecar_gym (Python 3.10 recommended)
+# racecar_gym (Python 3.10 recommended). racecar_gym itself is not on PyPI,
+# so it must be installed manually; the extra only pulls its helper deps.
+pip install "racecar_gym @ git+https://github.com/axelbr/racecar_gym.git"
 pip install "srl-rl[racecar] @ git+https://github.com/Bigkatoan/SRL.git"
 
 # Everything at once
 pip install "srl-rl[all] @ git+https://github.com/Bigkatoan/SRL.git"
 
-# Development tools (sphinx, pytest, mypy, …)
+# Development tools: everything below at once (from a clone: pip install -e ".[dev]")
 pip install "srl-rl[dev] @ git+https://github.com/Bigkatoan/SRL.git"
+# ...or individually: test (pytest, pytest-cov, pytest-timeout),
+# lint (ruff, black, mypy, pre-commit), docs (sphinx + theme), tracking (wandb)
 ```
 
 ---

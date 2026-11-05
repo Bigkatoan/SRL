@@ -19,6 +19,10 @@ class RunningNormalizer:
         Clip normalised values to ``[-clip, clip]``.
     eps:
         Numerical stability constant.
+    initial_count:
+        Pseudo-count of the initial (mean=0, var=1) prior. SB3's
+        ``RunningMeanStd`` uses ``1e-4``, which keeps the very first updates
+        from collapsing the variance to exactly zero.
     """
 
     def __init__(
@@ -26,13 +30,14 @@ class RunningNormalizer:
         shape: tuple[int, ...],
         clip: float = 10.0,
         eps: float = 1e-8,
+        initial_count: float = 0.0,
     ) -> None:
         self.shape = shape
         self.clip = clip
         self.eps = eps
         self.mean = np.zeros(shape, dtype=np.float64)
         self.var = np.ones(shape, dtype=np.float64)
-        self.count = 0
+        self.count: float = initial_count
 
     def update(self, x: np.ndarray) -> None:
         """Update statistics with a batch of samples."""
@@ -66,4 +71,4 @@ class RunningNormalizer:
     def load_state_dict(self, d: dict) -> None:
         self.mean = d["mean"].copy()
         self.var = d["var"].copy()
-        self.count = int(d["count"])
+        self.count = float(d["count"])

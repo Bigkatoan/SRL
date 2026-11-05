@@ -89,7 +89,10 @@ class HeadConfig:
     log_std_init: float = -1.0
     log_std_min: float = -5.0
     log_std_max: float = 2.0
-    state_dependent_std: bool = True
+    # Gaussian (PPO/A2C/A3C) heads only. False = a single learned,
+    # state-independent log_std vector (CleanRL / SB3 default for PPO);
+    # True = log_std is predicted per state by a separate linear layer.
+    state_dependent_std: bool = False
     extra: dict[str, Any] = field(default_factory=dict)
 
     @classmethod

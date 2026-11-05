@@ -101,11 +101,12 @@ for step in range(1_000_000):
         action, *_ = agent.predict(obs_t)
         action_np = action.squeeze(0).cpu().numpy()
 
-    obs, reward, done, truncated, _ = env.step(action_np)
+    next_obs, reward, terminated, truncated, _ = env.step(action_np)
     agent.buffer.add(obs=obs, action=action_np,
-                     reward=[reward], done=[done], truncated=[truncated],
-                     next_obs=obs)
-    if done or truncated:
+                     reward=[reward], done=[terminated], truncated=[truncated],
+                     next_obs=next_obs)
+    obs = next_obs
+    if terminated or truncated:
         obs, _ = env.reset()
 
     if step >= cfg.learning_starts:
@@ -116,8 +117,16 @@ for step in range(1_000_000):
 
 ## 5. Load a checkpoint
 
+`CheckpointManager.load(model, path, optimizer=None, device="cpu")` takes an
+explicit checkpoint path. `srl-train` writes periodic `ckpt_<step>.pt` files and
+a `final_<step>.pt` file into `<ckptdir>/<algo>_<config-stem>/`
+(e.g. `checkpoints/sac_halfcheetah_sac/`); `cm.latest()` returns the newest
+`ckpt_*` file (or `None` if there is none).
+
 ```python
 from srl.utils.checkpoint import CheckpointManager
-cm = CheckpointManager("checkpoints/sac_halfcheetah_v5")
-cm.load(agent.model, step="latest")
+
+cm = CheckpointManager("checkpoints/sac_halfcheetah_sac")
+path = cm.latest() or sorted(cm.save_dir.glob("final_*.pt"))[-1]
+cm.load(agent.model, path, device=DEVICE)
 ```

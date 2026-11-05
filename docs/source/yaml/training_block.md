@@ -29,7 +29,7 @@ Two consequences worth knowing:
 - `save_best` **is** read from the `train:` block (`train.save_best: true`), unlike
   `eval_freq`/`eval_episodes` above — it also has a matching `--save-best`/
   `--no-save-best` CLI flag, which wins over the YAML value when passed. See
-  [`--save-best`](../cli.md#best-checkpoint-tracking-save-best) in the CLI reference.
+  [`--save-best`](best-checkpoint-tracking) in the CLI reference.
 
 ## Fields read directly by the CLI
 
@@ -57,14 +57,17 @@ Two consequences worth knowing:
 | `update_every` | int | `null` | Env steps between updates; falls back to `train_freq` |
 | `gradient_steps` | int | 1 | Gradient updates per trigger |
 | `encoder_update_freq` | int | 1 | Encoder optimizer steps every N critic updates |
-| `replay_n_step` | int | 1 | N-step return horizon for the replay buffer |
-| `use_fp16` | bool | false | Half-precision storage/compute |
+| `replay_n_step` | int | 1 | N-step return horizon: per-env sliding window; targets use the stored `gamma**k` (k shortens at episode ends) |
+| `normalize_obs` | bool | false | Running mean/std normalization of flat float observations (saved in checkpoints) |
+| `obs_norm_clip` | float | 5.0 | Clip range applied after observation normalization |
+| `use_per` | bool | false | Prioritized replay (importance-sampling weights, priorities from \|TD error\|); not combinable with HER |
+| `per_alpha` / `per_beta_start` / `per_beta_steps` / `per_eps` | float/int | 0.6 / 0.4 / 1_000_000 / 1e-6 | PER exponent, IS-weight annealing, priority epsilon |
+| `use_fp16` | bool | false | Half-precision replay storage (compute stays fp32) |
 
 SAC also accepts `alpha`, `init_alpha`, `auto_entropy_tuning`, `target_entropy`,
 `min_alpha` (floor on the auto-tuned temperature, permissive `1e-8` default —
 see `SACConfig.min_alpha`'s docstring in `srl/core/config.py` for why this
-exists), `target_update_interval`, `train_freq`, and the prioritised-replay
-fields `use_per`, `per_alpha`, `per_beta_start`. DDPG and TD3 accept `action_noise`
+exists), `target_update_interval`, `train_freq`. DDPG and TD3 accept `action_noise`
 (`gaussian` | `ou`) and `noise_sigma`; TD3 additionally accepts `policy_noise`
 (0.2), `noise_clip` (0.5), and `policy_delay` (2).
 
@@ -86,7 +89,7 @@ optimizer uses `lr_critic`.
 | `batch_size` | int | 64 (PPO) | Minibatch size within a rollout |
 | `n_epochs` | int | 10 | Optimisation epochs per rollout (PPO) |
 | `clip_range` | float | 0.2 | PPO clip parameter |
-| `clip_range_vf` | float | `null` | Value clip range; `null` reuses `clip_range` |
+| `clip_range_vf` | float | `null` | Value clip range; `null` disables value clipping (SB3 default) |
 | `gae_lambda` | float | 0.95 (PPO), 1.0 (A2C/A3C) | GAE lambda |
 | `gamma` | float | 0.99 | Discount factor |
 | `entropy_coef` | float | 0.0 (PPO), 0.01 (A2C/A3C) | Entropy regularisation |

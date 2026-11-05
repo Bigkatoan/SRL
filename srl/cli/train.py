@@ -8,6 +8,7 @@ import os
 import sys
 from dataclasses import fields
 
+from srl.envs.vector_utils import get_final_obs
 from srl.utils.spaces import sample_action_space as _sample_action_space
 
 # `gymnasium_robotics.register_robotics_envs()` unconditionally re-registers
@@ -84,6 +85,7 @@ def _make_cli_env(
     """
     import gymnasium as gym
 
+    from srl.envs.action_rescale import maybe_rescale_action
     from srl.envs.goal_env_wrapper import GoalEnvWrapper
     from srl.envs.gymnasium_wrapper import GymnasiumWrapper
     from srl.envs.racecar_wrapper import RacecarWrapper
@@ -154,17 +156,24 @@ def _make_cli_env(
         base_env = ManagerBasedRlEnv(env_cfg, device=device)
         return IsaacLabWrapper(base_env, supports_partial_reset=supports_partial_reset)
 
+    # Plain-Gymnasium env types: the policy (tanh/clipped actor heads),
+    # replay buffers and warmup all work in a normalised [-1, 1] action
+    # domain; `maybe_rescale_action` maps it onto the env's real finite
+    # [low, high] bounds right at `env.step()` (no-op for spaces that are
+    # already [-1, 1], unbounded, or not continuous). isaaclab/mjlab above
+    # are left untouched: their action spaces are unbounded and their
+    # action terms do their own scaling.
     if normalized_env_type == "goal":
         _register_robotics_envs_once()
-        return GoalEnvWrapper(gym.make(normalized_env_name, **make_kwargs))
+        return maybe_rescale_action(GoalEnvWrapper(gym.make(normalized_env_name, **make_kwargs)))
 
     if normalized_env_type == "racecar":
         import racecar_gym  # noqa: F401
 
-        return RacecarWrapper(gym.make(normalized_env_name, **make_kwargs))
+        return maybe_rescale_action(RacecarWrapper(gym.make(normalized_env_name, **make_kwargs)))
 
     base = gym.make(normalized_env_name, **make_kwargs)
-    return GymnasiumWrapper(base)
+    return maybe_rescale_action(GymnasiumWrapper(base))
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -216,6 +225,18 @@ Examples
     )
     p.add_argument(
         "--seed", type=int, default=None, help="Random seed (default: train.seed, else 0)"
+    )
+    p.add_argument(
+        "--deterministic",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Bit-reproducible PyTorch kernels: torch.use_deterministic_algorithms"
+            "(True), cudnn.deterministic, no cudnn.benchmark, TF32 off, "
+            "CUBLAS_WORKSPACE_CONFIG set. Slower on GPU. (default: "
+            "train.deterministic, else False; CPU runs are reproducible from "
+            "--seed alone)"
+        ),
     )
     p.add_argument("--logdir", default="runs", help="TensorBoard log dir (default: runs/)")
     p.add_argument(
@@ -810,6 +831,7 @@ def _evaluate_agent(
         truncated = False
         score = 0.0
         length = 0
+        episode_success: float | None = None
 
         while not (done or truncated):
             obs_remapped = _remap_obs_to_encoders(
@@ -844,11 +866,18 @@ def _evaluate_agent(
             for key in ("is_success", "success"):
                 if isinstance(info, dict) and key in info:
                     try:
-                        success_values.append(float(np.asarray(info[key]).reshape(-1)[0]))
+                        episode_success = float(np.asarray(info[key]).reshape(-1)[0])
                     except Exception:
                         pass
+                    break
         episode_scores.append(score)
         episode_lengths.append(length)
+        # SB3/baselines convention: an episode's success is `is_success` at
+        # its FINAL step -- not the fraction of steps that happened to report
+        # success (which under-reports e.g. FetchReach, where the goal is only
+        # reached part-way through the episode).
+        if episode_success is not None:
+            success_values.append(episode_success)
 
     metrics = {
         "eval/score_mean": float(sum(episode_scores) / len(episode_scores)),
@@ -1040,14 +1069,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     import os
-    import random
 
-    import numpy as np
     import torch
 
     from srl.core.config import A2CConfig, A3CConfig, DDPGConfig, PPOConfig, SACConfig, TD3Config
     from srl.registry.builder import ModelBuilder
     from srl.utils.pipeline_graph import render_pipeline_bundle
+    from srl.utils.seeding import seed_env_spaces, set_random_seed
 
     # ── load config early: device/seed/eval-* fallbacks below need train_cfg ───
     print(f"[srl-train] Loading config: {args.config}")
@@ -1085,11 +1113,15 @@ def main(argv: list[str] | None = None) -> int:
         device = args.device
 
     # ── reproducibility ───────────────────────────────────────────────────────
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    if device == "cuda":
-        torch.cuda.manual_seed_all(args.seed)
+    args.deterministic = (
+        args.deterministic
+        if args.deterministic is not None
+        else bool(train_cfg.get("deterministic", False))
+    )
+    set_random_seed(args.seed, deterministic=args.deterministic)
+    if device == "cuda" and not args.deterministic:
+        # TF32 is a speed/precision trade-off that breaks bit-reproducibility;
+        # only enable it when --deterministic is off.
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
         try:
@@ -1214,7 +1246,12 @@ def main(argv: list[str] | None = None) -> int:
     from srl.envs.sync_vector_env import SyncVectorEnv
 
     def _make_env(seed_offset=0):
-        return _make_cli_env(args.env, device, args.n_envs, args.env_type)
+        built = _make_cli_env(args.env, device, args.n_envs, args.env_type)
+        # Per-env seed for the env's own spaces (`act_space.sample()` etc.);
+        # each vector sub-env gets `seed + index`, matching how the vector
+        # envs offset `reset(seed=...)`.
+        seed_env_spaces(built, args.seed + seed_offset)
+        return built
 
     print(f"[srl-train] Creating {args.n_envs} × {args.env}")
     uses_internal_vectorization = (
@@ -1232,6 +1269,10 @@ def main(argv: list[str] | None = None) -> int:
             env = AsyncVectorEnv(env_fns)
         else:
             env = AsyncVectorEnv(env_fns) if args.n_envs > 1 else SyncVectorEnv(env_fns)
+        # The vector env's own (parent-side) action space is what off-policy
+        # warmup samples from -- for AsyncVectorEnv it's a fresh unpickled
+        # copy from worker 0, so seed it here (reproducible warmup).
+        seed_env_spaces(env, args.seed)
 
     # ── build agent ───────────────────────────────────────────────────────────
     from srl.utils.callbacks import CheckpointCallback
@@ -1360,9 +1401,12 @@ def main(argv: list[str] | None = None) -> int:
         visualizer_handle = _maybe_start_visualizer(agent, args, device)
         agent.train(
             total_timesteps=args.steps,
-            env_fn=partial(_make_cli_env, args.env, device, args.n_envs, args.env_type),
+            # n_envs is the WORKER count for A3C (n_workers above); each
+            # worker drives exactly one env (its buffer has num_envs=1).
+            env_fn=partial(_make_cli_env, args.env, device, 1, args.env_type),
             logger=logger,
             log_interval=args.log_interval,
+            seed=args.seed,
         )
 
     elif algo_name == "sac":
@@ -1618,6 +1662,34 @@ def _run_on_policy(
 
     n_steps = agent.cfg.n_steps
     obs, _ = env.reset(seed=args.seed)
+    # Gaussian policies sample unbounded actions: clip them to the env's
+    # action bounds at env.step() only (the unclipped sample is what the
+    # buffer stores for the log-prob) -- SB3/CleanRL ClipAction semantics.
+    # Deterministic predict() clips to the same bounds itself.
+    if hasattr(agent, "set_action_bounds_from_env"):
+        agent.set_action_bounds_from_env(env)
+    clip_action = getattr(agent, "clip_action", None)
+    # Same rule as _run_off_policy: isaaclab/mjlab and SyncVectorEnv auto-reset
+    # finished sub-envs themselves; a single plain GymnasiumWrapper (n_envs=1)
+    # does NOT, so this loop must reset it on every episode end -- otherwise
+    # every step after the first episode is taken in a dead env.
+    env_type = str(getattr(args, "env_type", "") or "")
+    env_name = str(getattr(args, "env", "") or "")
+    vectorized_env = (
+        env_type in ("isaaclab", "mjlab")
+        or env_name.startswith("isaaclab:")
+        or env_name.startswith("mjlab:")
+        or getattr(env, "num_envs", 1) > 1
+    )
+    # PPO's optional VecNormalize-style normalisation (PPOConfig.
+    # normalize_obs / normalize_reward). Obs stats are updated on every
+    # collected observation BEFORE predict() (which applies them itself), and
+    # the buffer stores the normalised obs so update() trains on exactly what
+    # the policy saw. Rewards are scaled before the truncation bootstrap below
+    # so V (learned on the scaled reward) is added on the same scale.
+    update_obs_norm = getattr(agent, "update_obs_normalizer", None)
+    normalize_obs = getattr(agent, "normalize_obs", None)
+    normalize_reward = getattr(agent, "normalize_reward", None)
     step = start_step
     next_eval_step = _next_eval_step(start_step, int(getattr(args, "eval_freq", 0)))
     encoder_names = list(agent.model.encoders.keys())
@@ -1641,10 +1713,14 @@ def _run_on_policy(
                     encoder_names,
                     encoder_input_names=getattr(agent.model, "encoder_input_names", None),
                 )
+                if update_obs_norm is not None:
+                    update_obs_norm(obs_remapped)
                 obs_t = _obs_to_tensors(obs_remapped, agent.device, force_batch=False)
                 action, log_prob, value, _ = agent.predict(obs_t)
+                obs_to_store = normalize_obs(obs_remapped) if normalize_obs is not None else obs
                 action_np = action.cpu().numpy()
-                next_obs, reward, done, trunc, info = env.step(action_np)
+                env_action = clip_action(action_np) if clip_action is not None else action_np
+                next_obs, reward, done, trunc, info = env.step(env_action)
                 logger.update_episodes(reward, done, trunc, step=step, info=info)
 
                 # Correct time-limit truncation handling. `next_obs` above
@@ -1652,9 +1728,9 @@ def _run_on_policy(
                 # IsaacLabWrapper's docstring), but is NOT what a value
                 # bootstrap at a truncation should use: for isaaclab/mjlab
                 # it's a different, freshly-reset episode's first frame.
-                # `info["true_final_obs"]` (populated by IsaacLabWrapper;
-                # for a single-env GymnasiumWrapper, `next_obs` IS already
-                # the true final obs since that wrapper never auto-resets)
+                # `get_final_obs` (info["final_obs"], populated by every SRL
+                # vector env; for a single-env GymnasiumWrapper, `next_obs`
+                # IS already the true final obs since it never auto-resets)
                 # is the real terminal state to bootstrap from. Only pay
                 # for the extra forward pass on steps where something
                 # actually timed out.
@@ -1662,10 +1738,10 @@ def _run_on_policy(
                 done_arr = np.asarray(done, dtype=bool)
                 trunc_arr = np.asarray(trunc, dtype=bool)
                 timeout_mask = trunc_arr & ~done_arr
+                if normalize_reward is not None:
+                    reward_arr = normalize_reward(reward_arr, done_arr | trunc_arr)
                 if timeout_mask.any():
-                    true_final_obs = (
-                        info.get("true_final_obs", next_obs) if isinstance(info, dict) else next_obs
-                    )
+                    true_final_obs = get_final_obs(next_obs, info)
                     tf_remapped = _remap_obs_to_encoders(
                         true_final_obs,
                         encoder_names,
@@ -1679,7 +1755,7 @@ def _run_on_policy(
                         reward_arr = reward_arr + gamma * bv * timeout_mask.astype(np.float32)
 
                 agent.buffer.add(
-                    obs=obs,
+                    obs=obs_to_store,
                     action=action_np,
                     reward=reward_arr,
                     # `terminated OR truncated`, not `terminated` alone --
@@ -1696,6 +1772,8 @@ def _run_on_policy(
                     value=value.cpu().numpy() if value is not None else None,
                 )
                 obs = next_obs
+                if not vectorized_env and bool(np.any(done_arr | trunc_arr)):
+                    obs, _ = env.reset()
                 step += getattr(agent.cfg, "num_envs", 1)
 
             obs_remapped_final = _remap_obs_to_encoders(
@@ -1885,6 +1963,7 @@ def _run_off_policy(
             gradient_steps=_gradient_steps,
             eval_fn=_eval_fn if _eval_freq > 0 else None,
             episode_fn=_episode_fn,
+            start_step=start_step,
         )
         try:
             runner.run()
@@ -2003,6 +2082,14 @@ def _run_off_policy(
                 log_trunc = np.asarray(trunc)[:active_envs]
                 log_info = list(info)[:active_envs]
             logger.update_episodes(log_reward, log_done, log_trunc, step=env_step, info=log_info)
+            # Per-episode exploration-noise reset (DDPG's OU process).
+            _reset_noise = getattr(agent, "reset_noise", None)
+            if _reset_noise is not None:
+                _ended = np.logical_or(
+                    np.atleast_1d(np.asarray(done)), np.atleast_1d(np.asarray(trunc))
+                )
+                if _ended.any():
+                    _reset_noise(_ended)
             if vectorized_env:
                 # `next_obs` is right for continuing the rollout (`obs =
                 # next_obs` below), but wrong to STORE for any sub-env that
@@ -2012,14 +2099,12 @@ def _run_off_policy(
                 # termination-only -- see `_split_vector_transition`'s own
                 # docstring -- so a truncated-but-not-terminated transition
                 # would otherwise bootstrap off an unrelated episode).
-                # `info["true_final_obs"]` (IsaacLabWrapper) is the correct
-                # one to store instead; for a single-env GymnasiumWrapper
-                # (never reached in the `vectorized_env` branch) or any env
-                # type without the fix, this key is simply absent and
-                # `next_obs` is used exactly as before.
-                store_next_obs = (
-                    info.get("true_final_obs", next_obs) if isinstance(info, dict) else next_obs
-                )
+                # The same holds for SyncVectorEnv/AsyncVectorEnv, which also
+                # auto-reset. `get_final_obs` splices every ended sub-env's
+                # true terminal observation (`info["final_obs"]`, see
+                # srl.envs.vector_utils) back in; it is a no-op when nothing
+                # ended or the env can't recover it.
+                store_next_obs = get_final_obs(next_obs, info)
                 transitions = _split_vector_transition(
                     obs,
                     store_next_obs,
