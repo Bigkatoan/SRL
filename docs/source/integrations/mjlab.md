@@ -64,11 +64,6 @@ flows:
 actor: {name: actor, type: gaussian, action_dim: <your action dim>, log_std_init: -1.0}
 critic: {name: critic, type: value}
 
-losses:
-  - {name: policy,  weight: 1.0}
-  - {name: value,   weight: 1.0}
-  - {name: entropy, weight: 0.005}
-
 train:
   total_steps: 20_000_000
   n_envs: 4096          # mjlab-sized: GPU-batched inside ONE process, not

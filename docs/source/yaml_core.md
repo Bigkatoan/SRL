@@ -67,10 +67,6 @@ critic:
   type: twin_q
   action_dim: 6
 
-losses:
-  - {name: sac_q, weight: 1.0}
-  - {name: sac_policy, weight: 1.0}
-
 train:
   total_steps: 1_000_000
   batch_size: 256
@@ -81,8 +77,10 @@ Conceptually:
 - `encoders` define feature extractors.
 - `flows` define the graph edges between modules.
 - `actor` and `critic` define decision and value heads.
-- `losses` define the built-in training terms that should be active.
-- `train` provides algorithm-side hyperparameters consumed by the CLI.
+- `train` provides trainer keys and algorithm-side hyperparameters consumed by the CLI.
+
+The whole file is validated strictly (unknown keys, types, enums, ranges) — see
+[strict validation](config_reference.md#strict-validation).
 
 ## Encoders
 
@@ -100,15 +98,14 @@ Important encoder fields from [config_schema.py](https://github.com/Bigkatoan/SR
 - `name`: unique node identifier used by the flow graph
 - `type`: built-in encoder type or a registry key for a custom encoder
 - `input_name`: explicit observation key this encoder should consume
-- `input_dim`: required for MLP/LSTM-style vector encoders
-- `input_shape`: required for CNN encoders, typically `[C, H, W]`
+- `input_dim`: MLP/LSTM-style vector encoders; omit or `auto` to take it from the env
+- `input_shape`: CNN encoders, typically `[C, H, W]`; omit or `auto` to take it from the env
 - `latent_dim`: output latent width for non-recurrent encoders
 - `layers`: per-layer structure used by the underlying builder
 - `aux_type`: optional auxiliary head family, currently `autoencoder`, `contrastive`, or `byol`
 - `aux_latent_dim`: projection width for contrastive/BYOL heads
 - `use_momentum`: wraps the encoder in a momentum/EMA encoder
 - `momentum_tau`: EMA coefficient used by the momentum wrapper
-- `frame_stack`: declared in schema for stacked inputs
 - `recurrent`: wraps non-LSTM encoders in an LSTM layer
 - `lstm_hidden`: recurrent hidden size when `recurrent: true` or `type: lstm`
 
@@ -309,7 +306,7 @@ Typical fields include:
 - `lr`, `lr_actor`, `lr_critic`, `lr_alpha`
 - `gamma`, `tau`, `gae_lambda`
 - `n_steps`, `n_epochs`, `clip_range`
-- `buffer_size`, `start_steps`, `update_after`, `update_every`
+- `buffer_size`, `learning_starts`, `update_after`, `train_freq`, `gradient_steps`
 
 These fields are mapped by the training CLI into algorithm config dataclasses in [config.py](https://github.com/Bigkatoan/SRL/blob/main/srl/core/config.py).
 

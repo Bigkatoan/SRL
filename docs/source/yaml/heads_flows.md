@@ -43,9 +43,10 @@ critic:
 
 ```{note}
 The builder derives each head's input size from the flow graph — there is no
-`input_dim` to hard-code. `action_dim` is required for actor heads and for `q`/`twin_q`
-critics; `srl-train` also checks head types against the selected algorithm before
-building anything.
+`input_dim` to hard-code. `action_dim` is needed by actor heads and `q`/`twin_q`
+critics; omit it (or write `auto`) to take it from the env's action space, or give a
+number that is then cross-checked against the env. `srl-train` also checks head types
+against the selected algorithm before building anything.
 ```
 
 ## Flows — the routing graph
@@ -124,21 +125,22 @@ layers: [256, 256]
 CNN shorthand lists are positional, in this order:
 
 ```yaml
-# [out_channels, kernel, padding, activation, pooling]
+# [out_channels, kernel, stride, activation, pooling]
 layers:
   - [32, 8, 4, relu]
   - [64, 4, 2, relu]
   - [64, 3, 1, relu]
 ```
 
-:::{warning}
-The third element is **padding**, not stride. `stride` has no shorthand slot and
-defaults to `1`, so any layer that needs a stride must use the dict form:
+::::{warning}
+The third element is **stride**, not padding (see `_SHORTHAND_KEYS` in
+`srl/networks/layers/cnn_builder.py`). Padding defaults to `"same"` for stride 1
+and `"valid"` (no padding) otherwise, so any layer that needs explicit padding must
+use the dict form:
 
 ```yaml
 layers:
-  - {out_channels: 32, kernel: 8, stride: 4, padding: 0, activation: relu}
-  - {out_channels: 64, kernel: 4, stride: 2, padding: 0, activation: relu}
+  - {out_channels: 32, kernel: 8, stride: 4, padding: 2, activation: relu}
 ```
 
 Note the key is `kernel`, not `kernel_size`, and group-norm groups are set with
