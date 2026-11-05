@@ -45,9 +45,9 @@ TorchScript export and ROS 2 deployment are documented in the
 - Algorithms: PPO, SAC, DDPG, TD3, A2C, A3C
 - Environment adapters: Gymnasium, Box2D, MuJoCo, Fetch robotics, Isaac Lab, mjlab, racecar_gym
 - YAML-driven model graph builder for encoders, heads, flows, and multimodal policies
-- CLI tools: `srl-train`, `srl-benchmark`, `srl-visualize`
+- CLI tools: `srl-train`, `srl-benchmark`, `srl-visualize`, `srl-policy` (inspect / TorchScript-export a checkpoint)
 - Pipeline visualization export for model graphs and training graphs
-- Checkpoint save and resume support from the training CLI
+- One checkpoint format (`srl-agent` v1: safetensors weights + resolved config, pickle-free) for resume, `srl.load_policy` inference and ROS 2 deployment
 - Optional ROS 2 Python API for inference
 - **v0.2.0** — encoder optimizer fix, async off-policy runner, GPU replay buffer, expanded encoder loss modes (AE/VAE/CURL/BYOL/DrQ/SPR/Barlow Twins)
 
