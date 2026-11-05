@@ -1,6 +1,32 @@
 # SRL — Simple Reinforcement Learning
 
+[![Tests](https://github.com/Bigkatoan/SRL/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/Bigkatoan/SRL/actions/workflows/test.yml)
+[![Docs](https://github.com/Bigkatoan/SRL/actions/workflows/docs.yml/badge.svg?branch=main)](https://bigkatoan.github.io/SRL)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](pyproject.toml)
+<!-- Uncomment once srl-rl is published on PyPI:
+[![PyPI](https://img.shields.io/pypi/v/srl-rl.svg)](https://pypi.org/project/srl-rl/)
+-->
+
 SRL is a modular reinforcement learning library for continuous-control environments with a YAML-first model system.
+
+```python
+# From a clone of this repo (configs/ lives at the repo root).
+# Equivalent to: srl-train --config configs/envs/pendulum_ppo.yaml --steps 100000
+from srl.cli.train import main as srl_train
+
+srl_train([
+    "--config", "configs/envs/pendulum_ppo.yaml",  # model graph + hyperparameters
+    "--steps", "100000",
+    "--device", "auto",                            # cuda if available, else cpu
+])
+# -> runs/ppo_pendulum_ppo/{summary.json,history.csv,...}
+# -> checkpoints/ppo_pendulum_ppo/final_0000100000.pt
+```
+
+Training is currently driven through the `srl-train` entry point (CLI or
+`srl.cli.train.main(argv)` as above); loading a checkpoint for inference from
+Python is shown in the [docs](https://bigkatoan.github.io/SRL).
 
 ## What is included
 
@@ -55,10 +81,7 @@ srl-visualize --help
 
 If those commands are missing, SRL is not installed into the currently active environment yet. See the installation guide and CLI reference for the fallback `python -m ...` path.
 
-If you are also working with the separate `M3bot` Isaac Lab task repository on this machine, see the SRL docs pages for the verified environment layout and task-specific setup:
-
-- Installation note: https://bigkatoan.github.io/SRL/source/installation.html
-- M3bot environment guide: https://bigkatoan.github.io/SRL/source/environments/m3bot.html
+`racecar_gym` is not on PyPI; install it manually before using the `racecar` extra (see the [installation guide](https://bigkatoan.github.io/SRL/source/installation.html)).
 
 ## Quick start
 
@@ -116,6 +139,21 @@ srl-benchmark --config configs/envs/halfcheetah_sac.yaml \
               --n-envs 4
 ```
 
+## Algorithms and features
+
+| | PPO | A2C | A3C | SAC | DDPG | TD3 |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| Policy type | on-policy | on-policy | on-policy (async workers) | off-policy | off-policy | off-policy |
+| Vectorized envs (`--n-envs`) | ✓ | ✓ | workers | ✓ | ✓ | ✓ |
+| Pixel observations + auxiliary encoder losses (AE/CURL/…) | ✓ | – | – | ✓ | – | – |
+| Hindsight Experience Replay (`use_her`) | – | – | – | ✓ | – | – |
+| n-step returns (`replay_n_step`) | – | – | – | ✓ | ✓ | ✓ |
+| Async off-policy runner / GPU replay buffer | – | – | – | ✓ | ✓ | ✓ |
+| Automatic entropy / temperature tuning | ✓ (target entropy) | – | – | ✓ | – | – |
+| Adaptive KL learning-rate schedule | ✓ | – | – | – | – | – |
+
+All algorithms target continuous (Box) action spaces and are configured from the same YAML model graph. See the [algorithms guide](https://bigkatoan.github.io/SRL/source/algorithms.html) for details and the [limitations page](https://bigkatoan.github.io/SRL/source/limitations.html) for known gaps.
+
 ## Supported environments
 
 | Suite | Examples | Wrapper |
@@ -131,34 +169,30 @@ srl-benchmark --config configs/envs/halfcheetah_sac.yaml \
 
 ## Testing
 
-Deep environment and algorithm validation lives in [tests/test_deep_env_algorithms.py](tests/test_deep_env_algorithms.py) and can be run with:
-
 ```bash
-bash scripts/run_deep_env_tests.sh
+pip install -e ".[test]"
+pytest -m "not slow and not gpu"   # fast unit suite (what CI runs)
+pytest -m slow --timeout=3600      # end-to-end learning regressions (tests/test_learning.py)
 ```
 
-That runner now also executes headless Isaac Lab deep tests for PPO, A2C, SAC, DDPG, and TD3 when `tests/IsaacLab` is available.
+Every shipped YAML config is checked by [tests/test_configs_parse.py](tests/test_configs_parse.py) (builds, runs a forward pass, and matches its env's spaces when the env is installed).
 
 For a full config-matrix benchmark sweep with preserved per-case artifacts, use:
 
 ```bash
-bash scripts/run_full_matrix_benchmark.sh --python tests/venv/bin/python
+bash scripts/run_full_matrix_benchmark.sh --python "$(command -v python)" --label quick_check
 ```
 
-That script iterates every YAML under `configs/envs`, continues through failures, records `passed` / `failed` / `blocked` per case, writes one master log under `matrix_runs/.../matrix.log`, keeps each case's `runs/` and `checkpoints/` outputs separately, and emits `cases.jsonl`, `report.json`, and `summary.md` with target-threshold judging. By default it now runs in a convergence-oriented mode with a shorter shared budget and lighter targets from `configs/benchmarks/convergence_targets.yaml` so you can see learning progress without waiting for full solved-policy training. Use `--budget-mode full --target-file configs/benchmarks/core_targets.yaml` when you want the stricter beat-env gate.
-
-Examples:
+That script iterates every YAML under `configs/envs`, continues through failures, records `passed` / `failed` / `blocked` per case, writes one master log under `matrix_runs/.../matrix.log`, keeps each case's `runs/` and `checkpoints/` outputs separately, and emits `cases.jsonl`, `report.json`, and `summary.md` with target-threshold judging. By default it runs in a convergence-oriented mode with a shorter shared budget and lighter targets from `configs/benchmarks/convergence_targets.yaml`. Use `--budget-mode full --target-file configs/benchmarks/core_targets.yaml` for the stricter beat-env gate:
 
 ```bash
-# short convergence sweep with live logs
-bash run_full_matrix_benchmark.sh --skip-install --python tests/venv/bin/python --label quick_check
-
-# strict full-budget gate using YAML step counts and stricter thresholds
-bash run_full_matrix_benchmark.sh --skip-install --python tests/venv/bin/python \
+bash scripts/run_full_matrix_benchmark.sh --skip-install \
     --budget-mode full \
     --target-file configs/benchmarks/core_targets.yaml \
     --label strict_gate
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, lint and docs commands.
 
 ## Documentation
 
@@ -167,10 +201,26 @@ bash run_full_matrix_benchmark.sh --skip-install --python tests/venv/bin/python 
 - YAML core guide: https://bigkatoan.github.io/SRL/source/yaml_core.html
 - CLI reference: https://bigkatoan.github.io/SRL/source/cli.html
 - Environments: https://bigkatoan.github.io/SRL/source/environments/index.html
-- M3bot environment guide: https://bigkatoan.github.io/SRL/source/environments/m3bot.html
 - Config reference: https://bigkatoan.github.io/SRL/source/config_reference.html
 - Limitations: https://bigkatoan.github.io/SRL/source/limitations.html
 - ROS 2 Python API: https://bigkatoan.github.io/SRL/source/ros2.html
+
+## Citation
+
+If you use SRL in your research, please cite it (see [CITATION.cff](CITATION.cff); GitHub's "Cite this repository" button exports BibTeX):
+
+```bibtex
+@software{tran_srl,
+  author  = {Tran, Dang An},
+  title   = {{SRL}: Simple Reinforcement Learning},
+  url     = {https://github.com/Bigkatoan/SRL},
+  license = {MIT}
+}
+```
+
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md). Report security issues privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
