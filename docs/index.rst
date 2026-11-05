@@ -36,9 +36,9 @@ declared as data rather than hand-wired Python.
 Five-minute example
 --------------------
 
-Training is driven by the ``srl-train`` CLI; the Python side loads the
-resulting checkpoint for inference. Run from a clone of the repository so the
-``configs/`` directory is available:
+Train with the ``srl-train`` CLI (or ``PPO.from_config(...).learn(...)``), then
+load the resulting checkpoint for inference with ``srl.load_policy``. Run from a
+clone of the repository so the ``configs/`` directory is available:
 
 .. code-block:: bash
 
@@ -47,28 +47,16 @@ resulting checkpoint for inference. Run from a clone of the repository so the
 .. code-block:: python
 
    import gymnasium as gym
-   import torch
 
-   from srl.algorithms.ppo import PPO
-   from srl.envs.gymnasium_wrapper import GymnasiumWrapper
-   from srl.registry.builder import ModelBuilder
-   from srl.utils.checkpoint import CheckpointManager
+   import srl
 
-   device = "cuda" if torch.cuda.is_available() else "cpu"
+   policy = srl.load_policy("checkpoints/ppo_pendulum_ppo")   # final/best checkpoint
 
-   model = ModelBuilder.from_yaml("configs/envs/pendulum_ppo.yaml")
-   agent = PPO(model, device=device)
-   cm = CheckpointManager("checkpoints/ppo_pendulum_ppo")
-   cm.load(agent.model, sorted(cm.save_dir.glob("final_*.pt"))[-1], device=device)
-
-   env = GymnasiumWrapper(gym.make("Pendulum-v1"))
+   env = gym.make("Pendulum-v1")
    obs, _ = env.reset(seed=0)
    done, episode_return = False, 0.0
    while not done:
-       obs_t = {k: torch.as_tensor(v, dtype=torch.float32, device=device).unsqueeze(0)
-                for k, v in obs.items()}
-       action, *_ = agent.predict(obs_t, deterministic=True)
-       obs, reward, terminated, truncated, _ = env.step(action.squeeze(0).cpu().numpy())
+       obs, reward, terminated, truncated, _ = env.step(policy(obs))  # env-unit action
        episode_return += float(reward)
        done = terminated or truncated
    print(f"episode return: {episode_return:.1f}")
@@ -110,6 +98,7 @@ Table of Contents
    source/training/runners
    source/training/buffers
    source/checkpointing
+   source/deployment
    source/encoders
    source/async_runner
    source/gpu_replay_buffer

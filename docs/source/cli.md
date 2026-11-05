@@ -63,8 +63,11 @@ Important flag groups from [train.py](https://github.com/Bigkatoan/SRL/blob/main
   env, every hyperparameter explicit, CLI flags applied -- is written to
   `<logdir>/<run>/config.yaml`.
 - Checkpointing and resume: `--resume`; periodic checkpoints every
-  `train.save_interval` env steps (default 100 000), plus `final_*`/`best_*`.
-  Every checkpoint is loadable from Python with `Cls.load(path)`.
+  `train.save_interval` env steps (default 100 000), plus `final_*`/`best_*`,
+  each an `srl-agent` v1 directory (see [Saving, loading & deployment](deployment.md)).
+  Replay buffers are not stored unless `train.checkpoint_replay_buffer: true`.
+  Every checkpoint is loadable from Python with `Cls.load(path)`, and the
+  checkpoint directory with `srl.load_policy("checkpoints/<run>")`.
 - Pipeline export: `--save-model-pipeline`, `--save-training-pipeline`, `--export-pipeline-only`
 - Evaluation: `--eval-freq`, `--eval-episodes`, `--render`
 - Best-checkpoint tracking: `--save-best` / `--no-save-best`
@@ -91,12 +94,12 @@ Whether all of these appear depends on the environment and the current training 
 
 Some runs peak partway through training and then regress for the rest of it — a
 periodic-checkpoint-only setup has no way to recover that peak once training moves
-past it, since `--resume`'s checkpoints and the final `final_*.pt` both just reflect
+past it, since `--resume`'s checkpoints and the final `final_*` checkpoint both just reflect
 whatever the *most recent* state was, not the *best* one.
 
 `--save-best` (or `train.save_best: true` in the YAML config) turns on independent
 tracking of the best `eval/score_mean` seen so far this run. Every time an evaluation
-phase produces a new run-best score, a `best_*.pt` checkpoint is saved into the same
+phase produces a new run-best score, a `best_<step>/` checkpoint is saved into the same
 `--ckptdir` directory as the regular `ckpt_*`/`final_*` checkpoints — alongside them,
 never replacing them. Off by default; requires `--eval-freq > 0` (with `--eval-freq 0`
 there is no `eval/score_mean` to track against).
@@ -120,7 +123,7 @@ srl-train --config configs/envs/pendulum_ppo.yaml \
           --env Pendulum-v1 \
           --algo ppo \
           --steps 200000 \
-          --resume checkpoints/ppo_pendulum_ppo/final_0000100000.pt
+          --resume checkpoints/ppo_pendulum_ppo/final_0000100000
 ```
 
 (live-viewer-visualize)=

@@ -6,6 +6,7 @@ Auto-generated from docstrings in the `srl` package.
 :maxdepth: 1
 
 agents
+policy
 algorithms
 training
 envs

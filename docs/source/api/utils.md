@@ -16,6 +16,13 @@
    :show-inheritance:
 ```
 
+## Safe serialization
+
+```{eval-rst}
+.. automodule:: srl.utils.safe_serialization
+   :members: pack, unpack, load_weights_only, load_trusted_or_legacy, LegacyCheckpointWarning
+```
+
 ## Callbacks
 
 The callbacks moved to {mod}`srl.training.callbacks` (see the

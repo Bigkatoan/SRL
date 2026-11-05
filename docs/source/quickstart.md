@@ -134,19 +134,25 @@ from any hook stops training. See {doc}`api/training`.
 
 ## 5. Load a checkpoint
 
-`Cls.load(...)` accepts a directory written by `agent.save(...)` and the
-single-file checkpoints `srl-train` writes (`ckpt_<step>.pt`, `final_<step>.pt`,
-`best_<step>.pt` under `<ckptdir>/<algo>_<config-stem>/`):
+`agent.save(dir)` and `srl-train` (`ckpt_<step>/`, `final_<step>/`,
+`best_<step>/` under `<ckptdir>/<algo>_<config-stem>/`) write the same
+directory format. For inference only, `srl.load_policy` needs nothing but the
+checkpoint:
 
 ```python
-import glob
+import srl
 
-from srl import SAC
-
-path = sorted(glob.glob("checkpoints/sac_halfcheetah_sac/final_*.pt"))[-1]
-agent = SAC.load(path)                       # model rebuilt from the stored YAML
-action, _ = agent.predict(obs, deterministic=True)
+policy = srl.load_policy("checkpoints/sac_halfcheetah_sac")   # best, else final, else latest
+action = policy(obs)                                           # env units
 ```
 
-For resuming a CLI run use `srl-train --resume <checkpoint>`; to restore just
-the network weights, `CheckpointManager(dir).load(model, path)` still works.
+To keep training, load the agent:
+
+```python
+from srl import SAC
+
+agent = SAC.load("checkpoints/sac_halfcheetah_sac/final_0001000000", env=gym.make("HalfCheetah-v5"))
+```
+
+For resuming a CLI run use `srl-train --resume <checkpoint>`. Format details,
+TorchScript export and ROS 2 deployment: {doc}`deployment`.

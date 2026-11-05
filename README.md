@@ -21,12 +21,24 @@ srl_train([
     "--device", "auto",                            # cuda if available, else cpu
 ])
 # -> runs/ppo_pendulum_ppo/{summary.json,history.csv,...}
-# -> checkpoints/ppo_pendulum_ppo/final_0000100000.pt
+# -> checkpoints/ppo_pendulum_ppo/final_0000100000/   (srl-agent format v1)
 ```
 
-Training is currently driven through the `srl-train` entry point (CLI or
-`srl.cli.train.main(argv)` as above); loading a checkpoint for inference from
-Python is shown in the [docs](https://bigkatoan.github.io/SRL).
+Run the trained policy (numpy in, env-unit actions out):
+
+```python
+import gymnasium as gym
+import srl
+
+policy = srl.load_policy("checkpoints/ppo_pendulum_ppo")
+env = gym.make("Pendulum-v1")
+obs, _ = env.reset(seed=0)
+obs, reward, terminated, truncated, _ = env.step(policy(obs))
+```
+
+The Python training API (`PPO.from_config(...).learn(...)`), checkpoint format,
+TorchScript export and ROS 2 deployment are documented in the
+[docs](https://bigkatoan.github.io/SRL).
 
 ## What is included
 
@@ -130,7 +142,7 @@ srl-train --config configs/envs/pendulum_ppo.yaml \
           --env Pendulum-v1 \
           --algo ppo \
           --steps 200000 \
-          --resume checkpoints/ppo_pendulum_ppo/final_0000100000.pt
+          --resume checkpoints/ppo_pendulum_ppo/final_0000100000
 
 # compare sync vs async vectorization locally
 srl-benchmark --config configs/envs/halfcheetah_sac.yaml \

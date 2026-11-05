@@ -38,6 +38,7 @@ overwrite whatever the YAML says.
 | `deterministic` | bool | false | Deterministic torch kernels (`--deterministic`) |
 | `save_best` | bool | false | Keep a `best_*` checkpoint (`--save-best`, see [`--save-best`](best-checkpoint-tracking)) |
 | `save_interval` | int | 100_000 | Env steps between periodic `srl-train` checkpoints (no CLI flag) |
+| `checkpoint_replay_buffer` | bool | false | Store the off-policy replay buffer in every `srl-train` checkpoint, for an exact `--resume` (can be gigabytes; no CLI flag) |
 
 ## Off-policy fields (SAC, DDPG, TD3)
 

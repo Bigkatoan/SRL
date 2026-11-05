@@ -52,7 +52,8 @@ agent) and as `agent.load(path)` (restores in place).
 
 ```{eval-rst}
 .. automodule:: srl.core.agent_io
-   :members: save_agent, load_agent, read_payload, build_agent_from_experiment
+   :members: save_agent, load_agent, read_checkpoint, read_payload, find_checkpoint,
+      Checkpoint, CheckpointFormatError, build_agent_from_experiment
 ```
 
 ## Algorithm registry

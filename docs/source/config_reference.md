@@ -327,6 +327,7 @@ that wins when passed):
 | `deterministic` | bool | false |
 | `save_best` | bool | false |
 | `save_interval` | int ≥ 1 | 100_000 |
+| `checkpoint_replay_buffer` | bool | false |
 
 **Async-runner keys** (`AsyncRunnerConfig`): `use_async`, `use_gpu_buffer`.
 

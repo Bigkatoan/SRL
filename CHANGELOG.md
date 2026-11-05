@@ -13,6 +13,16 @@ The format follows Keep a Changelog and the project uses Semantic Versioning as 
 - New `srl.training` package: `OnPolicyTrainer`, `OffPolicyTrainer`, `Evaluator`, callbacks (`CheckpointCallback`, `EvalCallback`, `EarlyStopping`, `LogCallback`) with ordered hooks. `srl-train` and `from_config` share one construction path (`srl.core.agent_io.build_agent_from_experiment`); the CLI is a thin layer over `agent.learn()`.
 - `BaseAgent` / `OnPolicyAgent` / `OffPolicyAgent` hold the shared agent code. `agent.save(dir)` also writes `config.yaml`, the fully resolved experiment (`srl.config.dump_resolved_config`); `srl-train` writes the same file to `<logdir>/<run>/config.yaml`.
 
+**Checkpoint format v1, `srl.load_policy`, deployment**
+- `agent.save(dir)` and every `srl-train` checkpoint (`ckpt_<step>/`, `final_<step>/`, `best_<step>/`) write one directory format, `srl-agent` v1: `meta.json` (format/versions, obs/action spec, normalizers), `config.yaml` (resolved experiment, re-validated on load), `model.safetensors` (strict key check), `normalizers.json`, optional `train_state.pt` (optimizers, RNG, counters) and `replay_buffer/`. Nothing in it needs pickle: all `.pt` files load with `torch.load(weights_only=True)`. Missing files, a foreign `format` or a newer `format_version` raise `CheckpointFormatError`.
+- v0 directories (`agent.pt`) and single-file `*.pt` checkpoints still load (`weights_only=False` with a `LegacyCheckpointWarning`).
+- `srl.load_policy(path, device="cpu")` -> `srl.Policy`: inference-only (`policy(obs)` = `agent.predict(obs, deterministic=True)[0]`), from an agent directory, an `srl-train` checkpoint directory (best / final / latest) or a legacy file; `Policy.export_torchscript(path)`; `python -m srl.policy info|export` (`srl-policy`).
+- ROS 2: `srl.ros2.rl_node` loads the policy with `srl.load_policy` (`policy_path` parameter; topics from the checkpoint's `ros2:` block), so `auto`-dim configs, normalizers and action rescaling work; the inference core is the ROS-free `PolicyRunner`. `resolve_msg_type` accepts `pkg/Msg` names. Template package updated.
+- Periodic `srl-train` checkpoints no longer embed the replay buffer (it was rewritten, multi-GB, on every save); `train.checkpoint_replay_buffer: true` restores the old behaviour. `CheckpointManager(..., include_replay_buffer=...)`.
+- `agent.save(dir, include_train_state=False)` writes an inference-only checkpoint. `AgentModel.act` works with dict-returning heads.
+- `CheckpointManager` no longer swallows safetensors write errors.
+- Auxiliary-loss config diagnostics are `warnings.warn` (`UserWarning`); a train key of another algorithm says to remove it.
+
 **Strict configs (`srl.config`)**
 - `load_experiment(path_or_dict, algo=None)` validates the whole YAML (model, env keys, `train:`); unknown keys, wrong types, bad enums/ranges raise one `ConfigError` listing every problem, with "did you mean" hints. Config dataclasses validate in `__post_init__`. Files carry `schema_version: 1`.
 - `input_dim: auto` / `input_shape: auto` / `action_dim: auto` are resolved from the env's spaces (the env is now built before the model); explicit values are cross-checked against the env. The simple shipped configs (Pendulum, Hopper/HalfCheetah/Walker2d, Fetch) use `auto`.
