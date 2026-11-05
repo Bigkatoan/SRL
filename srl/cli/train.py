@@ -1625,6 +1625,18 @@ def _run_on_policy(
     if hasattr(agent, "set_action_bounds_from_env"):
         agent.set_action_bounds_from_env(env)
     clip_action = getattr(agent, "clip_action", None)
+    # Same rule as _run_off_policy: isaaclab/mjlab and SyncVectorEnv auto-reset
+    # finished sub-envs themselves; a single plain GymnasiumWrapper (n_envs=1)
+    # does NOT, so this loop must reset it on every episode end -- otherwise
+    # every step after the first episode is taken in a dead env.
+    env_type = str(getattr(args, "env_type", "") or "")
+    env_name = str(getattr(args, "env", "") or "")
+    vectorized_env = (
+        env_type in ("isaaclab", "mjlab")
+        or env_name.startswith("isaaclab:")
+        or env_name.startswith("mjlab:")
+        or getattr(env, "num_envs", 1) > 1
+    )
     step = start_step
     next_eval_step = _next_eval_step(start_step, int(getattr(args, "eval_freq", 0)))
     encoder_names = list(agent.model.encoders.keys())
@@ -1704,6 +1716,8 @@ def _run_on_policy(
                     value=value.cpu().numpy() if value is not None else None,
                 )
                 obs = next_obs
+                if not vectorized_env and bool(np.any(done_arr | trunc_arr)):
+                    obs, _ = env.reset()
                 step += getattr(agent.cfg, "num_envs", 1)
 
             obs_remapped_final = _remap_obs_to_encoders(

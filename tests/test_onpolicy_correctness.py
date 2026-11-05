@@ -344,3 +344,23 @@ def test_on_policy_loop_clips_env_actions_but_stores_raw_actions():
     sent = np.stack(env.actions)
     assert np.all(sent <= 0.5) and np.all(sent >= -0.5)
     assert np.any(np.stack(stored) > 0.5)  # the unclipped sample was stored
+
+
+# ---------------------------------------------------------------------------
+# Bug 2: n_envs == 1 on-policy loop never reset the (non-auto-resetting) env
+# ---------------------------------------------------------------------------
+
+
+def test_on_policy_loop_resets_single_env_after_episode_end():
+    torch.manual_seed(0)
+    agent = PPO(
+        ModelBuilder.from_dict(_model_dict()),
+        config=PPOConfig(n_steps=8, batch_size=8, n_epochs=1),
+        device="cpu",
+    )
+    env = _FakeSingleEnv(episode_len=3)
+    logger = _run_loop(agent, env, steps=16)
+    assert len(env.actions) == 16
+    # 1 initial reset + one per finished episode (16 // 3 = 5 episodes).
+    assert env.resets == 1 + 16 // 3
+    assert logger.episode_ends == 16 // 3
