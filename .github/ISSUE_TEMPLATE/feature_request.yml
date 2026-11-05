@@ -1,0 +1,33 @@
+name: Feature request
+description: Suggest a new algorithm, environment adapter, config option or improvement.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What are you trying to do, and why is it hard or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What you'd like to see (API sketch, YAML snippet, CLI flag, ...).
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Papers, reference implementations or benchmarks, if relevant.
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I'm willing to open a PR for this (see CONTRIBUTING.md).
