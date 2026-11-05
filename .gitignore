@@ -217,3 +217,9 @@ venv/
 runs/
 checkpoints/
 wandb/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+.vscode/
+matrix_runs/
+example.txt
