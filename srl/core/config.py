@@ -20,12 +20,26 @@ class PPOConfig:
     gamma: float = 0.99
     gae_lambda: float = 0.95
     clip_range: float = 0.2
-    clip_range_vf: float | None = None  # None = same as clip_range
+    clip_range_vf: float | None = None  # None = no value-function clipping (SB3 default)
     entropy_coef: float = 0.0
     vf_coef: float = 0.5
     max_grad_norm: float = 0.5
     target_kl: float | None = None
     use_fp16: bool = False
+    # VecNormalize-style normalisation (on by default, as in CleanRL's
+    # ppo_continuous_action / rl-zoo MuJoCo PPO). `normalize_obs`: running
+    # mean/var per flat (1-D per sample) observation key -- image keys are
+    # never touched -- updated on every collected observation, applied inside
+    # PPO.predict() (so eval / deployment see the same transform) and stored
+    # normalised in the rollout buffer. `normalize_reward`: rewards are
+    # divided by the running std of the discounted return (not the reward
+    # itself, and not mean-centred). Both statistics are saved in
+    # checkpoints. Episode returns logged by the trainer stay raw.
+    normalize_obs: bool = True
+    normalize_reward: bool = True
+    clip_obs: float = 10.0
+    clip_reward: float = 10.0
+    norm_epsilon: float = 1e-8
     # Adaptive KL-based learning-rate schedule (off by default -- `lr` stays
     # fixed for the whole run unless `lr_schedule="adaptive"`). Modeled on
     # rsl_rl's PPO (`schedule="adaptive"`, the default there), which applies
@@ -170,6 +184,8 @@ class A3CConfig:
     max_grad_norm: float = 40.0
     n_workers: int = 4
     batch_size: int = 20
+    # Base seed; worker `rank` uses `seed + rank` (torch RNG + env.reset).
+    seed: int = 0
 
 
 @dataclass

@@ -211,7 +211,7 @@ Common `HeadConfig` fields:
 | `log_std_init` | Initial log standard deviation |
 | `log_std_min` | Minimum log std clamp |
 | `log_std_max` | Maximum log std clamp |
-| `state_dependent_std` | Whether std is state-conditioned |
+| `state_dependent_std` | Whether std is state-conditioned (gaussian heads; default `false` = learned state-independent log_std, as in CleanRL/SB3) |
 
 ---
 

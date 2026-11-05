@@ -1360,9 +1360,12 @@ def main(argv: list[str] | None = None) -> int:
         visualizer_handle = _maybe_start_visualizer(agent, args, device)
         agent.train(
             total_timesteps=args.steps,
-            env_fn=partial(_make_cli_env, args.env, device, args.n_envs, args.env_type),
+            # n_envs is the WORKER count for A3C (n_workers above); each
+            # worker drives exactly one env (its buffer has num_envs=1).
+            env_fn=partial(_make_cli_env, args.env, device, 1, args.env_type),
             logger=logger,
             log_interval=args.log_interval,
+            seed=args.seed,
         )
 
     elif algo_name == "sac":
@@ -1618,6 +1621,34 @@ def _run_on_policy(
 
     n_steps = agent.cfg.n_steps
     obs, _ = env.reset(seed=args.seed)
+    # Gaussian policies sample unbounded actions: clip them to the env's
+    # action bounds at env.step() only (the unclipped sample is what the
+    # buffer stores for the log-prob) -- SB3/CleanRL ClipAction semantics.
+    # Deterministic predict() clips to the same bounds itself.
+    if hasattr(agent, "set_action_bounds_from_env"):
+        agent.set_action_bounds_from_env(env)
+    clip_action = getattr(agent, "clip_action", None)
+    # Same rule as _run_off_policy: isaaclab/mjlab and SyncVectorEnv auto-reset
+    # finished sub-envs themselves; a single plain GymnasiumWrapper (n_envs=1)
+    # does NOT, so this loop must reset it on every episode end -- otherwise
+    # every step after the first episode is taken in a dead env.
+    env_type = str(getattr(args, "env_type", "") or "")
+    env_name = str(getattr(args, "env", "") or "")
+    vectorized_env = (
+        env_type in ("isaaclab", "mjlab")
+        or env_name.startswith("isaaclab:")
+        or env_name.startswith("mjlab:")
+        or getattr(env, "num_envs", 1) > 1
+    )
+    # PPO's optional VecNormalize-style normalisation (PPOConfig.
+    # normalize_obs / normalize_reward). Obs stats are updated on every
+    # collected observation BEFORE predict() (which applies them itself), and
+    # the buffer stores the normalised obs so update() trains on exactly what
+    # the policy saw. Rewards are scaled before the truncation bootstrap below
+    # so V (learned on the scaled reward) is added on the same scale.
+    update_obs_norm = getattr(agent, "update_obs_normalizer", None)
+    normalize_obs = getattr(agent, "normalize_obs", None)
+    normalize_reward = getattr(agent, "normalize_reward", None)
     step = start_step
     next_eval_step = _next_eval_step(start_step, int(getattr(args, "eval_freq", 0)))
     encoder_names = list(agent.model.encoders.keys())
@@ -1641,10 +1672,14 @@ def _run_on_policy(
                     encoder_names,
                     encoder_input_names=getattr(agent.model, "encoder_input_names", None),
                 )
+                if update_obs_norm is not None:
+                    update_obs_norm(obs_remapped)
                 obs_t = _obs_to_tensors(obs_remapped, agent.device, force_batch=False)
                 action, log_prob, value, _ = agent.predict(obs_t)
+                obs_to_store = normalize_obs(obs_remapped) if normalize_obs is not None else obs
                 action_np = action.cpu().numpy()
-                next_obs, reward, done, trunc, info = env.step(action_np)
+                env_action = clip_action(action_np) if clip_action is not None else action_np
+                next_obs, reward, done, trunc, info = env.step(env_action)
                 logger.update_episodes(reward, done, trunc, step=step, info=info)
 
                 # Correct time-limit truncation handling. `next_obs` above
@@ -1662,6 +1697,8 @@ def _run_on_policy(
                 done_arr = np.asarray(done, dtype=bool)
                 trunc_arr = np.asarray(trunc, dtype=bool)
                 timeout_mask = trunc_arr & ~done_arr
+                if normalize_reward is not None:
+                    reward_arr = normalize_reward(reward_arr, done_arr | trunc_arr)
                 if timeout_mask.any():
                     true_final_obs = (
                         info.get("true_final_obs", next_obs) if isinstance(info, dict) else next_obs
@@ -1679,7 +1716,7 @@ def _run_on_policy(
                         reward_arr = reward_arr + gamma * bv * timeout_mask.astype(np.float32)
 
                 agent.buffer.add(
-                    obs=obs,
+                    obs=obs_to_store,
                     action=action_np,
                     reward=reward_arr,
                     # `terminated OR truncated`, not `terminated` alone --
@@ -1696,6 +1733,8 @@ def _run_on_policy(
                     value=value.cpu().numpy() if value is not None else None,
                 )
                 obs = next_obs
+                if not vectorized_env and bool(np.any(done_arr | trunc_arr)):
+                    obs, _ = env.reset()
                 step += getattr(agent.cfg, "num_envs", 1)
 
             obs_remapped_final = _remap_obs_to_encoders(

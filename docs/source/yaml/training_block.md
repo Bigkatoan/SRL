@@ -86,7 +86,7 @@ optimizer uses `lr_critic`.
 | `batch_size` | int | 64 (PPO) | Minibatch size within a rollout |
 | `n_epochs` | int | 10 | Optimisation epochs per rollout (PPO) |
 | `clip_range` | float | 0.2 | PPO clip parameter |
-| `clip_range_vf` | float | `null` | Value clip range; `null` reuses `clip_range` |
+| `clip_range_vf` | float | `null` | Value clip range; `null` disables value clipping (SB3 default) |
 | `gae_lambda` | float | 0.95 (PPO), 1.0 (A2C/A3C) | GAE lambda |
 | `gamma` | float | 0.99 | Discount factor |
 | `entropy_coef` | float | 0.0 (PPO), 0.01 (A2C/A3C) | Entropy regularisation |

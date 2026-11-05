@@ -1,5 +1,7 @@
 # PPO on Pendulum-v1  (obs=3, act=1)
-# Target return: -200 → -150 (convergence ~100k steps)
+# Hyperparameters follow rl-baselines3-zoo's Pendulum-v1 PPO (minus gSDE):
+# gamma 0.9, lr 1e-3, n_steps 1024 x 4 envs, 10 epochs, obs+reward
+# normalisation. Target eval return > -400 by ~200k steps (~-200 when solved).
 
 env_id: "Pendulum-v1"
 env_type: "flat"
@@ -43,18 +45,22 @@ critic:
 losses:
   - {name: policy,  weight: 1.0}
   - {name: value,   weight: 0.5}
-  - {name: entropy, weight: 0.01}
+  - {name: entropy, weight: 0.0}
 
 train:
   total_steps: 200_000
   n_envs: 4
-  n_steps: 512
-  batch_size: 128
+  n_steps: 1024
+  batch_size: 64
   n_epochs: 10
-  lr: 3e-4
-  gamma: 0.99
+  lr: 1e-3
+  gamma: 0.9
   gae_lambda: 0.95
   clip_range: 0.2
-  entropy_coef: 0.01
+  entropy_coef: 0.0
   vf_coef: 0.5
   max_grad_norm: 0.5
+  normalize_obs: true
+  normalize_reward: true
+  eval_freq: 20_000
+  eval_episodes: 10
