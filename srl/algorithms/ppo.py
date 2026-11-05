@@ -6,6 +6,7 @@ import math
 import warnings
 from typing import Any
 
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -138,9 +139,19 @@ class PPO(OnPolicyActionMixin, BaseAgent):
         # PPOConfig.lr_schedule's docstring for why this exists at all.
         self._current_lr = float(self.cfg.lr)
 
-        # Optional observation/reward normalisation
-        self._obs_normalizer: RunningNormalizer | None = None
-        self._ret_normalizer: RunningNormalizer | None = None
+        # Optional observation/reward normalisation (PPOConfig.normalize_obs /
+        # normalize_reward). Obs normalisers are created lazily per flat obs
+        # key on first sight; the return normaliser tracks the running
+        # variance of the per-env discounted return (VecNormalize).
+        self._obs_normalizers: dict[str, RunningNormalizer] = {}
+        self._obs_norm_cache: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
+        self._ret_normalizer: RunningNormalizer | None = (
+            RunningNormalizer((1,), clip=self.cfg.clip_reward, eps=self.cfg.norm_epsilon,
+                              initial_count=1e-4)
+            if self.cfg.normalize_reward
+            else None
+        )
+        self._running_return: np.ndarray | None = None
 
         self.composer = LossComposer()
         self.composer.add("policy", weight=1.0)
@@ -180,6 +191,115 @@ class PPO(OnPolicyActionMixin, BaseAgent):
                 self.composer.add("entropy", weight=self.cfg.entropy_coef)
 
     # ------------------------------------------------------------------
+    # Observation / reward normalisation
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _is_flat_obs(value: Any) -> bool:
+        """Flat vector obs ((D,) or batched (N, D)); never images/uint8."""
+        if isinstance(value, torch.Tensor):
+            return value.ndim in (1, 2) and value.is_floating_point()
+        arr = np.asarray(value)
+        return arr.ndim in (1, 2) and arr.dtype != np.uint8
+
+    def _obs_key_map(self, obs: dict) -> dict:
+        """Remap raw env keys onto encoder names (idempotent), so the
+        normalisers are keyed identically no matter whether a caller already
+        remapped (the training loop does, eval paths may not)."""
+        remap = getattr(self.model, "_remap_obs_dict", None)
+        return remap(obs) if callable(remap) else obs
+
+    def update_obs_normalizer(self, obs: dict[str, Any]) -> None:
+        """Update the running obs statistics with one collected observation
+        dict (numpy, unbatched (D,) or batched (N, D)). Call BEFORE
+        :meth:`predict` on that observation (VecNormalize order)."""
+        if not self.cfg.normalize_obs:
+            return
+        for key, value in self._obs_key_map(obs).items():
+            if not self._is_flat_obs(value):
+                continue
+            arr = np.asarray(value, dtype=np.float64)
+            norm = self._obs_normalizers.get(key)
+            if norm is None:
+                norm = RunningNormalizer(
+                    (arr.shape[-1],),
+                    clip=self.cfg.clip_obs,
+                    eps=self.cfg.norm_epsilon,
+                    initial_count=1e-4,
+                )
+                self._obs_normalizers[key] = norm
+            norm.update(arr.reshape(-1, arr.shape[-1]))
+            self._obs_norm_cache.pop(key, None)
+
+    def normalize_obs(self, obs: dict[str, Any]) -> dict[str, Any]:
+        """Normalise an obs dict (numpy arrays or tensors) with the current
+        statistics, without updating them. Keys without statistics (images,
+        unseen keys) pass through unchanged. No-op when normalize_obs=False."""
+        if not self.cfg.normalize_obs or not self._obs_normalizers:
+            return obs
+        out = dict(self._obs_key_map(obs))
+        for key, value in out.items():
+            norm = self._obs_normalizers.get(key)
+            if norm is None or not self._is_flat_obs(value):
+                continue
+            if isinstance(value, torch.Tensor):
+                cached = self._obs_norm_cache.get(key)
+                if cached is None or cached[0].device != value.device:
+                    mean = torch.as_tensor(norm.mean, dtype=torch.float32, device=value.device)
+                    std = torch.as_tensor(
+                        np.sqrt(norm.var + norm.eps), dtype=torch.float32, device=value.device
+                    )
+                    cached = (mean, std)
+                    self._obs_norm_cache[key] = cached
+                mean, std = cached
+                out[key] = torch.clamp((value - mean) / std, -norm.clip, norm.clip)
+            else:
+                out[key] = norm.normalize(np.asarray(value, dtype=np.float64)).astype(np.float32)
+        return out
+
+    def normalize_reward(self, reward: Any, episode_end: Any) -> np.ndarray:
+        """Scale a per-env reward vector by the running std of the discounted
+        return (VecNormalize). `episode_end` (terminated OR truncated) resets
+        that env's running return AFTER this step's update. Must be called
+        exactly once per collected step, on the RAW env reward. Returns the
+        reward unchanged (as float32 array) when normalize_reward=False."""
+        r = np.asarray(reward, dtype=np.float64).reshape(-1)
+        if self._ret_normalizer is None:
+            return r.astype(np.float32)
+        if self._running_return is None or self._running_return.shape != r.shape:
+            self._running_return = np.zeros_like(r)
+        self._running_return = self._running_return * self.cfg.gamma + r
+        self._ret_normalizer.update(self._running_return.reshape(-1, 1))
+        std = float(np.sqrt(self._ret_normalizer.var[0] + self._ret_normalizer.eps))
+        scaled = np.clip(r / std, -self.cfg.clip_reward, self.cfg.clip_reward)
+        ended = np.asarray(episode_end, dtype=bool).reshape(-1)
+        self._running_return[ended] = 0.0
+        return scaled.astype(np.float32)
+
+    def _normalizer_payload(self) -> dict[str, Any]:
+        return {
+            "obs": {k: v.state_dict() for k, v in self._obs_normalizers.items()},
+            "ret": self._ret_normalizer.state_dict() if self._ret_normalizer is not None else None,
+        }
+
+    def _load_normalizer_payload(self, payload: dict[str, Any] | None) -> None:
+        if not payload:
+            return
+        self._obs_normalizers = {}
+        self._obs_norm_cache = {}
+        for key, state in (payload.get("obs") or {}).items():
+            norm = RunningNormalizer(
+                tuple(np.asarray(state["mean"]).shape),
+                clip=self.cfg.clip_obs,
+                eps=self.cfg.norm_epsilon,
+            )
+            norm.load_state_dict(state)
+            self._obs_normalizers[key] = norm
+        ret_state = payload.get("ret")
+        if ret_state is not None and self._ret_normalizer is not None:
+            self._ret_normalizer.load_state_dict(ret_state)
+
+    # ------------------------------------------------------------------
     # BaseAgent interface
     # ------------------------------------------------------------------
 
@@ -190,6 +310,7 @@ class PPO(OnPolicyActionMixin, BaseAgent):
         deterministic: bool = False,
     ) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None, dict]:
         self.model.eval()
+        obs = self.normalize_obs(obs)
         with torch.no_grad():
             result = self.model(obs, hidden_states=hidden)
         actor_out = result["actor_out"]
@@ -479,6 +600,7 @@ class PPO(OnPolicyActionMixin, BaseAgent):
             ),
             "algo_step": self._global_step,
             "action_bounds": self._action_bounds_payload(),
+            "normalizers": self._normalizer_payload(),
             # optimizer_state above already carries each param group's
             # resumed "lr" -- this is saved/restored separately anyway
             # because _current_lr is PPO's own bookkeeping of that same
@@ -517,6 +639,7 @@ class PPO(OnPolicyActionMixin, BaseAgent):
             self.encoder_optimizer.load_state_dict(encoder_opt_state)
         self._global_step = int(payload.get("algo_step", payload.get("step", 0)))
         self._load_action_bounds_payload(payload.get("action_bounds"))
+        self._load_normalizer_payload(payload.get("normalizers"))
         if "current_lr" in payload:
             self._current_lr = float(payload["current_lr"])
         log_entropy_coef = payload.get("log_entropy_coef")

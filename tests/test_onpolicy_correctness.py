@@ -364,3 +364,97 @@ def test_on_policy_loop_resets_single_env_after_episode_end():
     # 1 initial reset + one per finished episode (16 // 3 = 5 episodes).
     assert env.resets == 1 + 16 // 3
     assert logger.episode_ends == 16 // 3
+
+
+# ---------------------------------------------------------------------------
+# Bug 4: PPO obs/reward normalisation was dead code
+# ---------------------------------------------------------------------------
+
+
+def test_ppo_normalization_defaults_on():
+    cfg = PPOConfig()
+    assert cfg.normalize_obs is True and cfg.normalize_reward is True
+
+
+def test_ppo_reward_normalization_matches_vecnormalize():
+    gamma = 0.9
+    agent = PPO(
+        ModelBuilder.from_dict(_model_dict()), config=PPOConfig(gamma=gamma), device="cpu"
+    )
+    rng = np.random.default_rng(0)
+    rewards = rng.standard_normal((50, 2)) * 7.0 + 3.0
+    ends = rng.random((50, 2)) < 0.1
+
+    # Reference: SB3 VecNormalize reward path (RunningMeanStd count=1e-4).
+    ret = np.zeros(2)
+    mean, var, count = np.zeros(1), np.ones(1), 1e-4
+    for r, e in zip(rewards, ends, strict=True):
+        ret = ret * gamma + r
+        b_mean, b_var, b_count = ret.mean(), ret.var(), 2
+        delta = b_mean - mean
+        tot = count + b_count
+        mean = mean + delta * b_count / tot
+        var = (var * count + b_var * b_count + delta**2 * count * b_count / tot) / tot
+        count = tot
+        expected = np.clip(r / np.sqrt(var + 1e-8), -10, 10)
+        got = agent.normalize_reward(r, e)
+        np.testing.assert_allclose(got, expected, rtol=1e-5)
+        ret[e] = 0.0
+
+
+def test_ppo_obs_normalization_in_loop_predict_and_checkpoint():
+    torch.manual_seed(0)
+    agent = PPO(
+        ModelBuilder.from_dict(_model_dict()),
+        config=PPOConfig(n_steps=8, batch_size=8, n_epochs=1),
+        device="cpu",
+    )
+    stored = []
+    orig_add = agent.buffer.add
+
+    def _spy_add(**kw):
+        stored.append({k: np.asarray(v).copy() for k, v in kw["obs"].items()})
+        return orig_add(**kw)
+
+    agent.buffer.add = _spy_add
+
+    class _OffsetEnv(_FakeSingleEnv):
+        def _obs(self):
+            return {"state": np.full(OBS_DIM, 100.0 + 5.0 * self.t, dtype=np.float32)}
+
+    _run_loop(agent, _OffsetEnv(episode_len=4), steps=16)
+    assert agent._obs_normalizers, "no obs statistics were collected"
+    norm = next(iter(agent._obs_normalizers.values()))
+    assert np.all(norm.mean > 50.0)
+    # The buffer holds normalised (not raw ~100-scale) observations.
+    later = np.concatenate([np.concatenate(list(d.values())) for d in stored[4:]])
+    assert np.all(np.abs(later) <= 10.0) and np.abs(later).max() < 50.0
+
+    # predict() applies the same transform to raw obs ...
+    raw = {"state": torch.full((1, OBS_DIM), 110.0)}
+    a1, *_ = agent.predict(raw, deterministic=True)
+    agent_no_norm_view = agent.normalize_obs(raw)
+    assert not torch.allclose(next(iter(agent_no_norm_view.values())), raw["state"])
+
+    # ... and the statistics survive a checkpoint round trip.
+    fresh = PPO(
+        ModelBuilder.from_dict(_model_dict()),
+        config=PPOConfig(n_steps=8, batch_size=8, n_epochs=1),
+        device="cpu",
+    )
+    fresh.load_checkpoint_payload(agent.checkpoint_payload())
+    a2, *_ = fresh.predict(raw, deterministic=True)
+    assert torch.allclose(a1, a2)
+    assert fresh._ret_normalizer.count == pytest.approx(agent._ret_normalizer.count)
+
+
+def test_ppo_normalization_can_be_disabled():
+    agent = PPO(
+        ModelBuilder.from_dict(_model_dict()),
+        config=PPOConfig(normalize_obs=False, normalize_reward=False),
+        device="cpu",
+    )
+    obs = {"state": np.full(OBS_DIM, 100.0, dtype=np.float32)}
+    agent.update_obs_normalizer(obs)
+    assert agent.normalize_obs(obs) is obs
+    np.testing.assert_allclose(agent.normalize_reward([5.0], [False]), [5.0])
