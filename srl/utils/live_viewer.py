@@ -8,7 +8,7 @@ No snapshotting or periodic reload is needed: the policy callables below
 read ``agent.model``/``agent.predict`` directly, and the main thread updates
 that same object in place, so the viewer is always showing the current
 weights by construction. A possibly-torn read mid-``optimizer.step()`` (or
-``agent.predict()``'s own ``model.eval()`` racing the training loop's
+``agent.act()``'s own ``model.eval()`` racing the training loop's
 ``model.train()``) is a non-issue for a visual monitor -- this mirrors the
 relaxed-consistency tradeoff ``AsyncOffPolicyRunner`` already accepts for
 its background trainer thread ("a maximum staleness of one gradient step",
@@ -59,6 +59,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from srl.training._obs import agent_act
+
 
 @dataclass
 class VisualizerHandle:
@@ -83,7 +85,7 @@ class _MjlabPolicyAdapter:
         remapped = self._remap_obs_fn(obs)
         obs_t = {k: v.to(self._agent.device) for k, v in remapped.items()}
         with torch.no_grad():
-            action, _, _, _ = self._agent.predict(obs_t, deterministic=True)
+            action, _, _, _ = agent_act(self._agent, obs_t, deterministic=True)
         return action
 
     def reset(self) -> None:
@@ -233,7 +235,7 @@ def start_gym_visualizer(
                 obs_remapped = remap_obs_fn(obs)
                 obs_t = obs_to_tensor_fn(obs_remapped, agent.device)
                 with torch.no_grad():
-                    action, _, _, _ = agent.predict(obs_t, deterministic=True)
+                    action, _, _, _ = agent_act(agent, obs_t, deterministic=True)
                 action_np = action.detach().cpu().numpy()
                 if action_np.ndim > 1 and action_np.shape[0] == 1:
                     action_np = action_np.squeeze(0)
