@@ -10,7 +10,17 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
-__version__ = "0.2.0"
+try:
+    # Written by setuptools-scm at build/install time from the latest git tag.
+    from srl._version import __version__
+except ImportError:  # pragma: no cover - plain source checkout, never installed
+    try:
+        from importlib.metadata import PackageNotFoundError, version
+
+        __version__ = version("srl-rl")
+    except PackageNotFoundError:
+        __version__ = "0.0.0+unknown"
+
 __all__ = [
     "PPO",
     "SAC",
