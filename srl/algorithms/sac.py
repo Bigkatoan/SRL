@@ -46,26 +46,19 @@ Changes since v0.2.0
 from __future__ import annotations
 
 import math
-import threading
 
 import torch
 import torch.nn as nn
 
 from srl.algorithms._common import (
-    _partition_encoder_params,
-    _soft_update,
-    _sync_target_buffers,
+    _sync_target_buffers,  # noqa: F401 -- re-exported for backwards compat
     _unique_encoder_params,  # noqa: F401 -- re-exported for backwards compat
     _zero_param_grads,
-    batch_discounts,
     is_weighted_mse,
-    maybe_build_obs_normalizer,
     maybe_update_priorities,
-    prepare_obs,
 )
-from srl.core.base_agent import BaseAgent
+from srl.core.base_agent import OffPolicyAgent
 from srl.core.config import SACConfig, VisualSACConfig
-from srl.core.prioritized_replay_buffer import build_replay_buffer
 from srl.losses.aux_losses import (
     barlow_twins_loss,
     byol_loss,
@@ -83,8 +76,12 @@ from srl.losses.rl_losses import (
 from srl.networks.encoders.augmentations import augment
 
 
-class SAC(BaseAgent):
+class SAC(OffPolicyAgent):
     """Soft Actor-Critic with automatic entropy tuning.
+
+    Target network, model-mode lock, head/encoder optimizers (critic-reachable
+    vs actor-only encoders), replay buffer and obs normalizer are built by
+    :class:`~srl.core.base_agent.OffPolicyAgent`.
 
     Parameters
     ----------
@@ -92,154 +89,41 @@ class SAC(BaseAgent):
         :class:`~srl.networks.agent_model.AgentModel` with a SquashedGaussian
         actor and TwinQ critic.
     target_model:
-        Same architecture as *model*, used as the target network. Will be
-        soft-updated with ``tau``.
+        Optional target network (same architecture as *model*), soft-updated
+        with ``tau``; deep-copied from *model* when omitted.
+        ``SAC(model, config)`` also works.
     config:
         :class:`~srl.core.config.SACConfig` or
         :class:`~srl.core.config.VisualSACConfig`.
     device:
         PyTorch device.
+    env:
+        Optional training env (raw Gymnasium envs are wrapped).
     """
+
+    algo_name = "sac"
+    config_cls = SACConfig
 
     def __init__(
         self,
         model: nn.Module,
-        target_model: nn.Module,
+        target_model: nn.Module | None = None,
         config: SACConfig | None = None,
         device: str | torch.device = "cpu",
+        *,
+        env=None,
     ) -> None:
-        self.model = model
-        self.target_model = target_model
-        self.cfg = config or SACConfig()
-        self._device = torch.device(device)
-
-        self.model.to(self._device)
-        self.target_model.to(self._device)
-
-        # Copy weights to target, freeze
-        self.target_model.load_state_dict(self.model.state_dict())
-        for p in self.target_model.parameters():
-            p.requires_grad = False
-
-        # target_model is ONLY ever touched from inside update() (the
-        # trainer thread under AsyncOffPolicyRunner, or the single main
-        # thread otherwise) -- predict()/the collector loop never call it.
-        # So, unlike `self.model` below, there is no cross-thread mode race
-        # to guard against here: eval() set once, and never toggled again,
-        # is simply correct for the whole object's life. This matters once
-        # BatchNorm is in the mix -- a target network left in train() mode
-        # would normalize each forward pass using THAT CALL's batch
-        # statistics (not the running estimates the rest of this class
-        # assumes), silently making the bootstrapped target y depend on
-        # whatever mini-batch of next-states happened to be sampled, on top
-        # of updating its own running_mean/running_var as a side effect of
-        # every such call -- both wrong for a network that's supposed to be
-        # a slow, stable EMA of the online net. See `_sync_target_buffers`
-        # for how target's BatchNorm running stats actually get updated
-        # instead (hard-copied from the online net, like sklearn/SB3's
-        # polyak_update treats BatchNorm buffers -- not further EMA'd here,
-        # since BatchNorm's own running-stat momentum already IS an EMA).
-        self.target_model.eval()
-
-        # Whether the online model's actor/critic contains any BatchNorm
-        # layer -- decides two things below: (1) `_forward_model`/`predict`
-        # take `_model_lock` around mode-setting + the forward call itself
-        # (train-mode BatchNorm both branches on `.training` AND writes
-        # in-place to running_mean/running_var, so an unguarded race
-        # against a concurrent `predict()` call from AsyncOffPolicyRunner's
-        # collector thread -- which also flips `self.model`'s mode -- is a
-        # real concurrent read/write hazard, not just a "may see slightly
-        # stale weights" one LayerNorm/Dropout already tolerate elsewhere
-        # in this codebase, see `srl/utils/live_viewer.py`); (2)
-        # `_critic_forward` switches to the "cross-batch value prediction"
-        # path (FlashSAC section 4.2) instead of two independent
-        # same-size forward calls.
-        self._has_batchnorm: bool = any(
-            isinstance(m, nn.modules.batchnorm._BatchNorm) for m in self.model.modules()
-        )
-        # Always constructed (not just when `_has_batchnorm`) so every
-        # `self.model(...)` call site can go through the same
-        # `_forward_model` helper unconditionally -- an uncontended
-        # `threading.Lock` acquire/release is on the order of tens of
-        # nanoseconds, negligible next to an actual forward pass, so there
-        # is no real cost to paying it even when nothing needs guarding.
-        self._model_lock = threading.Lock()
+        # With BatchNorm, `_critic_forward` switches to FlashSAC's
+        # "cross-batch value prediction" path and every `self.model(...)`
+        # call goes through the base class's `_forward_model` lock (see
+        # OffPolicyAgent): train-mode BatchNorm both branches on `.training`
+        # AND writes running_mean/running_var in place, so an unguarded race
+        # against AsyncOffPolicyRunner's concurrent act() would be a real
+        # concurrent read/write hazard.
+        super().__init__(model, target_model, config, device, env=env)
         self._weight_norm_projection: bool = bool(
             getattr(self.cfg, "weight_norm_projection", False)
         )
-
-        # ------------------------------------------------------------------
-        # Three-optimizer design (v0.2.0), split by reachability (v0.2.1)
-        # ------------------------------------------------------------------
-        # `_encoder_param_list` used to be every encoder parameter,
-        # unconditionally trained through `encoder_optimizer` off of
-        # critic_loss's backward pass alone (DrQ-v2 style: "encoder is
-        # updated only through critic backward"). That rule is correct for
-        # a SHARED encoder (or a critic-only one) -- but for a config with
-        # a SEPARATE, actor-only encoder (e.g. a `flows:` graph like
-        # `["actor_state_enc -> actor", "critic_state_enc -> critic"]`,
-        # each head with its own dedicated encoder), it silently starves
-        # that encoder of any training signal at all: critic_loss's
-        # backward pass never touches it (compute_actor=False forward
-        # passes correctly prune encoders that don't feed the critic, so
-        # it's never even part of that graph), and the ONE place a real
-        # gradient into it exists -- actor_loss's own backward pass, which
-        # does run through it -- gets explicitly zeroed out before any
-        # optimizer.step() ever consumes it (see [5]/[8] below), by design,
-        # to keep actor_loss from contaminating a *shared* encoder's critic
-        # -driven training. For an actor-only encoder that rule has no
-        # shared encoder to protect, and left unconditionally applied it
-        # means the encoder's weights never move from random init --
-        # confirmed directly: 20 real `update()` calls against a tiny
-        # actor-only-encoder fixture left every one of its parameter
-        # tensors bit-for-bit identical to their initial values, while the
-        # critic's own (correctly-trained) encoder moved normally.
-        #
-        # Fix: partition encoder params by whether they're reachable from
-        # the critic head (`encoder_names_for_head`, which already exists
-        # for exactly this "which encoders does this head actually need"
-        # question). Critic-reachable (shared or critic-only) encoders keep
-        # the original behaviour untouched -- `encoder_optimizer` trained
-        # off critic_loss alone, actor_loss's contribution zeroed before it
-        # can leak in. Actor-only encoders get their own dedicated
-        # `actor_only_encoder_optimizer`, stepped off actor_loss's backward
-        # pass (their only valid signal) instead of being zeroed.
-        _critic_reachable, _actor_only, _actor_only_modules = _partition_encoder_params(self.model)
-        self._encoder_param_list: list[nn.Parameter] = _critic_reachable
-        self._actor_only_encoder_param_list: list[nn.Parameter] = _actor_only
-        # Modules (not just flat params) for the actor-only subset -- weight
-        # -norm projection needs to know which tensor is a Linear row vs a
-        # norm layer's affine vector, which requires walking `nn.Module`
-        # structure, not a flat `nn.Parameter` list.
-        self._actor_only_encoder_modules: list[nn.Module] = _actor_only_modules
-
-        # encoder_lr: read from VisualSACConfig if available, else fall back to
-        # lr_critic (conservative default for state-based configs).
-        _encoder_lr = getattr(self.cfg, "encoder_lr", self.cfg.lr_critic)
-
-        self.encoder_optimizer: torch.optim.Optimizer | None = (
-            torch.optim.Adam(self._encoder_param_list, lr=_encoder_lr)
-            if self._encoder_param_list
-            else None
-        )
-        self.actor_only_encoder_optimizer: torch.optim.Optimizer | None = (
-            torch.optim.Adam(self._actor_only_encoder_param_list, lr=_encoder_lr)
-            if self._actor_only_encoder_param_list
-            else None
-        )
-
-        # Actor head params only — encoder excluded
-        self.actor_optimizer = torch.optim.Adam(
-            list(self.model.actor.parameters()),
-            lr=self.cfg.lr_actor,
-        )
-        # Critic head params only — encoder excluded
-        self.critic_optimizer = torch.optim.Adam(
-            list(self.model.critic.parameters()),
-            lr=self.cfg.lr_critic,
-        )
-
-        self._encoder_update_counter: int = 0
 
         # Visual / aux settings (only present in VisualSACConfig)
         self._is_visual: bool = isinstance(self.cfg, VisualSACConfig)
@@ -263,26 +147,23 @@ class SAC(BaseAgent):
             if self.cfg.auto_entropy_tuning
             else None
         )
+
+    def _build_exploration(self) -> None:
+        # "auto" -> -action_dim (recomputed if the env binding changes it).
         action_dim = self.cfg.action_dim
         if self.cfg.target_entropy == "auto":
             self.target_entropy = -float(action_dim) if action_dim else -1.0
         else:
             self.target_entropy = float(self.cfg.target_entropy)
 
+    def _build_buffer(self):
         if getattr(self.cfg, "use_her", False):
             if getattr(self.cfg, "use_per", False):
                 raise ValueError("SACConfig: use_per and use_her cannot be combined.")
             if int(getattr(self.cfg, "replay_n_step", 1)) > 1:
                 raise ValueError("SACConfig: replay_n_step > 1 is not supported with use_her.")
-            self.buffer = self._build_her_buffer()
-        else:
-            self.buffer = build_replay_buffer(self.cfg)
-
-        # Optional running obs normalizer (cfg.normalize_obs), updated from
-        # every sampled training batch and applied in predict()/update().
-        self.obs_normalizer = maybe_build_obs_normalizer(self.cfg)
-
-        self._global_step = 0
+            return self._build_her_buffer()
+        return super()._build_buffer()
 
     def _build_her_buffer(self):
         """Construct the HER buffer for a goal-conditioned run.
@@ -336,34 +217,6 @@ class SAC(BaseAgent):
     # ------------------------------------------------------------------
     # BaseAgent interface
     # ------------------------------------------------------------------
-
-    def _forward_model(self, mode: str, *args, **kwargs):
-        """Call ``self.model(...)`` with its train/eval mode set atomically
-        under ``_model_lock``.
-
-        Every call site that used to do a bare ``self.model.train()``/
-        ``self.model.eval()`` followed by a separate ``self.model(...)``
-        call now goes through here instead. Two statements that are each
-        individually fine become a race once a second thread can interleave
-        between them: ``AsyncOffPolicyRunner`` calls ``predict()`` from its
-        collector thread concurrently with ``update()`` running on its
-        background trainer thread, both against this SAME ``self.model``
-        instance. For LayerNorm/Dropout, "whichever mode wins" barely
-        matters. For BatchNorm it does: a train-mode forward pass both
-        normalizes using *this call's* batch statistics AND writes
-        ``running_mean``/``running_var`` in place -- so an interleaving
-        where `predict()`'s intended eval-mode forward pass ends up running
-        in train mode is a genuine concurrent write hazard on those
-        buffers, on top of silently swapping "stable running stats" for
-        "whatever this rollout batch looked like" for action selection.
-        Holding `_model_lock` only across mode-set + forward (never across
-        backward/optimizer.step(), which don't touch `.training` or read
-        BatchNorm buffers) keeps the async runner's actual overlap intact:
-        the lock is held for microseconds, not for a whole gradient step.
-        """
-        with self._model_lock:
-            self.model.train(mode == "train")
-            return self.model(*args, **kwargs)
 
     def _critic_forward(
         self,
@@ -430,22 +283,7 @@ class SAC(BaseAgent):
 
         return _first_half(online_out), _second_half(target_out)
 
-    def predict(
-        self,
-        obs: dict[str, torch.Tensor],
-        hidden: dict | None = None,
-        deterministic: bool = False,
-    ) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None, dict]:
-        with torch.no_grad():
-            # compute_critic=False: predict() is the env-collection path --
-            # called on every single environment step -- and never reads
-            # result["value"] (see the `None` returned for it below). Without
-            # the flag every action-selection call would also run the critic
-            # encoder(s) and a full TwinQHead forward on a dummy zero action,
-            # for a result nothing downstream uses.
-            obs = prepare_obs(self.model, self.obs_normalizer, obs)
-            result = self._forward_model("eval", obs, hidden_states=hidden, compute_critic=False)
-        actor_out = result["actor_out"]
+    def _select_action(self, actor_out, deterministic: bool):
         if isinstance(actor_out, dict):
             if deterministic:
                 # The deterministic SAC policy is the *squashed* mode,
@@ -463,46 +301,21 @@ class SAC(BaseAgent):
                     action = actor_out.get("action")
             else:
                 action = actor_out.get("action")
-            log_prob = actor_out.get("log_prob")
-        elif isinstance(actor_out, tuple):
-            action, log_prob = actor_out
-        else:
-            action, log_prob = actor_out, None
-        return action, log_prob, None, result["new_hidden"]
-
-    def learn(self, total_timesteps: int) -> None:
-        raise NotImplementedError("Use a TrainingLoop or call update() directly.")
+            return action, actor_out.get("log_prob")
+        if isinstance(actor_out, tuple):
+            return actor_out[0], actor_out[1]
+        return actor_out, None
 
     def update(self) -> dict[str, float]:
-        # HERReplayBuffer is episode-indexed, so its __len__ counts episodes,
-        # not transitions -- gating it on `len(buffer) >= batch_size` would
-        # stall training for batch_size *episodes*. It exposes can_sample()
-        # for exactly this reason; plain ReplayBuffer keeps the length check.
-        _can_sample = getattr(self.buffer, "can_sample", None)
-        if _can_sample is not None:
-            if not _can_sample(self.cfg.batch_size):
-                return {}
-        elif len(self.buffer) < self.cfg.batch_size:
+        # HERReplayBuffer is episode-indexed (its __len__ counts episodes);
+        # `_can_update` uses its can_sample() instead of the length check.
+        if not self._can_update():
             return {}
 
-        # Mode is no longer set here once-and-for-all: every `self.model(...)`
-        # call below goes through `_forward_model`, which sets train/eval
-        # mode atomically with the forward call itself under `_model_lock`
-        # -- see that method's docstring for why a single top-level
-        # `self.model.train()` isn't safe once BatchNorm is in the picture
-        # and `AsyncOffPolicyRunner` is running `predict()` concurrently on
-        # another thread.
-        batch = self.buffer.sample(self.cfg.batch_size)
-
-        obs = {k: v.to(self.device) for k, v in batch.obs.items()}
-        next_obs = {k: v.to(self.device) for k, v in batch.next_obs.items()}
-        obs = prepare_obs(self.model, self.obs_normalizer, obs, update_stats=True)
-        next_obs = prepare_obs(self.model, self.obs_normalizer, next_obs)
-        actions = batch.actions.to(self.device)
-        rewards = batch.rewards.to(self.device)
-        dones = batch.dones.to(self.device)
-        discount = batch_discounts(batch, self.cfg.gamma, self.device)
-        is_weights = batch.weights.to(self.device) if batch.weights is not None else None
+        # Mode is never set once-and-for-all here: every `self.model(...)`
+        # call goes through `_forward_model`, which sets train/eval mode
+        # atomically with the forward call itself under `_model_lock`.
+        batch, obs, next_obs, actions, rewards, dones, discount, is_weights = self._sample_batch()
 
         freq = self.cfg.encoder_update_freq
 
@@ -692,20 +505,9 @@ class SAC(BaseAgent):
         # ------------------------------------------------------------------
         # [10] Soft update target network (unchanged)
         # ------------------------------------------------------------------
-        _soft_update(self.model, self.target_model, self.cfg.tau)
-        if self._has_batchnorm:
-            # `_soft_update` only Polyak-averages `.parameters()`; BatchNorm's
-            # running_mean/running_var/num_batches_tracked are buffers, not
-            # parameters, so without this the target's BN statistics would
-            # stay frozen at their step-0 initial values forever (target_model
-            # is permanently eval()-mode -- see __init__ -- so it never
-            # accumulates its own running stats via its own forward passes
-            # either). Hard-copied rather than further EMA'd, matching how
-            # e.g. SB3's polyak_update treats BatchNorm buffers: the online
-            # net's running_mean/running_var are already an EMA (BatchNorm's
-            # own momentum), so Polyak-averaging them again would be
-            # double-smoothing against a moving target for no benefit.
-            _sync_target_buffers(self.model, self.target_model)
+        # Polyak-average parameters; hard-copy BatchNorm running stats (see
+        # OffPolicyAgent._soft_update_target).
+        self._soft_update_target()
         self._global_step += 1
 
         metrics: dict[str, float] = {
@@ -828,73 +630,21 @@ class SAC(BaseAgent):
     # Checkpoint
     # ------------------------------------------------------------------
 
-    def save(self, path: str) -> None:
-        torch.save(self.checkpoint_payload(), path)
-
-    def load(self, path: str) -> None:
-        ckpt = torch.load(path, map_location=self.device, weights_only=False)
-        self.load_checkpoint_payload(ckpt)
-
-    def checkpoint_payload(self) -> dict[str, object]:
-        payload: dict[str, object] = {
-            "model_state": self.model.state_dict(),
-            "target_model_state": self.target_model.state_dict(),
-            "actor_optimizer_state": self.actor_optimizer.state_dict(),
-            "critic_optimizer_state": self.critic_optimizer.state_dict(),
-            "replay_buffer_state": self.buffer.state_dict(),
-            "log_alpha": self.log_alpha.detach().cpu(),
-            "algo_step": self._global_step,
-            "encoder_update_counter": self._encoder_update_counter,
-        }
+    def _algo_payload(self) -> dict[str, object]:
+        payload = self._base_payload()
+        payload["log_alpha"] = self.log_alpha.detach().cpu()
         if self.alpha_optimizer is not None:
             payload["alpha_optimizer_state"] = self.alpha_optimizer.state_dict()
-        # encoder_optimizer_state: absent in v0.1.x checkpoints — gracefully skipped on load
-        if self.encoder_optimizer is not None:
-            payload["encoder_optimizer_state"] = self.encoder_optimizer.state_dict()
-        # actor_only_encoder_optimizer_state: absent in checkpoints saved
-        # before this optimizer existed — gracefully skipped on load, same
-        # as encoder_optimizer_state above.
-        if self.actor_only_encoder_optimizer is not None:
-            payload["actor_only_encoder_optimizer_state"] = (
-                self.actor_only_encoder_optimizer.state_dict()
-            )
-        if self.obs_normalizer is not None:
-            payload["obs_normalizer_state"] = self.obs_normalizer.state_dict()
         return payload
 
-    def load_checkpoint_payload(self, payload: dict[str, object]) -> None:
-        model_state = payload.get("model_state", payload.get("model"))
-        if model_state is not None:
-            self.model.load_state_dict(model_state)
-        target_state = payload.get("target_model_state", payload.get("target"))
-        if target_state is not None:
-            self.target_model.load_state_dict(target_state)
-        actor_opt = payload.get("actor_optimizer_state")
-        if actor_opt is not None:
-            self.actor_optimizer.load_state_dict(actor_opt)
-        critic_opt = payload.get("critic_optimizer_state")
-        if critic_opt is not None:
-            self.critic_optimizer.load_state_dict(critic_opt)
-        enc_opt = payload.get("encoder_optimizer_state")
-        if self.encoder_optimizer is not None and enc_opt is not None:
-            self.encoder_optimizer.load_state_dict(enc_opt)
-        actor_only_enc_opt = payload.get("actor_only_encoder_optimizer_state")
-        if self.actor_only_encoder_optimizer is not None and actor_only_enc_opt is not None:
-            self.actor_only_encoder_optimizer.load_state_dict(actor_only_enc_opt)
+    def _load_algo_payload(self, payload: dict[str, object]) -> None:
+        self._load_base_payload(payload)
         alpha_opt = payload.get("alpha_optimizer_state")
         if self.alpha_optimizer is not None and alpha_opt is not None:
             self.alpha_optimizer.load_state_dict(alpha_opt)
-        buf = payload.get("replay_buffer_state")
-        if buf is not None:
-            self.buffer.load_state_dict(buf)
         log_alpha = payload.get("log_alpha")
         if log_alpha is not None:
             self.log_alpha.data.copy_(log_alpha.to(self.device))
-        self._global_step = int(payload.get("algo_step", payload.get("step", 0)))
-        self._encoder_update_counter = int(payload.get("encoder_update_counter", 0))
-        norm_state = payload.get("obs_normalizer_state")
-        if self.obs_normalizer is not None and norm_state is not None:
-            self.obs_normalizer.load_state_dict(norm_state)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
