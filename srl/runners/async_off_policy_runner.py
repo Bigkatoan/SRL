@@ -600,6 +600,20 @@ class AsyncOffPolicyRunner:
         if n <= 1:
             self._write_one(obs_t, action_t, reward, done, next_obs_t, truncated, env_idx=0)
             return
+        if self._buffer_accepts_batched_tensors:
+            # GPUReplayBuffer takes the whole (num_envs, ...) batch in one
+            # call: a single scatter per tensor, and per-env n-step windows
+            # (splitting here used to funnel every env into one shared
+            # n-step accumulator, mixing rewards across envs).
+            self.agent.buffer.add(
+                obs=obs_t,
+                action=action_t,
+                reward=reward,
+                next_obs=next_obs_t,
+                done=done,
+                truncated=truncated,
+            )
+            return
 
         reward_t = reward if isinstance(reward, torch.Tensor) else torch.as_tensor(reward)
         done_t = done if isinstance(done, torch.Tensor) else torch.as_tensor(done)
@@ -641,6 +655,7 @@ class AsyncOffPolicyRunner:
                 next_obs=next_obs_i,
                 done=done_i,
                 truncated=truncated_i,
+                env_idx=env_idx,
             )
             return
 
