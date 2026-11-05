@@ -70,6 +70,7 @@ DEFAULT_OUT = REPO_ROOT / "benchmarks" / "runs"
 DEFAULT_ENVS = ["HalfCheetah-v5", "Hopper-v5", "Walker2d-v5"]
 DEFAULT_ALGOS = ["sac", "td3", "ppo"]
 LAST_N_EVALS = 5
+ALGO_COST_RANK = {"sac": 0, "td3": 1, "ddpg": 1, "ppo": 2, "a2c": 2}
 LOCK_NAME = ".lock"
 
 
@@ -398,8 +399,10 @@ def build_jobs(args: argparse.Namespace) -> list[Job]:
     # Seed-major order: every (env, algo) cell gets its first seed before any
     # cell gets its second, so a partially finished matrix is already a
     # complete (if 1-seed) benchmark, and algorithms with different costs and
-    # devices are interleaved instead of queued in blocks.
-    jobs.sort(key=lambda j: args.seeds.index(j.seed))
+    # devices are interleaved instead of queued in blocks. Within a seed the
+    # slowest algorithms go first (measured: SAC ~1.6x TD3 ~6x PPO per step),
+    # which shortens the tail of the run.
+    jobs.sort(key=lambda j: (args.seeds.index(j.seed), ALGO_COST_RANK.get(j.algo, 1)))
     return jobs
 
 

@@ -11,7 +11,9 @@
 #
 # Tunables (environment variables):
 #   MAX_PARALLEL  concurrent jobs                    (default 6)
-#   DEVICE        cuda | cpu                         (default cuda)
+#   DEVICE        cuda | cpu for SAC/TD3             (default cuda)
+#   PPO_DEVICE    cuda | cpu for PPO                 (default cpu: faster than cuda for
+#                                                    single-env PPO, and leaves the GPU free)
 #   THREADS       torch/OMP threads per job          (default 2)
 #   NICE          CPU nice level of runner + jobs    (default 10; 19 = lowest priority)
 #   OUT           output dir                         (default <repo>/benchmarks/runs)
@@ -19,6 +21,12 @@
 #   SEEDS         seeds                              (default "0 1 2")
 #   STEPS         env steps per run                  (default 1000000)
 #   EXTRA_ARGS    extra run_matrix.py arguments
+#
+# Defaults come from measurements on the RTX 3060 / 12-core box (Hopper SAC,
+# 20k steps): 1 SAC job on cuda 135-145 steps/s vs 80 on cpu; 6 concurrent
+# cuda jobs (3 SAC + 3 TD3, 2 threads each) ~50 / ~80 steps/s per job (~390
+# aggregate), 9 concurrent or 1 thread/job was slower; 6 SAC jobs on cpu only
+# 113 aggregate. Expected wall time of the full matrix: ~14-18 h.
 #
 # NICE only lowers CPU priority. NVIDIA consumer GPUs have no per-process
 # scheduling priority, so on a shared GPU lower MAX_PARALLEL (or use
@@ -29,6 +37,7 @@ set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MAX_PARALLEL="${MAX_PARALLEL:-6}"
 DEVICE="${DEVICE:-cuda}"
+PPO_DEVICE="${PPO_DEVICE:-cpu}"
 THREADS="${THREADS:-2}"
 NICE="${NICE:-10}"
 OUT="${OUT:-$REPO/benchmarks/runs}"
@@ -65,6 +74,7 @@ setsid nohup nice -n "$NICE" env PYTHONPATH="$REPO" "$PYTHON" \
     --max-parallel "$MAX_PARALLEL" \
     --threads-per-job "$THREADS" \
     --device "$DEVICE" \
+    --device-for "ppo=$PPO_DEVICE" \
     --out "$OUT" \
     $EXTRA_ARGS \
     >>"$LOG" 2>&1 </dev/null &
@@ -76,7 +86,7 @@ if ! kill -0 "$PID" 2>/dev/null; then
     tail -n 20 "$LOG" >&2
     exit 1
 fi
-echo "started runner pid $PID (process group $PID), nice $NICE, device $DEVICE, max-parallel $MAX_PARALLEL"
+echo "started runner pid $PID (process group $PID), nice $NICE, device $DEVICE (ppo: $PPO_DEVICE), max-parallel $MAX_PARALLEL"
 echo "  log:    $LOG"
 echo "  status: $PYTHON $REPO/scripts/benchmark/run_matrix.py status --out $OUT"
 echo "  stop:   kill -TERM -- -$PID"

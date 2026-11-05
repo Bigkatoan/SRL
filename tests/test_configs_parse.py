@@ -41,7 +41,9 @@ BENCHMARK_DIR = CONFIG_DIR / "benchmarks"
 
 MODEL_CONFIGS = sorted(p for p in CONFIG_DIR.rglob("*.yaml") if p.parent != BENCHMARK_DIR)
 BENCHMARK_CONFIGS = sorted(BENCHMARK_DIR.glob("*.yaml"))
-BENCHMARK_MODEL_CONFIGS = sorted(p for p in BENCHMARK_DIR.rglob("*.yaml") if p.parent != BENCHMARK_DIR)
+BENCHMARK_MODEL_CONFIGS = sorted(
+    p for p in BENCHMARK_DIR.rglob("*.yaml") if p.parent != BENCHMARK_DIR
+)
 
 _COMPATIBLE_HEADS = {
     "ppo": ({"gaussian"}, {"value"}),
