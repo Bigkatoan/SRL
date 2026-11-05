@@ -46,11 +46,12 @@ jobs:
         run: uvx black@26.5.1 --check --diff $LINT_PATHS
 
   mypy:
-    # Non-blocking for now: baseline is ~281 errors (Phase 0, Nov 2026).
-    # Ratchet down, then drop continue-on-error once the baseline is clean.
+    # Ratchet: fail only if the error count grows above the baseline
+    # (292 on 2026-11-05). Lower MYPY_BASELINE as errors get fixed.
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    continue-on-error: true
+    env:
+      MYPY_BASELINE: "292"
 
     steps:
       - name: Checkout repository
@@ -74,5 +75,15 @@ jobs:
           uv pip install --system torch --index-url https://download.pytorch.org/whl/cpu
           uv pip install --system -e . "mypy>=1.8.0" types-PyYAML
 
-      - name: mypy (non-blocking, baseline ~281 errors)
-        run: mypy srl
+      - name: mypy (ratchet against baseline)
+        shell: bash
+        run: |
+          set +e
+          mypy srl | tee mypy.log
+          n=$(grep -oE 'Found [0-9]+ error' mypy.log | grep -oE '[0-9]+' || echo 0)
+          echo "mypy errors: $n (baseline $MYPY_BASELINE)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$n" -gt "$MYPY_BASELINE" ]; then
+            echo "::error::mypy errors increased: $n > $MYPY_BASELINE"
+            exit 1
+          fi
+          echo "mypy errors: $n <= baseline $MYPY_BASELINE"
