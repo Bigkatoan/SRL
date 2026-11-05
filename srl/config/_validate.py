@@ -503,6 +503,7 @@ DEFAULT_RANGES: dict[str, Range] = {
             "total_steps",
             "log_interval",
             "save_interval",
+            "metrics_log_interval",
             "eval_episodes",
             "latent_dim",
             "aux_latent_dim",

@@ -506,7 +506,11 @@ def _train(args) -> int:
             best_cm=best_cm,
             best_tracker=best_tracker,
         )
-        extra = {"runner_cfg": exp.runner} if isinstance(agent, OffPolicyAgent) else {}
+        extra: dict[str, Any] = (
+            {"runner_cfg": exp.runner, "metrics_log_interval": trainer_cfg.metrics_log_interval}
+            if isinstance(agent, OffPolicyAgent)
+            else {}
+        )
         agent.learn(
             max(args.steps - start_step, 0),
             callbacks=[

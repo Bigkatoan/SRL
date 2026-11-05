@@ -10,7 +10,8 @@ Every key of `train:` falls into one of these groups (see
 mean" suggestion — see [strict validation](../config_reference.md#strict-validation):
 
 1. **Trainer keys** — `total_steps`, `n_envs`, `device`, `seed`, `log_interval`,
-   `eval_freq`, `eval_episodes`, `deterministic`, `save_best`, `save_interval`. Each has a matching
+   `eval_freq`, `eval_episodes`, `deterministic`, `save_best`, `save_interval`,
+   `checkpoint_replay_buffer`, `metrics_log_interval`. Most have a matching
    `srl-train` flag (`--steps`, `--n-envs`, `--device`, ...) that wins when passed.
 2. **Async-runner keys** — `use_async`, `use_gpu_buffer` (`AsyncRunnerConfig`).
 3. **Algorithm hyperparameters** — the fields of the algorithm's config dataclass in
@@ -39,6 +40,7 @@ overwrite whatever the YAML says.
 | `save_best` | bool | false | Keep a `best_*` checkpoint (`--save-best`, see [`--save-best`](best-checkpoint-tracking)) |
 | `save_interval` | int | 100_000 | Env steps between periodic `srl-train` checkpoints (no CLI flag) |
 | `checkpoint_replay_buffer` | bool | false | Store the off-policy replay buffer in every `srl-train` checkpoint, for an exact `--resume` (can be gigabytes; no CLI flag) |
+| `metrics_log_interval` | int | 1000 | Off-policy only: training metrics are averaged over this many env steps before being logged (1 = every gradient step; no CLI flag) |
 
 ## Off-policy fields (SAC, DDPG, TD3)
 

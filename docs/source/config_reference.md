@@ -312,7 +312,7 @@ Common `HeadConfig` fields:
 
 The `train:` block is split by key into four groups; anything else is an error.
 
-**Trainer keys** (`srl.config.TrainerConfig`; each also has a `srl-train` flag
+**Trainer keys** (`srl.config.TrainerConfig`; most also have a `srl-train` flag
 that wins when passed):
 
 | Key | Type | Default |
@@ -328,6 +328,7 @@ that wins when passed):
 | `save_best` | bool | false |
 | `save_interval` | int ≥ 1 | 100_000 |
 | `checkpoint_replay_buffer` | bool | false |
+| `metrics_log_interval` | int ≥ 1 | 1000 (off-policy: env steps per averaged metrics record) |
 
 **Async-runner keys** (`AsyncRunnerConfig`): `use_async`, `use_gpu_buffer`.
 

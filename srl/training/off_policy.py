@@ -30,6 +30,46 @@ from srl.utils.spaces import sample_action_space
 
 __all__ = ["OffPolicyTrainer", "warn_if_no_updates_will_run"]
 
+# Gauges: logged as their latest value, not averaged over the window.
+_LATEST_KEYS = ("her/episodes", "her/transitions")
+
+
+class _MetricsWindow:
+    """Running per-key sums of the update-round metrics since the last log."""
+
+    def __init__(self) -> None:
+        self.sums: dict[str, float] = {}
+        self.counts: dict[str, int] = {}
+        self.latest: dict[str, float] = {}
+        self.grad_steps = 0
+        self.start_step: int | None = None
+
+    @property
+    def empty(self) -> bool:
+        return not self.counts and not self.latest
+
+    def add(self, metrics: dict, grad_steps: int | None = None) -> None:
+        for key, value in metrics.items():
+            try:
+                value = float(value)
+            except (TypeError, ValueError):
+                continue
+            if key in _LATEST_KEYS:
+                self.latest[key] = value
+            else:
+                self.sums[key] = self.sums.get(key, 0.0) + value
+                self.counts[key] = self.counts.get(key, 0) + 1
+        if grad_steps is not None:
+            self.grad_steps += int(grad_steps)
+
+    def mean(self, span: int) -> dict[str, float]:
+        out = {key: self.sums[key] / self.counts[key] for key in self.sums}
+        if self.grad_steps:
+            # Gradient steps per env step over the whole window.
+            out["train/utd_ratio"] = self.grad_steps / max(span, 1)
+        out.update(self.latest)
+        return out
+
 
 def warn_if_no_updates_will_run(agent, total_steps: int, start_step: int) -> None:
     """Warn when the step budget won't reach `learning_starts`/`update_after`.
@@ -67,20 +107,67 @@ class OffPolicyTrainer(Trainer):
         ``use_gpu_buffer`` set switches to
         :class:`~srl.runners.AsyncOffPolicyRunner` (``on_step`` is not called
         on that path).
+    metrics_log_interval:
+        Training metrics are averaged over windows of this many env steps
+        before they reach the logger (default 1000; ``1`` logs every update
+        round). Callbacks' ``on_update`` still sees every update round.
+        Logging every gradient step wrote ~13 scalars per env step to
+        TensorBoard, ``metrics.jsonl`` and the logger's in-memory history:
+        ~2 GB of logs and >1 GB of RSS per 1M-step SAC run.
     """
 
-    def __init__(self, agent, env, *, runner_cfg: Any = None, **kwargs) -> None:
+    def __init__(
+        self,
+        agent,
+        env,
+        *,
+        runner_cfg: Any = None,
+        metrics_log_interval: int = 1000,
+        **kwargs,
+    ) -> None:
         super().__init__(agent, env, **kwargs)
         self.runner_cfg = runner_cfg
+        self.metrics_log_interval = max(int(metrics_log_interval), 1)
+        self._window = _MetricsWindow()
+        self._last_logged_step = self.start_step
+
+    # ------------------------------------------------------------------
+    def _record_update(self, step: int, metrics: dict, grad_steps: int | None = None) -> bool:
+        """Accumulate *metrics* into the current window; log the window's
+        mean once it spans ``metrics_log_interval`` env steps."""
+        self._sync_agent_step(step)
+        window = self._window
+        if window.start_step is None:
+            window.start_step = self._last_logged_step
+        window.add(metrics, grad_steps)
+        if step - window.start_step >= self.metrics_log_interval:
+            self._flush_metrics(step)
+        return self._continue(self.callbacks.on_update(step, metrics))
+
+    def _flush_metrics(self, step: int) -> None:
+        window = self._window
+        if window.empty:
+            return
+        span = step - (window.start_step if window.start_step is not None else step)
+        metrics = window.mean(span)
+        self.logger.set_step(step)
+        self.logger.record_metrics(metrics, step=step, total_steps=self.total_steps)
+        self._window = _MetricsWindow()
+        self._last_logged_step = step
 
     # ------------------------------------------------------------------
     def _train(self) -> None:
         warn_if_no_updates_will_run(self.agent, self.total_steps, self.start_step)
+        self._window = _MetricsWindow()
+        self._last_logged_step = self.start_step
         runner_cfg = self.runner_cfg
-        if runner_cfg is not None and (runner_cfg.use_async or runner_cfg.use_gpu_buffer):
-            self._train_async(runner_cfg)
-        else:
-            self._train_sync()
+        try:
+            if runner_cfg is not None and (runner_cfg.use_async or runner_cfg.use_gpu_buffer):
+                self._train_async(runner_cfg)
+            else:
+                self._train_sync()
+        finally:
+            self._flush_metrics(self.step)  # the last, partial window
 
     # ------------------------------------------------------------------
     def _train_async(self, runner_cfg) -> None:
@@ -299,7 +386,7 @@ class OffPolicyTrainer(Trainer):
                             # accumulating episodes.
                             merged["her/episodes"] = float(len(her_buffer))
                             merged["her/transitions"] = float(her_buffer.num_transitions)
-                        if not self._record_update(self.step, merged):
+                        if not self._record_update(self.step, merged, grad_steps=len(metrics_list)):
                             break
                 if not self._maybe_evaluate(self.step):
                     break

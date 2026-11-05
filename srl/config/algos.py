@@ -36,7 +36,7 @@ __all__ = [
 class TrainerConfig:
     """Trainer/CLI-level keys of the ``train:`` block (not algorithm hyperparameters).
 
-    Each one is also a ``srl-train`` flag; the CLI flag wins when passed.
+    Most are also ``srl-train`` flags; the CLI flag wins when passed.
     """
 
     total_steps: int = 1_000_000
@@ -53,6 +53,9 @@ class TrainerConfig:
     #: store the off-policy replay buffer in every srl-train checkpoint
     #: (exact ``--resume``; can be gigabytes per checkpoint)
     checkpoint_replay_buffer: bool = False
+    #: off-policy only: average training metrics over this many env steps
+    #: before logging them (1 = log every gradient step; no CLI flag)
+    metrics_log_interval: int = 1000
 
     def __post_init__(self) -> None:
         from srl.config._validate import validate_constraints

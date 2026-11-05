@@ -985,6 +985,7 @@ class OffPolicyAgent(BaseAgent):
         evaluator: Any = None,
         env_type: str | None = None,
         runner_cfg: Any = None,
+        metrics_log_interval: int = 1000,
     ) -> OffPolicyAgent:
         from srl.training.off_policy import OffPolicyTrainer
 
@@ -1003,7 +1004,12 @@ class OffPolicyAgent(BaseAgent):
             reset_num_timesteps=reset_num_timesteps,
         )
         OffPolicyTrainer(
-            self, env, env_type=env_type or self._env_type, runner_cfg=runner_cfg, **setup
+            self,
+            env,
+            env_type=env_type or self._env_type,
+            runner_cfg=runner_cfg,
+            metrics_log_interval=metrics_log_interval,
+            **setup,
         ).run()
         return self
 
@@ -1011,4 +1017,8 @@ class OffPolicyAgent(BaseAgent):
         runner_cfg:
             :class:`~srl.core.config.AsyncRunnerConfig` enabling the
             asynchronous / GPU-buffer runner.
+        metrics_log_interval:
+            Average training metrics over this many env steps before logging
+            them (default 1000; 1 logs every update round). Callbacks still
+            see every update.
         """
