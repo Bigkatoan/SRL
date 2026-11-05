@@ -35,6 +35,133 @@ import torch
 from srl.core.replay_buffer import ReplayBatch
 
 
+class _NStepWindow:
+    """Vectorised per-env sliding n-step window living on the buffer device.
+
+    Holds the last ``n`` steps for ``E`` envs that are stepped together
+    (one :meth:`push` = one ``env.step()`` of all ``E`` envs) in a ring
+    indexed by *age* (0 = newest). Every env keeps its own window length,
+    reset to 0 when that env's episode ends, so returns never mix rewards
+    across envs or across episode boundaries.
+
+    :meth:`push` returns the transitions that became complete this step:
+
+    * env still running with a full window -> one transition, k = n steps;
+    * env whose episode ended (terminated or truncated) -> every remaining
+      partial window (k = L, L-1, ..., 1), all ending at this step.
+
+    Everything is tensor ops; the only host sync is one ``nonzero`` per push
+    to learn how many transitions to write.
+    """
+
+    def __init__(self, n: int, gamma: float) -> None:
+        self.n = n
+        self.gamma = gamma
+        self._obs = None  # dict[str, (n, E, ...)] or (n, E, ...)
+        self._act = None  # (n, E, A)
+        self._rew = None  # (n, E)
+        self._len = None  # (E,) long
+        self._head = 0  # ring slot of the newest step
+
+    def _alloc(self, obs, action, reward) -> None:
+        n = self.n
+
+        def _ring(t):
+            return torch.zeros((n, *t.shape), dtype=t.dtype, device=t.device)
+
+        self._obs = {k: _ring(v) for k, v in obs.items()} if isinstance(obs, dict) else _ring(obs)
+        self._act = _ring(action)
+        self._rew = torch.zeros((n, reward.shape[0]), dtype=torch.float32, device=reward.device)
+        self._len = torch.zeros(reward.shape[0], dtype=torch.long, device=reward.device)
+        self._head = n - 1
+        self._gammas = self.gamma ** torch.arange(
+            1, n + 1, dtype=torch.float32, device=reward.device
+        )
+
+    def push(self, obs, action, reward, done, truncated, next_obs):
+        """All inputs batched over envs and already on the buffer device."""
+        if self._rew is None:
+            self._alloc(obs, action, reward)
+        n = self.n
+        h = (self._head + 1) % n
+        self._head = h
+        if isinstance(obs, dict):
+            for k, v in obs.items():
+                self._obs[k][h] = v
+        else:
+            self._obs[h] = obs
+        self._act[h] = action
+        self._rew[h] = reward
+
+        ages = torch.arange(n, device=reward.device)
+        slots = (h - ages) % n  # ring slot of each age
+        L = torch.clamp(self._len + 1, max=n)  # window length incl. this step
+
+        # R[a] = discounted return of the segment starting at age a and
+        # ending now: R[a] = r_age(a) + gamma * R[a-1].
+        rew_by_age = self._rew[slots]  # (n, E)
+        R = torch.empty_like(rew_by_age)
+        acc = torch.zeros_like(rew_by_age[0])
+        for a in range(n):
+            acc = rew_by_age[a] + self.gamma * acc
+            R[a] = acc
+
+        ended = (done > 0.5) | (truncated > 0.5)  # (E,)
+        flush = ended.unsqueeze(0) & (ages.unsqueeze(1) < L.unsqueeze(0))
+        full = (~ended & (L == n)).unsqueeze(0) & (ages == n - 1).unsqueeze(1)
+        mask = flush | full  # (n, E)
+        self._len = torch.where(ended, torch.zeros_like(L), L)
+
+        a_idx, e_idx = mask.nonzero(as_tuple=True)
+        if a_idx.numel() == 0:
+            return None
+        s_idx = slots[a_idx]
+        if isinstance(obs, dict):
+            o = {k: v[s_idx, e_idx] for k, v in self._obs.items()}
+            no = {k: v[e_idx] for k, v in next_obs.items()}
+        else:
+            o = self._obs[s_idx, e_idx]
+            no = next_obs[e_idx]
+        return (
+            o,
+            self._act[s_idx, e_idx],
+            R[a_idx, e_idx],
+            done[e_idx],
+            no,
+            truncated[e_idx],
+            self._gammas[a_idx],
+        )
+
+    def state_dict(self) -> dict:
+        if self._rew is None:
+            return {}
+
+        def _cpu(t):
+            return {k: v.cpu() for k, v in t.items()} if isinstance(t, dict) else t.cpu()
+
+        return {
+            "obs": _cpu(self._obs),
+            "act": self._act.cpu(),
+            "rew": self._rew.cpu(),
+            "len": self._len.cpu(),
+            "head": self._head,
+        }
+
+    def load_state_dict(self, sd: dict, device) -> None:
+        if not sd:
+            return
+
+        def _dev(t):
+            return {k: v.to(device) for k, v in t.items()} if isinstance(t, dict) else t.to(device)
+
+        self._obs = _dev(sd["obs"])
+        self._act = sd["act"].to(device)
+        self._rew = sd["rew"].to(device)
+        self._len = sd["len"].to(device)
+        self._head = int(sd["head"])
+        self._gammas = self.gamma ** torch.arange(1, self.n + 1, dtype=torch.float32, device=device)
+
+
 class GPUReplayBuffer:
     """Circular replay buffer with all storage on a fixed CUDA/MPS device.
 
@@ -91,13 +218,13 @@ class GPUReplayBuffer:
             torch.cuda.Stream(device=self.device) if self.device.type == "cuda" else None
         )
 
-        # n-step per-env rolling buffers (kept on CPU for simplicity)
-        if n_step > 1:
-            self._nstep_obs: list[dict[str, list] | list] = [[] for _ in range(num_envs)]
-            self._nstep_act: list[list] = [[] for _ in range(num_envs)]
-            self._nstep_rew: list[list] = [[] for _ in range(num_envs)]
-            self._nstep_done: list[list] = [[] for _ in range(num_envs)]
-            self._nstep_trunc: list[list] = [[] for _ in range(num_envs)]
+        # Per-transition bootstrap discount gamma**k (see ReplayBatch.discounts).
+        self._discount_buf: torch.Tensor | None = None
+
+        # n-step sliding windows on-device. Key ("vec", E) for a batched
+        # add() of E envs stepped together, ("env", i) for single-transition
+        # adds tagged with env_idx=i.
+        self._nstep_windows: dict[tuple, _NStepWindow] = {}
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -108,10 +235,11 @@ class GPUReplayBuffer:
         t = t.to(dtype=self._storage_dtype) if t.is_floating_point() else t
         if t.device == self.device:
             return t
-        if self._copy_stream is not None:
-            with torch.cuda.stream(self._copy_stream):
-                return t.to(device=self.device, non_blocking=True)
-        return t.to(device=self.device)
+        # Issued on the *current* stream: the previous version copied on a
+        # side stream and returned without any cross-stream sync, so the
+        # very next kernel on the default stream could read the destination
+        # before the copy landed.
+        return t.to(device=self.device, non_blocking=True)
 
     def _ensure_allocated(
         self,
@@ -121,6 +249,8 @@ class GPUReplayBuffer:
         if self._action_buf is not None:
             return  # already allocated
 
+        # Inputs here are always batched (add() promotes single transitions
+        # to a batch of one), so the per-row shape is simply shape[1:].
         act_dim = action.shape[-1] if action.dim() >= 1 else 1
         self._action_buf = torch.zeros(
             (self.capacity, act_dim), dtype=self._storage_dtype, device=self.device
@@ -139,12 +269,15 @@ class GPUReplayBuffer:
         self._reward_buf = torch.zeros((self.capacity,), dtype=torch.float32, device=self.device)
         self._done_buf = torch.zeros((self.capacity,), dtype=torch.float32, device=self.device)
         self._truncated_buf = torch.zeros((self.capacity,), dtype=torch.float32, device=self.device)
+        self._discount_buf = torch.full(
+            (self.capacity,), float(self.gamma), dtype=torch.float32, device=self.device
+        )
 
         if isinstance(obs, dict):
             self._obs_buf = {}
             self._next_obs_buf = {}
             for k, v in obs.items():
-                shape = v.shape[1:] if v.dim() > 1 else v.shape
+                shape = v.shape[1:]
                 dtype = self._storage_dtype if v.is_floating_point() else v.dtype
                 self._obs_buf[k] = torch.zeros(
                     (self.capacity, *shape), dtype=dtype, device=self.device
@@ -153,28 +286,12 @@ class GPUReplayBuffer:
                     (self.capacity, *shape), dtype=dtype, device=self.device
                 )
         else:
-            shape = obs.shape[1:] if obs.dim() > 1 else obs.shape
+            shape = obs.shape[1:]
             dtype = self._storage_dtype if obs.is_floating_point() else obs.dtype
             self._obs_buf = torch.zeros((self.capacity, *shape), dtype=dtype, device=self.device)
             self._next_obs_buf = torch.zeros(
                 (self.capacity, *shape), dtype=dtype, device=self.device
             )
-
-    def _write_obs(
-        self,
-        buf: dict[str, torch.Tensor] | torch.Tensor,
-        idx: int,
-        obs: dict[str, torch.Tensor] | torch.Tensor,
-    ) -> None:
-        if isinstance(buf, dict):
-            for k in buf:
-                src = self._to_device(obs[k] if isinstance(obs, dict) else obs)
-                buf[k][idx].copy_(src.squeeze(0) if src.dim() > buf[k][idx].dim() else src)
-        else:
-            src = self._to_device(
-                obs if isinstance(obs, torch.Tensor) else next(iter(obs.values()))
-            )
-            buf[idx].copy_(src.squeeze(0) if src.dim() > buf[idx].dim() else src)
 
     # ------------------------------------------------------------------
     # Public API
@@ -188,17 +305,21 @@ class GPUReplayBuffer:
         done: bool | torch.Tensor,
         next_obs: dict[str, torch.Tensor] | torch.Tensor,
         truncated: bool | torch.Tensor | None = None,
+        env_idx: int | None = None,
     ) -> None:
-        """Add one transition (or a batch from a vectorised env).
+        """Add one transition or a ``(num_envs, ...)`` batch from a vector env.
 
-        Accepts CUDA tensors directly — no host copy if already on correct device.
-        Accepts numpy arrays via implicit ``torch.as_tensor`` conversion.
-        Thread-safe.
+        Accepts CUDA tensors directly (no host copy), CPU tensors, numpy
+        arrays or scalars. Thread-safe. A batch is written with one
+        scatter per tensor and no per-env Python loop or host sync, for
+        both 1-step and n-step (the n-step windows are per env, see
+        :class:`_NStepWindow`). Pass a whole batch per ``env.step()`` rather
+        than splitting it: with ``n_step > 1`` single-transition adds are
+        only correct if each carries its own ``env_idx``.
 
         `done` must be true termination only, not OR'd with `truncated` -- see
         replay_buffer.py's ReplayBatch docstring.
         """
-        # Convert numpy / scalars
         if not isinstance(action, torch.Tensor):
             action = torch.as_tensor(action, dtype=torch.float32)
         if not isinstance(reward, torch.Tensor):
@@ -206,101 +327,69 @@ class GPUReplayBuffer:
         if not isinstance(done, torch.Tensor):
             done = torch.as_tensor(done, dtype=torch.float32)
         if truncated is None:
-            truncated = torch.zeros_like(done)
+            truncated = torch.zeros_like(done, dtype=torch.float32)
         elif not isinstance(truncated, torch.Tensor):
             truncated = torch.as_tensor(truncated, dtype=torch.float32)
-        if isinstance(obs, dict):
-            obs = {
-                k: torch.as_tensor(v) if not isinstance(v, torch.Tensor) else v
-                for k, v in obs.items()
-            }
-        else:
-            obs = torch.as_tensor(obs) if not isinstance(obs, torch.Tensor) else obs
-        if isinstance(next_obs, dict):
-            next_obs = {
-                k: torch.as_tensor(v) if not isinstance(v, torch.Tensor) else v
-                for k, v in next_obs.items()
-            }
-        else:
-            next_obs = (
-                torch.as_tensor(next_obs) if not isinstance(next_obs, torch.Tensor) else next_obs
-            )
 
-        # Handle batched vectorised-env input.
-        batch_size = action.shape[0] if action.dim() > 1 else 1
-        if batch_size > 1:
-            if self.n_step <= 1:
-                # Vectorised path: one fancy-indexed scatter write per tensor
-                # instead of `batch_size` separate Python-level add() calls.
-                # A GPU-batched sim (mjlab/Isaac Lab) can run thousands of
-                # parallel envs, and the old per-row loop paid for that many
-                # dict-comprehension row slices, re-entrant add() calls, lock
-                # acquisitions, and individual .copy_() kernel launches on
-                # *every single env step* -- exactly the host-side overhead
-                # this buffer's "zero-copy" design is supposed to avoid.
-                # n-step accumulation (below) is inherently per-env
-                # sequential state, so it keeps the per-row loop.
-                with self._lock:
-                    self._ensure_allocated(obs, action)
-                    self._write_batch(obs, action, reward, done, next_obs, truncated)
-                return
-            for i in range(batch_size):
-                _obs_i = {k: v[i] for k, v in obs.items()} if isinstance(obs, dict) else obs[i]
-                _nobs_i = (
-                    {k: v[i] for k, v in next_obs.items()}
-                    if isinstance(next_obs, dict)
-                    else next_obs[i]
-                )
-                self.add(_obs_i, action[i], reward[i], done[i], _nobs_i, truncated[i])
-            return
+        def _as_t(o):
+            if isinstance(o, dict):
+                return {
+                    k: v if isinstance(v, torch.Tensor) else torch.as_tensor(v)
+                    for k, v in o.items()
+                }
+            return o if isinstance(o, torch.Tensor) else torch.as_tensor(o)
+
+        obs = _as_t(obs)
+        next_obs = _as_t(next_obs)
+
+        if action.dim() <= 1:
+            # Single transition -> batch of one.
+            action = action.reshape(1, -1)
+            obs = self._promote_single(obs, self._obs_buf)
+            next_obs = self._promote_single(next_obs, self._next_obs_buf)
+        batch_size = action.shape[0]
 
         with self._lock:
             self._ensure_allocated(obs, action)
+            obs_d = self._obs_to_device(obs)
+            next_obs_d = self._obs_to_device(next_obs)
+            act_d = self._to_device(action.float() if action.is_floating_point() else action)
+            act_d = act_d.reshape(batch_size, -1)
+            rew_d = self._as_flat(reward, batch_size)
+            done_d = self._as_flat(done, batch_size)
+            trunc_d = self._as_flat(truncated, batch_size)
 
-            if self.n_step > 1:
-                # All envs share one sequential buffer env_idx=0 when called per-sample
-                self._nstep_rew[0].append(float(reward))
-                self._nstep_done[0].append(float(done))
-                self._nstep_trunc[0].append(float(truncated))
-                self._nstep_act[0].append(action)
-                if isinstance(self._nstep_obs[0], list) and len(self._nstep_obs[0]) == 0:
-                    self._nstep_obs[0] = []
-                self._nstep_obs[0].append((obs, next_obs))
+            if self.n_step <= 1:
+                self._write_batch(obs_d, act_d, rew_d, done_d, next_obs_d, trunc_d, None)
+                return
 
-                if len(self._nstep_rew[0]) >= self.n_step:
-                    # Compute n-step return
-                    ret = 0.0
-                    for j in range(self.n_step):
-                        ret += (self.gamma**j) * self._nstep_rew[0][j]
-                    _obs0, _ = self._nstep_obs[0][0]
-                    _, _nobs_last = self._nstep_obs[0][-1]
-                    _act0 = self._nstep_act[0][0]
-                    _done_last = self._nstep_done[0][-1]
-                    _trunc_last = self._nstep_trunc[0][-1]
-                    self._nstep_rew[0].pop(0)
-                    self._nstep_done[0].pop(0)
-                    self._nstep_trunc[0].pop(0)
-                    self._nstep_act[0].pop(0)
-                    self._nstep_obs[0].pop(0)
-                    self._write_single(_obs0, _act0, ret, _done_last, _nobs_last, _trunc_last)
+            if env_idx is not None and batch_size == 1:
+                key = ("env", int(env_idx))
             else:
-                self._write_single(
-                    obs, action, float(reward), float(done), next_obs, float(truncated)
-                )
+                key = ("vec", batch_size)
+            window = self._nstep_windows.get(key)
+            if window is None:
+                window = self._nstep_windows[key] = _NStepWindow(self.n_step, self.gamma)
+            out = window.push(obs_d, act_d, rew_d, done_d, trunc_d, next_obs_d)
+            if out is not None:
+                self._write_batch(*out)
 
-    def _write_single(self, obs, action, reward, done, next_obs, truncated: float = 0.0) -> None:
-        idx = self._ptr
-        self._write_obs(self._obs_buf, idx, obs)
-        self._write_obs(self._next_obs_buf, idx, next_obs)
-        act = self._to_device(
-            action.float() if action.is_floating_point() else action.to(dtype=self._storage_dtype)
-        )
-        self._action_buf[idx].copy_(act.view(-1))
-        self._reward_buf[idx] = float(reward)
-        self._done_buf[idx] = float(done)
-        self._truncated_buf[idx] = float(truncated)
-        self._ptr = (self._ptr + 1) % self.capacity
-        self._size = min(self._size + 1, self.capacity)
+    @staticmethod
+    def _promote_single(o, buf):
+        def _one(v, b):
+            if b is not None:
+                return v.unsqueeze(0) if v.dim() == b.dim() - 1 else v
+            # Not allocated yet: a leading singleton is taken as the batch dim.
+            return v if (v.dim() >= 2 and v.shape[0] == 1) else v.unsqueeze(0)
+
+        if isinstance(o, dict):
+            return {k: _one(v, buf.get(k) if isinstance(buf, dict) else None) for k, v in o.items()}
+        return _one(o, buf if isinstance(buf, torch.Tensor) else None)
+
+    def _obs_to_device(self, o):
+        if isinstance(o, dict):
+            return {k: self._to_device(v) for k, v in o.items()}
+        return self._to_device(o)
 
     def _write_batch(
         self,
@@ -310,6 +399,7 @@ class GPUReplayBuffer:
         done: torch.Tensor,
         next_obs: dict[str, torch.Tensor] | torch.Tensor,
         truncated: torch.Tensor,
+        discount: torch.Tensor | None = None,
     ) -> None:
         """Vectorised write for a whole batch of parallel-env transitions.
 
@@ -331,13 +421,15 @@ class GPUReplayBuffer:
         self._write_obs_batch(self._obs_buf, idx, obs)
         self._write_obs_batch(self._next_obs_buf, idx, next_obs)
 
-        act = self._to_device(
-            action.float() if action.is_floating_point() else action.to(dtype=self._storage_dtype)
-        )
-        self._action_buf[idx] = act.reshape(batch_size, -1)
+        act = self._to_device(action)
+        self._action_buf[idx] = act.reshape(batch_size, -1).to(self._action_buf.dtype)
         self._reward_buf[idx] = self._as_flat(reward, batch_size)
         self._done_buf[idx] = self._as_flat(done, batch_size)
         self._truncated_buf[idx] = self._as_flat(truncated, batch_size)
+        if discount is None:
+            self._discount_buf[idx] = float(self.gamma)
+        else:
+            self._discount_buf[idx] = self._as_flat(discount, batch_size)
 
         self._ptr = int((self._ptr + batch_size) % self.capacity)
         self._size = min(self._size + batch_size, self.capacity)
@@ -390,6 +482,7 @@ class GPUReplayBuffer:
             next_observations=next_obs_out,
             dones=self._done_buf[indices],
             truncated=self._truncated_buf[indices],
+            discounts=self._discount_buf[indices],
         )
 
     def __len__(self) -> int:
@@ -415,6 +508,8 @@ class GPUReplayBuffer:
             "reward_buf": _to_cpu(self._reward_buf),
             "done_buf": _to_cpu(self._done_buf),
             "truncated_buf": _to_cpu(self._truncated_buf),
+            "discount_buf": _to_cpu(self._discount_buf),
+            "nstep_windows": {k: w.state_dict() for k, w in self._nstep_windows.items()},
         }
         if isinstance(self._obs_buf, dict):
             sd["obs_buf"] = {k: _to_cpu(v) for k, v in self._obs_buf.items()}
@@ -443,6 +538,16 @@ class GPUReplayBuffer:
                 if "truncated_buf" in sd
                 else torch.zeros_like(self._done_buf)
             )
+            self._discount_buf = (
+                _to_dev(sd["discount_buf"])
+                if "discount_buf" in sd
+                else torch.full_like(self._done_buf, float(self.gamma))
+            )
+            self._nstep_windows = {}
+            for key, wsd in (sd.get("nstep_windows") or {}).items():
+                w = _NStepWindow(self.n_step, self.gamma)
+                w.load_state_dict(wsd, self.device)
+                self._nstep_windows[tuple(key)] = w
             obs_buf = sd.get("obs_buf")
             if isinstance(obs_buf, dict):
                 self._obs_buf = {k: _to_dev(v) for k, v in obs_buf.items()}

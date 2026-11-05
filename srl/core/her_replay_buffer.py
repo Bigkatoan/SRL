@@ -182,7 +182,8 @@ class HERReplayBuffer:
 
     def sample(self, batch_size: int) -> ReplayBatch:
         ep_idx = np.random.randint(0, self._n_stored, size=batch_size)
-        t_idx = np.array([np.random.randint(0, self._ep_len[e]) for e in ep_idx], dtype=np.int32)
+        ep_lens = self._ep_len[ep_idx].astype(np.int64)
+        t_idx = (np.random.random_sample(batch_size) * ep_lens).astype(np.int64)
 
         n_her = int(batch_size * self.her_ratio)
         her_mask = np.zeros(batch_size, dtype=bool)
@@ -195,41 +196,46 @@ class HERReplayBuffer:
         dg = self._dg[ep_idx, t_idx].copy()
         actions = self._actions[ep_idx, t_idx]
 
-        # HER relabelling
-        for i in np.where(her_mask)[0]:
-            ep_len = int(self._ep_len[ep_idx[i]])
+        # HER relabelling (vectorised). _ag[e, t] is the goal achieved by
+        # obs t, so _ag[e, t+1] is what transition t achieved.
+        her_idx = np.where(her_mask)[0]
+        if her_idx.size:
+            e_h = ep_idx[her_idx]
+            t_h = t_idx[her_idx]
+            len_h = self._ep_len[e_h].astype(np.int64)
             if self.strategy == "future":
-                future_t = np.random.randint(t_idx[i], ep_len + 1)
-                dg[i] = self._ag[ep_idx[i], future_t]
+                # Achieved goals strictly AFTER this transition, t+1..T
+                # (inclusive of the final ag). Sampling from t..T would
+                # relabel with ag[t] -- the goal of the state the
+                # transition started in, which the action did not achieve.
+                lo = t_h + 1
+                g_t = lo + (np.random.random_sample(her_idx.size) * (len_h + 1 - lo)).astype(
+                    np.int64
+                )
+                dg[her_idx] = self._ag[e_h, g_t]
             elif self.strategy == "final":
-                dg[i] = self._ag[ep_idx[i], ep_len]
+                dg[her_idx] = self._ag[e_h, len_h]
             elif self.strategy == "episode":
-                rand_t = np.random.randint(0, ep_len + 1)
-                dg[i] = self._ag[ep_idx[i], rand_t]
+                g_t = (np.random.random_sample(her_idx.size) * (len_h + 1)).astype(np.int64)
+                dg[her_idx] = self._ag[e_h, g_t]
             elif self.strategy == "random":
-                rand_ep = np.random.randint(0, self._n_stored)
-                rand_t = np.random.randint(0, self._ep_len[rand_ep] + 1)
-                dg[i] = self._ag[rand_ep, rand_t]
+                r_ep = np.random.randint(0, self._n_stored, size=her_idx.size)
+                r_len = self._ep_len[r_ep].astype(np.int64)
+                g_t = (np.random.random_sample(her_idx.size) * (r_len + 1)).astype(np.int64)
+                dg[her_idx] = self._ag[r_ep, g_t]
 
-        # Recompute rewards with relabelled goals
-        rewards = np.array(
-            [self.reward_fn(next_ag[i], dg[i], {}) for i in range(batch_size)],
-            dtype=np.float32,
-        )
-        # `done` per transition: for the her_mask fraction (goal relabelled),
-        # standard HER practice is right -- termination follows the NEW
-        # (relabelled) goal, i.e. "reward 0 against the relabelled goal" IS
-        # the terminal condition for that synthetic trajectory. For the rest
-        # (still using the true original desired_goal), termination must
-        # come from what the episode actually did -- the real stored `done`
-        # -- not this reward heuristic, which would silently discard genuine
-        # failure/timeout terminations any time the reward isn't purely
-        # "0 iff goal achieved" (i.e. anything beyond the simplest sparse
-        # case), and even in that case is redundant with information already
-        # recorded at collection time.
-        reward_done = (rewards == 0.0).astype(np.float32)  # sparse: reward 0 = achieved
-        real_done = self._done[ep_idx, t_idx]
-        dones = np.where(her_mask, reward_done, real_done).astype(np.float32)
+        # Recompute rewards with relabelled goals. Goal envs' compute_reward
+        # (gymnasium-robotics) is vectorised; fall back to a per-sample loop
+        # for reward functions that only accept single goals.
+        rewards = self._batched_reward(next_ag, dg)
+        # `done` is the REAL termination for every transition, relabelled or
+        # not. Reaching a relabelled goal does not end the episode: Fetch-
+        # style goal tasks are infinite-horizon (terminated is always False,
+        # episodes end only by time-limit truncation), so marking relabelled
+        # successes terminal (the old `reward == 0 -> done`) cut the bootstrap
+        # exactly on the transitions HER is meant to learn from, teaching
+        # Q(s, a) ~= 0 at the goal instead of the true discounted value.
+        dones = self._done[ep_idx, t_idx].astype(np.float32)
 
         def _t(arr):
             return torch.tensor(arr, dtype=torch.float32, device=self.device)
@@ -248,6 +254,18 @@ class HERReplayBuffer:
             rewards=_t(rewards),
             next_observations={self.obs_key: _t(full_next_obs)},
             dones=_t(dones),
+        )
+
+    def _batched_reward(self, achieved: np.ndarray, desired: np.ndarray) -> np.ndarray:
+        n = achieved.shape[0]
+        try:
+            r = np.asarray(self.reward_fn(achieved, desired, {}), dtype=np.float32)
+            if r.shape == (n,):
+                return r
+        except Exception:  # noqa: BLE001 -- fall back to per-sample calls
+            pass
+        return np.array(
+            [self.reward_fn(achieved[i], desired[i], {}) for i in range(n)], dtype=np.float32
         )
 
     def __len__(self) -> int:

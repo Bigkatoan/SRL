@@ -9,6 +9,7 @@ Supports:
 
 from __future__ import annotations
 
+from collections import defaultdict, deque
 from dataclasses import dataclass
 
 import numpy as np
@@ -30,6 +31,12 @@ class ReplayBatch:
     truncated: torch.Tensor | None = None
     weights: torch.Tensor | None = None  # IS weights (PER)
     indices: np.ndarray | None = None  # buffer indices (PER update)
+    # Per-transition bootstrap discount gamma**k, k = the number of real env
+    # steps the stored (possibly n-step) reward spans. Bootstrap targets
+    # must use this instead of a bare `gamma`: with n_step > 1 the stored
+    # reward already covers k steps, and a window cut short by an episode
+    # end has k < n. None = one-step buffer, use `gamma`.
+    discounts: torch.Tensor | None = None
 
     @property
     def obs(self):
@@ -42,6 +49,14 @@ class ReplayBatch:
 
 class ReplayBuffer:
     """Uniform circular replay buffer with optional n-step returns.
+
+    n-step returns use a per-env *sliding* window (like SB3's
+    ``NStepReplayBuffer``): every env step writes exactly one transition
+    once the window holds ``n`` steps, and when an episode ends the remaining
+    partial windows (k = n-1, ..., 1 steps) are flushed so no data is lost.
+    Each stored transition carries ``discount = gamma**k``; ``done`` is the
+    true termination of the window's last step (so a time-limit truncation
+    still bootstraps, from the final observation, with ``gamma**k``).
 
     Parameters
     ----------
@@ -100,10 +115,12 @@ class ReplayBuffer:
             self._rewards = np.zeros((self.capacity,), dtype=np.float32)
             self._dones = np.zeros((self.capacity,), dtype=np.float32)
             self._truncated = np.zeros((self.capacity,), dtype=np.float32)
+            self._discounts = np.full((self.capacity,), self.gamma, dtype=np.float32)
 
-        # n-step rolling buffers per env
-        if n_step > 1:
-            self._nstep_bufs: list[list] = [[] for _ in range(self.n_envs)]
+        # n-step sliding windows, keyed by env index. A dict (not a list
+        # sized by n_envs) so an env index beyond the configured count can
+        # never IndexError or silently alias another env's window.
+        self._nstep_bufs: dict[int, deque] = defaultdict(deque)
 
     # ------------------------------------------------------------------
     # Allocation
@@ -127,6 +144,7 @@ class ReplayBuffer:
         self._rewards = np.zeros((self.capacity,), dtype=np.float32)
         self._dones = np.zeros((self.capacity,), dtype=np.float32)
         self._truncated = np.zeros((self.capacity,), dtype=np.float32)
+        self._discounts = np.full((self.capacity,), self.gamma, dtype=np.float32)
 
     # ------------------------------------------------------------------
     # Write
@@ -181,22 +199,36 @@ class ReplayBuffer:
             effective_trunc = np.zeros(self.n_envs, dtype=bool)
 
         if self.n_step > 1:
-            self._nstep_bufs[env_idx].append(
-                (obs, action, reward, next_obs, effective_done, effective_trunc)
-            )
-            episode_ended = bool(np.asarray(effective_done).any()) or bool(
-                np.asarray(effective_trunc).any()
-            )
-            if len(self._nstep_bufs[env_idx]) == self.n_step or episode_ended:
-                obs_n, action_n, reward_n, next_obs_n, done_n, trunc_n = self._compute_nstep(
-                    env_idx
-                )
-                self._write(obs_n, action_n, reward_n, next_obs_n, done_n, trunc_n)
-                self._nstep_bufs[env_idx].clear()
+            self._add_nstep(obs, action, reward, next_obs, effective_done, effective_trunc, env_idx)
         else:
-            self._write(obs, action, reward, next_obs, effective_done, effective_trunc)
+            self._write(obs, action, reward, next_obs, effective_done, effective_trunc, self.gamma)
 
-    def _write(self, obs, action, reward, next_obs, done, truncated=None) -> None:
+    def _add_nstep(self, obs, action, reward, next_obs, done, trunc, env_idx: int) -> None:
+        window = self._nstep_bufs[int(env_idx)]
+        r = float(np.asarray(reward, dtype=np.float64).mean())
+        d = bool(np.asarray(done).any())
+        tr = bool(np.asarray(trunc).any())
+        window.append((obs, action, r))
+        if d or tr:
+            # Episode over: flush every remaining (partial) window, each
+            # ending at this step. terminated -> no bootstrap (done=1);
+            # truncated -> bootstrap from the final obs with gamma**k.
+            while window:
+                self._emit_nstep(window, next_obs, d, tr)
+                window.popleft()
+        elif len(window) >= self.n_step:
+            self._emit_nstep(window, next_obs, False, False)
+            window.popleft()
+
+    def _emit_nstep(self, window: deque, next_obs, done: bool, trunc: bool) -> None:
+        obs0, act0, _ = window[0]
+        ret = 0.0
+        for i, (_, _, r) in enumerate(window):
+            ret += (self.gamma**i) * r
+        k = len(window)
+        self._write(obs0, act0, ret, next_obs, done, trunc, self.gamma**k)
+
+    def _write(self, obs, action, reward, next_obs, done, truncated=None, discount=None) -> None:
         idx = self._pos
         if self._dict_obs:
             for k in self._obs:
@@ -210,22 +242,10 @@ class ReplayBuffer:
         self._rewards[idx] = float(np.asarray(reward).mean())
         self._dones[idx] = float(np.asarray(done).any())
         self._truncated[idx] = float(np.asarray(truncated).any()) if truncated is not None else 0.0
+        self._discounts[idx] = self.gamma if discount is None else float(discount)
 
         self._pos = (self._pos + 1) % self.capacity
         self._size = min(self._size + 1, self.capacity)
-
-    def _compute_nstep(self, env_idx: int) -> tuple:
-        buf = self._nstep_bufs[env_idx]
-        obs, action = buf[0][0], buf[0][1]
-        next_obs, done, trunc = buf[-1][3], buf[-1][4], buf[-1][5]
-        reward = 0.0
-        for i, (_, _, r, _, d, tr) in enumerate(buf):
-            reward += (self.gamma**i) * r
-            if d or tr:
-                done, trunc = d, tr
-                next_obs = buf[i][3]
-                break
-        return obs, action, reward, next_obs, done, trunc
 
     # ------------------------------------------------------------------
     # Sample
@@ -259,6 +279,9 @@ class ReplayBuffer:
             ),
             weights=w_tensor,
             indices=indices,
+            discounts=torch.tensor(
+                self._discounts[indices], dtype=torch.float32, device=self.device
+            ),
         )
 
     def state_dict(self) -> dict:
@@ -281,9 +304,10 @@ class ReplayBuffer:
             "rewards": self._rewards,
             "dones": self._dones,
             "truncated": self._truncated,
+            "discounts": self._discounts,
         }
         if self.n_step > 1:
-            state["nstep_bufs"] = self._nstep_bufs
+            state["nstep_bufs"] = {k: list(v) for k, v in self._nstep_bufs.items()}
         return state
 
     def load_state_dict(self, state: dict) -> None:
@@ -307,8 +331,19 @@ class ReplayBuffer:
         # .get() with a fallback: buffers checkpointed before `truncated` was
         # tracked separately have no such key.
         self._truncated = state.get("truncated", np.zeros_like(self._dones))
-        if self.n_step > 1:
-            self._nstep_bufs = state.get("nstep_bufs", [[] for _ in range(self.n_envs)])
+        # Old checkpoints predate per-transition discounts; their n-step
+        # rewards were built with the broken chunked accumulator anyway, so
+        # the plain one-step gamma is the only defensible fallback.
+        self._discounts = state.get(
+            "discounts", np.full_like(self._dones, self.gamma, dtype=np.float32)
+        )
+        self._nstep_bufs = defaultdict(deque)
+        saved = state.get("nstep_bufs")
+        if isinstance(saved, dict):
+            for k, v in saved.items():
+                self._nstep_bufs[int(k)] = deque(v)
+        # Legacy list-of-lists windows held a different tuple layout; drop them
+        # (at most n-1 transitions per env are lost on resume).
 
     def __len__(self) -> int:
         return self._size
