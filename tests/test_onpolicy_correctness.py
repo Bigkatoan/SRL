@@ -186,3 +186,20 @@ def test_rollout_buffer_partial_rollout_uses_only_filled_slots():
     batches = list(buf.get_batches(batch_size=100))
     assert sum(b.actions.shape[0] for b in batches) == 2
     assert buf.get_batch().actions.shape[0] == 2
+
+
+# ---------------------------------------------------------------------------
+# Bug 6: state_dependent_std defaulted True and was never passed to the head
+# ---------------------------------------------------------------------------
+
+
+def test_gaussian_head_defaults_to_state_independent_std():
+    model = ModelBuilder.from_dict(_model_dict())
+    assert model.actor.state_dependent_std is False
+    assert model.actor.log_std_head is None
+
+
+def test_state_dependent_std_flag_is_passed_through_builder():
+    model = ModelBuilder.from_dict(_model_dict(state_dependent_std=True))
+    assert model.actor.state_dependent_std is True
+    assert model.actor.log_std_head is not None

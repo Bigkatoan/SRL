@@ -51,7 +51,7 @@ class GaussianActorHead(nn.Module):
         input_dim: int,
         action_dim: int,
         layer_configs: list,
-        state_dependent_std: bool = True,
+        state_dependent_std: bool = False,
         **kw,
     ):
         super().__init__()
