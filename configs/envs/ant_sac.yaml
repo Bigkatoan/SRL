@@ -1,6 +1,8 @@
 # SAC on Ant-v5  (obs=105, act=8)
 # Target return: ~4000 (convergence ~3M steps)
 
+schema_version: 1
+
 env_id: "Ant-v5"
 env_type: "flat"
 
@@ -41,11 +43,6 @@ critic:
   action_dim: 8
   layers:
     - {out_features: 256, activation: relu, norm: layer_norm}
-
-losses:
-  - {name: sac_q,           weight: 1.0}
-  - {name: sac_policy,      weight: 1.0}
-  - {name: sac_temperature, weight: 1.0}
 
 train:
   total_steps: 3_000_000

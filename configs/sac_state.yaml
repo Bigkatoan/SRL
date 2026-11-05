@@ -1,6 +1,7 @@
 # SAC on a continuous-control task (e.g. Ant-v4)
 # Separate encoder paths for actor and critic (standard SAC setup)
 
+schema_version: 1
 algo: sac
 
 encoders:
@@ -27,11 +28,3 @@ critic:
   name: critic
   type: twin_q
   action_dim: 8
-
-losses:
-  - name: sac_q
-    weight: 1.0
-  - name: sac_policy
-    weight: 1.0
-  - name: sac_temperature
-    weight: 1.0

@@ -149,6 +149,7 @@ Table of Contents
    :caption: Reference
 
    source/config_reference
+   source/extending
    source/limitations
    source/examples/encoder_examples
    source/contributing

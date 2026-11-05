@@ -1,6 +1,8 @@
 # PPO on Walker2d-v5  (obs=17, act=6)
 # Target return: ~3000 (convergence ~2M steps)
 
+schema_version: 1
+
 env_id: "Walker2d-v5"
 env_type: "flat"
 
@@ -39,11 +41,6 @@ critic:
   type: value
   layers:
     - {out_features: 128, activation: tanh, norm: none}
-
-losses:
-  - {name: policy,  weight: 1.0}
-  - {name: value,   weight: 0.5}
-  - {name: entropy, weight: 0.0}
 
 train:
   total_steps: 2_000_000

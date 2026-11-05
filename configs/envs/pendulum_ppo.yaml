@@ -3,6 +3,8 @@
 # gamma 0.9, lr 1e-3, n_steps 1024 x 4 envs, 10 epochs, obs+reward
 # normalisation. Target eval return > -400 by ~200k steps (~-200 when solved).
 
+schema_version: 1
+
 env_id: "Pendulum-v1"
 env_type: "flat"
 
@@ -41,11 +43,6 @@ critic:
   type: value
   layers:
     - {out_features: 64, activation: tanh, norm: none}
-
-losses:
-  - {name: policy,  weight: 1.0}
-  - {name: value,   weight: 0.5}
-  - {name: entropy, weight: 0.0}
 
 train:
   total_steps: 200_000

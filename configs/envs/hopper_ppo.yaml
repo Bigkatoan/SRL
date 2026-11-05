@@ -1,6 +1,8 @@
 # PPO on Hopper-v5  (obs=11, act=3)
 # Target return: ~2500 (convergence ~1M steps)
 
+schema_version: 1
+
 env_id: "Hopper-v5"
 env_type: "flat"
 
@@ -39,11 +41,6 @@ critic:
   type: value
   layers:
     - {out_features: 128, activation: tanh, norm: none}
-
-losses:
-  - {name: policy,  weight: 1.0}
-  - {name: value,   weight: 0.5}
-  - {name: entropy, weight: 0.0}
 
 train:
   total_steps: 1_000_000

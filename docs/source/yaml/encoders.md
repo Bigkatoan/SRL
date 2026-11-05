@@ -22,8 +22,8 @@ These map one-to-one onto `EncoderConfig` in
 | `name` | ✓ | — | Unique node id, referenced in `flows` |
 | `type` | ✓ | — | `mlp`, `cnn`, `lstm`, `text`, or a registry key |
 | `input_name` | recommended | `null` | Observation dict key this encoder reads |
-| `input_dim` | mlp/lstm | `null` | Input vector dimension |
-| `input_shape` | cnn | `null` | `[C, H, W]` |
+| `input_dim` | mlp/lstm | `auto` | Input vector dimension; omit or write `auto` to take it from the env |
+| `input_shape` | cnn | `auto` | `[C, H, W]`; omit or write `auto` to take it from the env |
 | `latent_dim` | | `128` | Output latent width |
 | `layers` | | `[]` | Layer definitions |
 | `aux_type` | | `null` | `autoencoder`, `contrastive`, or `byol` |
@@ -32,20 +32,29 @@ These map one-to-one onto `EncoderConfig` in
 | `momentum_tau` | | `0.99` | EMA coefficient for the momentum encoder |
 | `recurrent` | | `false` | Wrap a non-LSTM encoder in an LSTM |
 | `lstm_hidden` | | `256` | Hidden size used when wrapping with LSTM |
-| `frame_stack` | | `1` | Declared stacked-frame factor |
+| `extra` | | `{}` | Keyword arguments for custom encoder types |
 
-Unknown keys are not an error — they are collected into `extra` and forwarded to
-custom encoder classes registered through `register_encoder`.
+Unknown keys **are an error** (with a "did you mean" suggestion — see
+[strict validation](../config_reference.md#strict-validation)). Keys specific to one
+encoder type are accepted when that type declares them: `text` accepts `vocab_size`,
+`embed_dim`, `channels` and `max_len`; a custom type registered with
+`register_encoder("name", extra_keys=(...))` accepts its own. Anything else for a
+custom type goes under an explicit `extra:` mapping. Both end up in `cfg.extra`. See
+[Extending SRL](../extending.md).
+
+Explicit `input_dim`/`input_shape` values are cross-checked against the environment
+when the model is built with env spaces, so a stale number fails with a clear message
+instead of a shape error in the first forward pass.
 
 ```{warning}
-`aux_type` accepts only `autoencoder`, `contrastive`, and `byol`. The builder attaches
-a `ConvDecoderHead` for `autoencoder` (CNN encoders only, since it needs `input_shape`)
-and a `ProjectionHead` for `contrastive`/`byol`. Any other value is silently ignored
-and no auxiliary module is created.
+`aux_type` accepts only `autoencoder`, `contrastive`, and `byol` (anything else is a
+validation error). The builder attaches a `ConvDecoderHead` for `autoencoder` (CNN
+encoders only, since it needs `input_shape` — `autoencoder` on a flat encoder is
+rejected) and a `ProjectionHead` for `contrastive`/`byol`.
 ```
 
-`frame_stack` is parsed and validated but is not yet applied by `ModelBuilder`; stack
-frames in the environment for now.
+There is no `frame_stack` key (it was never applied and has been removed); stack
+frames in an environment wrapper and size `input_shape`/`input_dim` accordingly.
 
 ## MLP example (state-based)
 

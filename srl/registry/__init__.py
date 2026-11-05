@@ -4,21 +4,29 @@ from srl.registry.builder import ModelBuilder
 from srl.registry.config_schema import AgentModelConfig, EncoderConfig, HeadConfig, LossConfig
 from srl.registry.flow_graph import FlowGraph
 from srl.registry.registry import (
+    AlgorithmRegistry,
+    AlgorithmSpec,
     EncoderRegistry,
+    EnvRegistry,
     HeadRegistry,
-    LossRegistry,
+    RegistryEntry,
+    register_algorithm,
     register_encoder,
+    register_env,
     register_head,
-    register_loss,
 )
 
 __all__ = [
+    "AlgorithmRegistry",
+    "AlgorithmSpec",
     "EncoderRegistry",
+    "EnvRegistry",
     "HeadRegistry",
-    "LossRegistry",
+    "RegistryEntry",
+    "register_algorithm",
     "register_encoder",
+    "register_env",
     "register_head",
-    "register_loss",
     "FlowGraph",
     "AgentModelConfig",
     "EncoderConfig",

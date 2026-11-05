@@ -6,6 +6,8 @@
 #   agent = SAC.from_config("configs/envs/pendulum_sac.yaml", env=gym.make("Pendulum-v1"))
 #   agent.learn(20_000)
 
+schema_version: 1
+
 env_id: "Pendulum-v1"
 env_type: "flat"
 
@@ -46,11 +48,6 @@ critic:
   action_dim: 1
   layers:
     - {out_features: 256, activation: relu}
-
-losses:
-  - {name: sac_q,           weight: 1.0}
-  - {name: sac_policy,      weight: 1.0}
-  - {name: sac_temperature, weight: 1.0}
 
 train:
   total_steps: 20_000

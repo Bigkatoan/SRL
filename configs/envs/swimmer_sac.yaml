@@ -1,6 +1,8 @@
 # SAC on Swimmer-v5  (obs=8, act=2)
 # Target return: ~300 (convergence ~500k steps)
 
+schema_version: 1
+
 env_id: "Swimmer-v5"
 env_type: "flat"
 
@@ -41,11 +43,6 @@ critic:
   action_dim: 2
   layers:
     - {out_features: 256, activation: relu, norm: layer_norm}
-
-losses:
-  - {name: sac_q,           weight: 1.0}
-  - {name: sac_policy,      weight: 1.0}
-  - {name: sac_temperature, weight: 1.0}
 
 train:
   total_steps: 500_000
