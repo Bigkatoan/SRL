@@ -12,9 +12,9 @@ from test_envlayer_helpers import (
     run_cli,
 )
 
-from srl.cli.train import _make_cli_env
 from srl.envs.action_rescale import RescaleActionWrapper, maybe_rescale_action
 from srl.envs.gymnasium_wrapper import GymnasiumWrapper
+from srl.training.envs import make_env as _make_cli_env
 from srl.utils.spaces import sample_action_space, sample_vector_actions
 
 

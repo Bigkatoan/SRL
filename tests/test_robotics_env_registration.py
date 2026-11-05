@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-import srl.cli.train as train_module
+import srl.training.envs as train_module
 
 
 def test_register_robotics_envs_once_only_calls_underlying_register_a_single_time(
@@ -40,7 +40,7 @@ def test_register_robotics_envs_once_only_calls_underlying_register_a_single_tim
 def test_register_robotics_envs_once_suppresses_the_overriding_warning(capsys) -> None:
     import warnings
 
-    import srl.cli.train as tm
+    import srl.training.envs as tm
 
     # Needs the real (optional) `robotics` extra installed -- CI's base test
     # job only installs `.[dev]`, so this skips there rather than failing

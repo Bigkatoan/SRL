@@ -9,8 +9,8 @@ import types
 import torch
 from test_envlayer_helpers import SuccessAtEndEnv
 
-from srl.cli.train import _evaluate_agent
 from srl.envs.gymnasium_wrapper import GymnasiumWrapper
+from srl.training.evaluation import evaluate_agent as _evaluate_agent
 
 
 class _FakeAgent:

@@ -170,7 +170,7 @@ def test_sac_deterministic_action_is_tanh_of_mean() -> None:
         agent.model.actor.mean_head.weight.mul_(50.0)
         agent.model.actor.mean_head.bias.fill_(3.0)
     obs = _obs_t(8)
-    action, *_ = agent.predict(obs, deterministic=True)
+    action, *_ = agent.act(obs, deterministic=True)
     assert action.abs().max() <= 1.0
     with torch.no_grad():
         out = agent.model(obs, compute_critic=False)["actor_out"]
@@ -188,14 +188,14 @@ def test_update_runs_in_train_mode_after_predict(algo: str) -> None:
     _fill(agent, 64)
     modes: list[bool] = []
     agent.model.critic.register_forward_pre_hook(lambda m, _inp: modes.append(m.training))
-    agent.predict(_obs_t(2))  # used to leave the model in eval() for good
+    agent.act(_obs_t(2))  # used to leave the model in eval() for good
     modes.clear()
     agent.update()
     assert modes and all(modes)
     # And predict() itself still runs in eval mode.
     actor_modes: list[bool] = []
     agent.model.actor.register_forward_pre_hook(lambda m, _inp: actor_modes.append(m.training))
-    agent.predict(_obs_t(2))
+    agent.act(_obs_t(2))
     assert actor_modes == [False]
 
 
@@ -214,7 +214,7 @@ def test_ddpg_noise_is_independent_per_env() -> None:
     torch.manual_seed(0)
     agent = _build("ddpg", action_noise="ou", noise_sigma=0.3)
     obs = {"state": torch.zeros(4, OBS_DIM)}  # identical obs for every env
-    noisy, *_ = agent.predict(obs)
+    noisy, *_ = agent.act(obs)
     assert noisy.shape == (4, ACT_DIM)
     # Same observation, independent noise per row.
     assert not torch.allclose(noisy[0], noisy[1])
@@ -236,7 +236,7 @@ def test_ou_noise_reset_per_env() -> None:
 
 def test_ddpg_reset_noise_hook() -> None:
     agent = _build("ddpg", action_noise="ou", noise_sigma=0.5)
-    agent.predict({"state": torch.zeros(2, OBS_DIM)})
+    agent.act({"state": torch.zeros(2, OBS_DIM)})
     agent.reset_noise([0])
     assert torch.equal(agent.noise.state[0], torch.zeros(ACT_DIM))
 
@@ -287,8 +287,8 @@ def test_normalizer_is_used_and_checkpointed(algo: str, tmp_path) -> None:
         assert torch.allclose(fresh_state["mean"][k], v)
     # Deterministic actions agree after a reload (same weights + same stats).
     obs = {"state": torch.full((2, OBS_DIM), 100.0)}
-    a1, *_ = agent.predict(obs, deterministic=True)
-    a2, *_ = fresh.predict(obs, deterministic=True)
+    a1, *_ = agent.act(obs, deterministic=True)
+    a2, *_ = fresh.act(obs, deterministic=True)
     assert torch.allclose(a1, a2, atol=1e-6)
 
 

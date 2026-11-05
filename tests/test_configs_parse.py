@@ -160,7 +160,9 @@ ENV_CONFIGS = sorted((CONFIG_DIR / "envs").glob("*.yaml"))
 def test_config_matches_env_spaces(config_path: Path) -> None:
     import numpy as np
 
-    from srl.cli.train import _make_cli_env, _resolve_env_action_dim, _resolve_env_spec
+    from srl.training.envs import env_action_dim as _resolve_env_action_dim
+    from srl.training.envs import make_env as _make_cli_env
+    from srl.training.envs import resolve_env_spec as _resolve_env_spec
 
     raw = _load(config_path)
     reason = _skip_reason_for(raw)

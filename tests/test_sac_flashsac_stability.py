@@ -176,7 +176,7 @@ def test_sac_target_model_is_always_eval_mode() -> None:
     _fill_replay_buffer(agent, n_transitions=16, rng=rng)
     for _ in range(3):
         obs = {"policy": torch.randn(1, OBS_DIM)}
-        agent.predict(obs)
+        agent.act(obs)
         agent.update()
         assert agent.target_model.training is False
 
@@ -283,7 +283,7 @@ def test_sac_predict_and_update_interleave_safely_under_concurrency() -> None:
                 if stop.is_set():
                     return
                 obs = {"policy": torch.randn(4, OBS_DIM)}
-                action, _, _, _ = agent.predict(obs)
+                action, _, _, _ = agent.act(obs)
                 assert torch.isfinite(action).all()
         except BaseException as exc:  # noqa: BLE001 -- surfaced via `errors`
             errors.append(exc)
