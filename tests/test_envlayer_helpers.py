@@ -63,6 +63,11 @@ def register_test_envs() -> None:
         gym.register("SRLSuccessAtEnd-v0", entry_point=SuccessAtEndEnv)
 
 
+# Registered on import so `gym.make("test_envlayer_helpers:SRLCounter-v0")`
+# also works inside spawn/forkserver AsyncVectorEnv workers.
+register_test_envs()
+
+
 def mlp_config(algo: str, obs_dim: int = 2, action_dim: int = 1, **train) -> dict:
     """Small YAML model config for SAC or PPO."""
     enc = [
@@ -134,7 +139,10 @@ def run_cli(monkeypatch, tmp_path, cfg: dict, extra=(), env_id="SRLCounter-v0", 
     register_test_envs()
     captured = {}
     for name in ("_run_off_policy", "_run_on_policy"):
+        # Always wrap the REAL loop (not a spy left by an earlier run_cli
+        # call in the same test), so hooks never stack across runs.
         original = getattr(train_module, name)
+        original = getattr(original, "_srl_test_original", original)
 
         def _spy(agent, *a, _orig=original, **k):
             captured["agent"] = agent
@@ -142,7 +150,9 @@ def run_cli(monkeypatch, tmp_path, cfg: dict, extra=(), env_id="SRLCounter-v0", 
                 on_agent(agent)
             return _orig(agent, *a, **k)
 
+        _spy._srl_test_original = original
         monkeypatch.setattr(train_module, name, _spy)
+    tmp_path.mkdir(parents=True, exist_ok=True)
     path = tmp_path / "cfg.yaml"
     path.write_text(yaml.safe_dump(cfg))
     code = train_module.main(

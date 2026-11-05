@@ -15,6 +15,7 @@ __all__ = [
     "LogCallback",
     "CheckpointCallback",
     "EarlyStopping",
+    "set_random_seed",
 ]
 
 _EXPORTS = {
@@ -27,6 +28,7 @@ _EXPORTS = {
     "LogCallback": ("srl.utils.callbacks", "LogCallback"),
     "CheckpointCallback": ("srl.utils.callbacks", "CheckpointCallback"),
     "EarlyStopping": ("srl.utils.callbacks", "EarlyStopping"),
+    "set_random_seed": ("srl.utils.seeding", "set_random_seed"),
 }
 
 

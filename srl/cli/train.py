@@ -226,6 +226,18 @@ Examples
     p.add_argument(
         "--seed", type=int, default=None, help="Random seed (default: train.seed, else 0)"
     )
+    p.add_argument(
+        "--deterministic",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Bit-reproducible PyTorch kernels: torch.use_deterministic_algorithms"
+            "(True), cudnn.deterministic, no cudnn.benchmark, TF32 off, "
+            "CUBLAS_WORKSPACE_CONFIG set. Slower on GPU. (default: "
+            "train.deterministic, else False; CPU runs are reproducible from "
+            "--seed alone)"
+        ),
+    )
     p.add_argument("--logdir", default="runs", help="TensorBoard log dir (default: runs/)")
     p.add_argument(
         "--ckptdir", default="checkpoints", help="Checkpoint directory (default: checkpoints/)"
@@ -1057,14 +1069,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     import os
-    import random
 
-    import numpy as np
     import torch
 
     from srl.core.config import A2CConfig, A3CConfig, DDPGConfig, PPOConfig, SACConfig, TD3Config
     from srl.registry.builder import ModelBuilder
     from srl.utils.pipeline_graph import render_pipeline_bundle
+    from srl.utils.seeding import seed_env_spaces, set_random_seed
 
     # ── load config early: device/seed/eval-* fallbacks below need train_cfg ───
     print(f"[srl-train] Loading config: {args.config}")
@@ -1102,11 +1113,15 @@ def main(argv: list[str] | None = None) -> int:
         device = args.device
 
     # ── reproducibility ───────────────────────────────────────────────────────
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    if device == "cuda":
-        torch.cuda.manual_seed_all(args.seed)
+    args.deterministic = (
+        args.deterministic
+        if args.deterministic is not None
+        else bool(train_cfg.get("deterministic", False))
+    )
+    set_random_seed(args.seed, deterministic=args.deterministic)
+    if device == "cuda" and not args.deterministic:
+        # TF32 is a speed/precision trade-off that breaks bit-reproducibility;
+        # only enable it when --deterministic is off.
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
         try:
@@ -1231,7 +1246,12 @@ def main(argv: list[str] | None = None) -> int:
     from srl.envs.sync_vector_env import SyncVectorEnv
 
     def _make_env(seed_offset=0):
-        return _make_cli_env(args.env, device, args.n_envs, args.env_type)
+        built = _make_cli_env(args.env, device, args.n_envs, args.env_type)
+        # Per-env seed for the env's own spaces (`act_space.sample()` etc.);
+        # each vector sub-env gets `seed + index`, matching how the vector
+        # envs offset `reset(seed=...)`.
+        seed_env_spaces(built, args.seed + seed_offset)
+        return built
 
     print(f"[srl-train] Creating {args.n_envs} × {args.env}")
     uses_internal_vectorization = (
@@ -1249,6 +1269,10 @@ def main(argv: list[str] | None = None) -> int:
             env = AsyncVectorEnv(env_fns)
         else:
             env = AsyncVectorEnv(env_fns) if args.n_envs > 1 else SyncVectorEnv(env_fns)
+        # The vector env's own (parent-side) action space is what off-policy
+        # warmup samples from -- for AsyncVectorEnv it's a fresh unpickled
+        # copy from worker 0, so seed it here (reproducible warmup).
+        seed_env_spaces(env, args.seed)
 
     # ── build agent ───────────────────────────────────────────────────────────
     from srl.utils.callbacks import CheckpointCallback
