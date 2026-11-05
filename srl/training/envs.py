@@ -114,7 +114,7 @@ def make_env(env_name: str, device: str, n_envs: int, env_type: str = "flat", re
         factory = EnvRegistry.get(normalized_env_type)
         return factory(env_name, device=device, n_envs=n_envs, render=render)
     normalized_env_name = normalize_env_name(env_name, normalized_env_type)
-    make_kwargs = {"render_mode": "human"} if render else {}
+    make_kwargs: dict[str, Any] = {"render_mode": "human"} if render else {}
 
     if normalized_env_type == "isaaclab" or normalized_env_name.startswith("isaaclab:"):
         from srl.envs.isaac_lab_wrapper import IsaacLabWrapper
@@ -393,7 +393,7 @@ def build_training_env(
         return _make()
     env_fns = [lambda i=i: _make(i) for i in range(n_envs)]
     if vec_mode == "sync":
-        env = SyncVectorEnv(env_fns)
+        env: Any = SyncVectorEnv(env_fns)
     else:
         env = AsyncVectorEnv(env_fns)
     # The vector env's own (parent-side) action space is what off-policy

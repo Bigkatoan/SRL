@@ -239,7 +239,7 @@ class OffPolicyTrainer(Trainer):
                         )
                 elif her_buffer is not None:
                     next_goal_obs = info.get("goal_obs")
-                    if next_goal_obs is None:
+                    if goal_obs is None or next_goal_obs is None:
                         raise RuntimeError(
                             "HER is enabled but the environment did not provide "
                             "info['goal_obs']; expected a GoalEnvWrapper-wrapped env."

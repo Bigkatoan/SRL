@@ -274,7 +274,7 @@ def configure_her_from_env(algo_cfg, env, env_type: str) -> None:
         )
 
     unwrapped = getattr(env, "unwrapped", env)
-    space = getattr(unwrapped, "observation_space", None)
+    space: Any = getattr(unwrapped, "observation_space", None)
     try:
         obs_dim = int(np.prod(space["observation"].shape))
         ag_dim = int(np.prod(space["achieved_goal"].shape))
