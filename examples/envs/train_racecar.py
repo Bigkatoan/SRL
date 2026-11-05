@@ -39,7 +39,7 @@ ENV_IDS = [
 
 
 def _build_runtime_config(base_yaml: str, input_dim: int, action_dim: int) -> str:
-    with open(base_yaml, "r", encoding="utf-8") as f:
+    with open(base_yaml, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
 
     cfg["encoders"][0]["input_dim"] = int(input_dim)
@@ -131,7 +131,9 @@ def train(env_id: str, device: str = "cpu", seed: int = 0):
                 obs, _ = env.reset()
                 ep_reward = 0.0
 
-        last_obs_t = {k: torch.from_numpy(v).float().unsqueeze(0).to(device) for k, v in obs.items()}
+        last_obs_t = {
+            k: torch.from_numpy(v).float().unsqueeze(0).to(device) for k, v in obs.items()
+        }
         with torch.no_grad():
             _, _, last_value, _ = agent.predict(last_obs_t)
         agent.buffer.compute_returns_and_advantages(
