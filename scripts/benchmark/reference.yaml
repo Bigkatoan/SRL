@@ -1,0 +1,68 @@
+# Reference returns for the Phase 1 MuJoCo benchmark (scripts/benchmark/report.py).
+#
+# Every value below was checked against the linked source file on 2026-11-05
+# (`verified: true`). Read the `protocol` notes before comparing: none of these
+# sources uses exactly our protocol (v5 envs, 3 seeds, mean of the last 5 evals
+# of 10 deterministic episodes), so they are context, not pass/fail targets.
+#
+# Caveats worth repeating in the report:
+#  * rl-zoo benchmark.md is ONE trained agent per (algo, env), evaluated for
+#    ~150k steps; its "std" is across eval episodes of that single agent, not
+#    across seeds. The zoo itself says "this is not a quantitative benchmark".
+#  * rl-zoo rows are for the v3 envs; CleanRL rows are v4 (TD3, PPO) or v2 (SAC).
+#  * CleanRL SAC numbers are *training* episodic return (stochastic policy);
+#    CleanRL TD3/PPO numbers are the average episodic return over 3 seeds as
+#    reported in their docs (also training-time returns).
+#  * CleanRL PPO uses its own default hyperparameters (not the rl-zoo tuned
+#    ones our PPO configs use), so a large gap vs CleanRL PPO is expected on
+#    HalfCheetah.
+
+sources:
+  sb3_zoo:
+    label: "SB3 rl-zoo"
+    url: https://github.com/DLR-RM/rl-baselines3-zoo/blob/61956d90d9f8ac126043ed4024efa12a462d97e1/benchmark.md
+    protocol: >-
+      single trained agent per row, 1M steps, deterministic eval over ~150k
+      steps; std = across eval episodes; envs are -v3.
+  cleanrl:
+    label: "CleanRL"
+    urls:
+      sac: https://github.com/vwxyzjn/cleanrl/blob/fe8d8a03c41a7ef5b523e2e354bd01c363e786bb/docs/rl-algorithms/sac.md
+      td3: https://github.com/vwxyzjn/cleanrl/blob/fe8d8a03c41a7ef5b523e2e354bd01c363e786bb/docs/rl-algorithms/td3.md
+      ppo: https://github.com/vwxyzjn/cleanrl/blob/fe8d8a03c41a7ef5b523e2e354bd01c363e786bb/docs/benchmark/ppo_continuous_action.md
+    protocol: >-
+      mean ± std over 3 seeds of training episodic return at the end of
+      training (1M steps); SAC on -v2 envs, TD3/PPO on -v4 envs.
+
+# reference[env][algo][source] = {mean, std, env_version, verified}
+reference:
+  HalfCheetah-v5:
+    sac:
+      sb3_zoo: {mean: 9535.451, std: 100.470, env_version: v3, verified: true}
+      cleanrl: {mean: 9634.89, std: 1423.73, env_version: v2, verified: true}
+    td3:
+      sb3_zoo: {mean: 9655.666, std: 969.916, env_version: v3, verified: true}
+      cleanrl: {mean: 9583.22, std: 126.09, env_version: v4, verified: true}
+    ppo:
+      sb3_zoo: {mean: 5819.099, std: 663.530, env_version: v3, verified: true}
+      cleanrl: {mean: 1442.64, std: 46.03, env_version: v4, verified: true}
+  Hopper-v5:
+    sac:
+      sb3_zoo: {mean: 2325.547, std: 1129.676, env_version: v3, verified: true}
+      cleanrl: {mean: 2310.46, std: 342.82, env_version: v2, verified: true}
+    td3:
+      sb3_zoo: {mean: 3606.390, std: 4.027, env_version: v3, verified: true}
+      cleanrl: {mean: 3134.61, std: 360.18, env_version: v4, verified: true}
+    ppo:
+      sb3_zoo: {mean: 2410.435, std: 10.026, env_version: v3, verified: true}
+      cleanrl: {mean: 2382.86, std: 271.74, env_version: v4, verified: true}
+  Walker2d-v5:
+    sac:
+      sb3_zoo: {mean: 3863.203, std: 254.347, env_version: v3, verified: true}
+      cleanrl: {mean: 3591.45, std: 911.33, env_version: v2, verified: true}
+    td3:
+      sb3_zoo: {mean: 4717.823, std: 46.303, env_version: v3, verified: true}
+      cleanrl: {mean: 4057.59, std: 658.78, env_version: v4, verified: true}
+    ppo:
+      sb3_zoo: {mean: 3478.798, std: 821.708, env_version: v3, verified: true}
+      cleanrl: {mean: 2287.95, std: 571.78, env_version: v4, verified: true}

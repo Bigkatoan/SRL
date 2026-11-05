@@ -225,3 +225,8 @@ wandb/
 matrix_runs/
 example.txt
 srl/_version.py
+
+# Benchmark harness output (scripts/benchmark/run_matrix.py): checkpoints,
+# TensorBoard logs and stdout of every run. summary.json files can be
+# force-added when publishing results.
+/benchmarks/

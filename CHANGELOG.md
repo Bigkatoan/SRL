@@ -64,6 +64,10 @@ The format follows Keep a Changelog and the project uses Semantic Versioning as 
 - `use_per` prioritized replay (importance weights, priority updates) for SAC/TD3/DDPG.
 - Fetch push/slide/pick-and-place configs enable HER (future, k=4); `pendulum_ppo.yaml` uses rl-zoo-like hyperparameters.
 - ~120 regression tests, config-parse matrix over every YAML, and `slow` learning tests (SAC/PPO Pendulum, FetchReach+HER).
+- Phase 1 benchmark harness: rl-zoo MuJoCo configs (`configs/benchmarks/mujoco/`), resumable matrix runner `scripts/benchmark/run_matrix.py`, `report.py` (mean ± std, IQM + bootstrap CI, learning curves vs SB3 zoo / CleanRL in `reference.yaml`), detached launcher `launch_phase1.sh`, and the `Benchmarks` docs page.
+
+### Changed
+- Off-policy `srl-train` averages training metrics over `train.metrics_log_interval` env steps (default 1000) before logging, instead of logging ~13 scalars per gradient step (~2 GB of TensorBoard/JSONL/CSV and >1 GB RSS per 1M-step run). Set it to 1 for the old behaviour.
 
 ### Fixed
 - **PPO GAE off-by-one in `RolloutBuffer.compute_returns_and_advantages`** —
