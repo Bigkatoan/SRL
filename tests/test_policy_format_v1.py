@@ -120,6 +120,16 @@ def test_replay_buffer_only_on_request(tmp_path) -> None:
     assert (path / "replay_buffer" / "state.pt").exists()
 
 
+def test_per_nstep_replay_buffer_round_trips(tmp_path) -> None:
+    agent = _trained("sac", steps=200, use_per=True, replay_n_step=3)
+    agent.save(tmp_path / "a", include_replay_buffer=True)
+    restored = SAC.load(tmp_path / "a", device="cpu")
+    ours, theirs = agent.buffer.state_dict(), restored.buffer.state_dict()
+    np.testing.assert_array_equal(ours["per"]["sum_tree"], theirs["per"]["sum_tree"])
+    assert len(ours["nstep_bufs"][0]) == len(theirs["nstep_bufs"][0])
+    assert ours["storage_dtype"] == theirs["storage_dtype"]
+
+
 def test_v1_loads_with_weights_only(tmp_path, monkeypatch) -> None:
     agent = _trained("sac", steps=200)
     agent.save(tmp_path / "a", include_replay_buffer=True)
@@ -224,6 +234,27 @@ def test_cli_run_dir_loads_as_policy(algo, tmp_path) -> None:
     agent = BaseAgent.load(final, device="cpu")
     _assert_same_actions(agent, srl.load_policy(run, checkpoint="final"), _obs_batch())
     assert srl.load_policy(run).source.name.startswith("best_")  # auto: best first
+
+
+def test_cli_resume_from_a_v1_checkpoint(tmp_path, capsys) -> None:
+    from srl.cli.train import main
+
+    config = tmp_path / "cfg.yaml"
+    config.write_text(yaml.safe_dump(model_config("sac")))
+    common = ["--config", str(config), "--env", "Pendulum-v1", "--device", "cpu", "--no-plots"]
+    common += ["--logdir", str(tmp_path / "runs"), "--ckptdir", str(tmp_path / "ckpt")]
+    assert main([*common, "--steps", "200", "--eval-freq", "0"]) == 0
+    final = tmp_path / "ckpt" / "sac_cfg" / "final_0000000200"
+    capsys.readouterr()
+    assert main([*common, "--steps", "300", "--eval-freq", "0", "--resume", str(final)]) == 0
+    out = capsys.readouterr().out
+    assert "Resuming from step 200" in out and "no replay buffer" in out
+    assert (
+        BaseAgent.load(
+            tmp_path / "ckpt" / "sac_cfg" / "final_0000000300", device="cpu"
+        ).num_timesteps
+        == 300
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
