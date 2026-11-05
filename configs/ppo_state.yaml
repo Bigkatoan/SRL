@@ -1,5 +1,7 @@
 # PPO on a low-dimensional state-based environment (e.g. HalfCheetah-v4)
 
+schema_version: 1
+
 encoders:
   - name: state_enc
     type: mlp
@@ -24,11 +26,3 @@ critic:
   name: critic
   type: value
   layers: []
-
-losses:
-  - name: policy
-    weight: 1.0
-  - name: value
-    weight: 0.5
-  - name: entropy
-    weight: 0.01

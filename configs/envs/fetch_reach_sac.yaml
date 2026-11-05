@@ -7,8 +7,11 @@
 # reward like FetchReach's, HER usually converges much faster -- see
 # fetch_reach_sac_her.yaml, or add `use_her: true` to the train block below.
 
+schema_version: 1
+
 env_id: "FetchReach-v4"
 env_type: "goal"
+include_goal: true
 
 algo: sac
 
@@ -48,11 +51,6 @@ critic:
   layers:
     - {out_features: 256, activation: relu, norm: layer_norm}
 
-losses:
-  - {name: sac_q,           weight: 1.0}
-  - {name: sac_policy,      weight: 1.0}
-  - {name: sac_temperature, weight: 1.0}
-
 train:
   total_steps: 500_000
   lr_actor: 3e-4
@@ -65,6 +63,3 @@ train:
   learning_starts: 10_000
   train_freq: 1
   gradient_steps: 40
-  # GoalEnv settings
-  env_id: "FetchReach-v4"
-  include_goal: true

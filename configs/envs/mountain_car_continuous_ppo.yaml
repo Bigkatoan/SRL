@@ -1,6 +1,8 @@
 # PPO on MountainCarContinuous-v0  (obs=2, act=1)
 # Target return: +90 (convergence ~500k steps)
 
+schema_version: 1
+
 env_id: "MountainCarContinuous-v0"
 env_type: "flat"
 
@@ -39,11 +41,6 @@ critic:
   type: value
   layers:
     - {out_features: 64, activation: tanh, norm: none}
-
-losses:
-  - {name: policy,  weight: 1.0}
-  - {name: value,   weight: 0.5}
-  - {name: entropy, weight: 0.05}
 
 train:
   total_steps: 1_000_000

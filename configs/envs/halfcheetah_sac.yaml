@@ -1,6 +1,8 @@
 # SAC on HalfCheetah-v5  (obs=17, act=6)
 # Target return: ~8000 (convergence ~1M steps)
 
+schema_version: 1
+
 env_id: "HalfCheetah-v5"
 env_type: "flat"
 
@@ -42,11 +44,6 @@ critic:
   layers:
     - {out_features: 256, activation: relu, norm: layer_norm}
 
-losses:
-  - {name: sac_q,           weight: 1.0}
-  - {name: sac_policy,      weight: 1.0}
-  - {name: sac_temperature, weight: 1.0}
-
 visualization:
   save_model_pipeline: false
   model_pipeline_path: runs/pipelines/halfcheetah_sac_model.png
@@ -85,9 +82,9 @@ train:
   tau: 0.005
   alpha: 0.2
   auto_entropy_tuning: false
-  start_steps: 10_000
+  learning_starts: 10_000  # random-action warmup
   update_after: 1_000
-  update_every: 50
+  train_freq: 50
   gradient_steps: 50
   replay_n_step: 3
   use_fp16: false

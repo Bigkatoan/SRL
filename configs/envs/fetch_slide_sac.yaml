@@ -2,8 +2,11 @@
 # SAC + HER (future, k=4) with observation normalization.
 # Target: success_rate > 0.60 (convergence ~5M steps — hardest Fetch task)
 
+schema_version: 1
+
 env_id: "FetchSlide-v4"
 env_type: "goal"
+include_goal: true
 
 algo: sac
 
@@ -43,11 +46,6 @@ critic:
   layers:
     - {out_features: 256, activation: relu, norm: layer_norm}
 
-losses:
-  - {name: sac_q,           weight: 1.0}
-  - {name: sac_policy,      weight: 1.0}
-  - {name: sac_temperature, weight: 1.0}
-
 train:
   total_steps: 5_000_000
   lr_actor: 3e-4
@@ -75,6 +73,3 @@ train:
   # clipped to +-5 (as in the original HER implementation).
   normalize_obs: true
   obs_norm_clip: 5.0
-
-  env_id: "FetchSlide-v4"
-  include_goal: true
