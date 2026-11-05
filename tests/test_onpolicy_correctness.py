@@ -517,3 +517,41 @@ def test_a3c_worker_seed_derives_from_global_seed():
 
     np.testing.assert_allclose(_first_actions(5), _first_actions(5))
     assert not np.allclose(_first_actions(5), _first_actions(6))
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Gaussian head: one log-std parameter; PPO target_kl stops before stepping
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_gaussian_head_has_a_single_trained_log_std_parameter() -> None:
+    model = ModelBuilder.from_dict(_model_dict())
+    actor = model.actor
+    log_std_params = [n for n, _ in actor.named_parameters() if "log_std" in n]
+    assert log_std_params == ["dist.log_std"]
+    assert torch.allclose(actor.log_std, torch.full((ACTION_DIM,), -0.5))
+
+    agent = PPO(model, config=PPOConfig(n_steps=16, batch_size=8, n_epochs=2), device="cpu")
+    _fill_buffer(agent, 16, 1)
+    before = actor.log_std.detach().clone()
+    agent.update()
+    assert not torch.allclose(actor.log_std, before), "the policy log-std never trained"
+
+
+def test_gaussian_head_loads_state_dicts_with_the_legacy_dead_parameter() -> None:
+    model = ModelBuilder.from_dict(_model_dict())
+    state = model.state_dict()
+    state["actor.log_std_param"] = torch.zeros(ACTION_DIM)  # pre-fix checkpoints
+    model.load_state_dict(state)  # strict: the legacy key is dropped, not an error
+
+
+def test_ppo_target_kl_stops_before_the_step_that_exceeds_it() -> None:
+    """approx_kl is measured BEFORE a minibatch's step. With a tiny target_kl
+    the first minibatch (KL ~ 0, policy unchanged) steps; the second sees the
+    KL of that step and must stop without stepping -- one optimizer step."""
+    model = ModelBuilder.from_dict(_model_dict())
+    cfg = PPOConfig(n_steps=32, batch_size=8, n_epochs=4, target_kl=1e-6, lr=1e-2)
+    agent = PPO(model, config=cfg, device="cpu")
+    _fill_buffer(agent, 32, 1)
+    agent.update()
+    assert agent._global_step == 1

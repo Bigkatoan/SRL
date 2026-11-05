@@ -1,7 +1,10 @@
 # PPO on Pendulum-v1  (obs=3, act=1; dims resolved from the env: `auto`)
-# Hyperparameters follow rl-baselines3-zoo's Pendulum-v1 PPO (minus gSDE):
-# gamma 0.9, lr 1e-3, n_steps 1024 x 4 envs, 10 epochs, obs+reward
-# normalisation. Target eval return > -400 by ~200k steps (~-200 when solved).
+# Hyperparameters follow rl-baselines3-zoo's Pendulum-v1 PPO (gamma 0.9,
+# n_steps 1024 x 4 envs, 10 epochs, obs+reward normalisation) minus gSDE, with
+# lr 3e-4 / batch 256 instead of 1e-3 / 64: without gSDE the log-std keeps
+# shrinking and rl-zoo's 640 minibatch steps of lr 1e-3 per rollout then blow
+# up approx_kl and collapse the learned policy. Solved (~-150..-190) by
+# ~100k steps on seeds 0-5.
 
 schema_version: 1
 
@@ -48,9 +51,9 @@ train:
   total_steps: 200_000
   n_envs: 4
   n_steps: 1024
-  batch_size: 64
+  batch_size: 256
   n_epochs: 10
-  lr: 1e-3
+  lr: 3e-4
   gamma: 0.9
   gae_lambda: 0.95
   clip_range: 0.2

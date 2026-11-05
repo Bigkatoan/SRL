@@ -72,11 +72,13 @@ class GaussianActorHead(nn.Module):
         log_std_max = float(kw.get("log_std_max", 2.0))
         self.net, hid = build_mlp(layer_configs, input_dim, **mlp_kw)
         self.mean_head = nn.Linear(hid, action_dim)
-        if state_dependent_std:
-            self.log_std_head: nn.Module = nn.Linear(hid, action_dim)
-        else:
-            self.log_std_head = None
-            self.log_std_param = nn.Parameter(torch.full((action_dim,), log_std_init))
+        # State-independent std: the ONE learned log-std parameter is
+        # ``self.dist.log_std`` (DiagonalGaussian owns it). The head used to
+        # create a second ``log_std_param`` that DiagonalGaussian ignored --
+        # a dead parameter that never trained and misreported the policy std.
+        self.log_std_head: nn.Module | None = (
+            nn.Linear(hid, action_dim) if state_dependent_std else None
+        )
         self.state_dependent_std = state_dependent_std
         self.dist = DiagonalGaussian(
             action_dim,
@@ -86,14 +88,24 @@ class GaussianActorHead(nn.Module):
             log_std_max=log_std_max,
         )
 
-    def forward(self, z: torch.Tensor, deterministic: bool = False, **_) -> dict:
-        h = self.net(z)
+    @property
+    def log_std(self) -> torch.Tensor:
+        """The state-independent log-std parameter (``state_dependent_std=False``)."""
+        return self.dist.log_std
+
+    def _load_from_state_dict(self, state_dict, prefix, *args, **kwargs):
+        # Checkpoints written before the dead duplicate was removed carry an
+        # (always-untrained) "<prefix>log_std_param"; drop it.
+        state_dict.pop(prefix + "log_std_param", None)
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
+
+    def _dist(self, h: torch.Tensor):
         mean = self.mean_head(h)
-        if self.state_dependent_std:
-            log_std = self.log_std_head(h)
-        else:
-            log_std = self.log_std_param.expand_as(mean)
-        dist = self.dist(mean, log_std)
+        log_std = self.log_std_head(h) if self.log_std_head is not None else None
+        return mean, self.dist(mean, log_std)
+
+    def forward(self, z: torch.Tensor, deterministic: bool = False, **_) -> dict:
+        mean, dist = self._dist(self.net(z))
         action = dist.mode() if deterministic else dist.rsample()
         return {"action": action, "log_prob": dist.log_prob(action), "dist": dist, "mean": mean}
 
@@ -102,13 +114,7 @@ class GaussianActorHead(nn.Module):
         return out["action"], out["log_prob"], out.get("dist")
 
     def evaluate_actions(self, z: torch.Tensor, actions: torch.Tensor):
-        h = self.net(z)
-        mean = self.mean_head(h)
-        if self.state_dependent_std:
-            log_std = self.log_std_head(h)
-        else:
-            log_std = self.log_std_param.expand_as(mean)
-        dist = self.dist(mean, log_std)
+        _, dist = self._dist(self.net(z))
         return dist.log_prob(actions), dist.entropy()
 
 

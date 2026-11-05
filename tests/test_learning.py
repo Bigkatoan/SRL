@@ -36,8 +36,17 @@ ENV_CONFIGS = REPO_ROOT / "configs" / "envs"
 pytestmark = pytest.mark.slow
 
 
-def _train(tmp_path: Path, cfg: dict, name: str, *, eval_episodes: int, eval_freq: int) -> dict:
-    """Run ``srl-train`` on ``cfg`` and return the run's ``last_metrics``."""
+def _train(
+    tmp_path: Path,
+    cfg: dict,
+    name: str,
+    *,
+    eval_episodes: int,
+    eval_freq: int,
+    seed: int = 0,
+) -> tuple[dict, list[float]]:
+    """Run ``srl-train`` on ``cfg``; return the run's ``last_metrics`` and the
+    ``eval/score_mean`` history (in step order)."""
     from srl.cli.train import main
 
     config_path = tmp_path / f"{name}.yaml"
@@ -50,7 +59,7 @@ def _train(tmp_path: Path, cfg: dict, name: str, *, eval_episodes: int, eval_fre
             "--device",
             "cpu",
             "--seed",
-            "0",
+            str(seed),
             "--logdir",
             str(logdir),
             "--ckptdir",
@@ -64,10 +73,16 @@ def _train(tmp_path: Path, cfg: dict, name: str, *, eval_episodes: int, eval_fre
     )
     assert exit_code in (0, None), f"srl-train exited with {exit_code}"
     algo = cfg["algo"]
-    summary_path = logdir / f"{algo}_{name}" / "summary.json"
+    run_dir = logdir / f"{algo}_{name}"
+    summary_path = run_dir / "summary.json"
     assert summary_path.exists(), f"no summary.json at {summary_path}"
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
-    return summary.get("last_metrics") or {}
+    evals: dict[int, float] = {}
+    for line in (run_dir / "metrics.jsonl").read_text(encoding="utf-8").splitlines():
+        record = json.loads(line)
+        if record.get("tag") == "eval/score_mean":
+            evals[int(record["step"])] = float(record["value"])
+    return summary.get("last_metrics") or {}, [evals[k] for k in sorted(evals)]
 
 
 def _mlp_encoder(name: str, input_dim: int, width: int, activation: str = "relu") -> dict:
@@ -108,11 +123,6 @@ def test_sac_pendulum_learns(tmp_path: Path) -> None:
             "action_dim": 1,
             "layers": [{"out_features": 256, "activation": "relu"}],
         },
-        "losses": [
-            {"name": "sac_q", "weight": 1.0},
-            {"name": "sac_policy", "weight": 1.0},
-            {"name": "sac_temperature", "weight": 1.0},
-        ],
         # rl-baselines3-zoo Pendulum-v1 SAC hyperparameters.
         "train": {
             "total_steps": 20_000,
@@ -127,26 +137,39 @@ def test_sac_pendulum_learns(tmp_path: Path) -> None:
             "learning_starts": 1_000,
         },
     }
-    metrics = _train(tmp_path, cfg, "sac_pendulum", eval_episodes=10, eval_freq=5_000)
+    metrics, _ = _train(tmp_path, cfg, "sac_pendulum", eval_episodes=10, eval_freq=5_000)
     score = metrics.get("eval/score_mean")
     assert score is not None, f"no eval/score_mean in {sorted(metrics)}"
     assert score >= -250.0, f"SAC Pendulum eval/score_mean={score:.1f} < -250"
 
 
-def test_ppo_pendulum_learns(tmp_path: Path) -> None:
-    """PPO, Pendulum-v1, ~150k steps -> eval score >= -400."""
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_ppo_pendulum_learns(tmp_path: Path, seed: int) -> None:
+    """PPO, Pendulum-v1, ~200k steps -> mean of the last 3 evals >= -400, per seed.
+
+    The mean of the last three evaluations (160k/180k/200k steps) rather than
+    the final one: a single 10-episode eval of a near-deterministic policy is
+    noisy, and the regression this guards against is a policy that learns and
+    then collapses (see the lr note below), which shows up in all three.
+    """
     cfg = yaml.safe_load((ENV_CONFIGS / "pendulum_ppo.yaml").read_text(encoding="utf-8"))
     cfg["algo"] = "ppo"
     # rl-baselines3-zoo-style Pendulum-v1 PPO hyperparameters (minus gSDE,
     # which SRL does not implement): short horizon (gamma=0.9), large
-    # rollouts, high learning rate, no entropy bonus.
+    # rollouts, no entropy bonus, obs + reward normalisation (defaults) --
+    # but lr 3e-4 / batch 256 instead of rl-zoo's 1e-3 / 64. Without gSDE
+    # the state-independent log-std keeps shrinking (no entropy bonus), and
+    # with 640 minibatch steps of lr 1e-3 per rollout the per-update KL
+    # grows with it (KL ~ d_mean^2 / std^2) until single updates reach
+    # approx_kl ~ 0.4-3.7 and the learned policy collapses (-130 -> -800 on
+    # seed 0). 160 steps of lr 3e-4 keep approx_kl ~ 0.01.
     cfg["train"] = {
-        "total_steps": 151_552,  # 37 rollouts of 4 envs x 1024 steps
+        "total_steps": 204_800,  # 50 rollouts of 4 envs x 1024 steps
         "n_envs": 4,
         "n_steps": 1024,
-        "batch_size": 64,
+        "batch_size": 256,
         "n_epochs": 10,
-        "lr": 1e-3,
+        "lr": 3e-4,
         "gamma": 0.9,
         "gae_lambda": 0.95,
         "clip_range": 0.2,
@@ -154,10 +177,14 @@ def test_ppo_pendulum_learns(tmp_path: Path) -> None:
         "vf_coef": 0.5,
         "max_grad_norm": 0.5,
     }
-    metrics = _train(tmp_path, cfg, "ppo_pendulum", eval_episodes=10, eval_freq=50_000)
-    score = metrics.get("eval/score_mean")
-    assert score is not None, f"no eval/score_mean in {sorted(metrics)}"
-    assert score >= -400.0, f"PPO Pendulum eval/score_mean={score:.1f} < -400"
+    _, evals = _train(tmp_path, cfg, "ppo_pendulum", eval_episodes=10, eval_freq=20_000, seed=seed)
+    assert len(evals) >= 3, f"expected >= 3 evaluations, got {evals}"
+    last3 = sum(evals[-3:]) / 3
+    print(f"PPO Pendulum seed {seed}: last3={last3:.1f} evals={[round(e) for e in evals]}")
+    assert last3 >= -400.0, (
+        f"PPO Pendulum seed {seed}: mean of last 3 evals = {last3:.1f} < -400 "
+        f"(eval history: {[round(e) for e in evals]})"
+    )
 
 
 @pytest.mark.skipif(
@@ -170,7 +197,7 @@ def test_sac_her_fetch_reach_learns(tmp_path: Path) -> None:
     cfg = yaml.safe_load((ENV_CONFIGS / "fetch_reach_sac_her.yaml").read_text(encoding="utf-8"))
     cfg["train"]["total_steps"] = 10_000
     cfg["train"]["buffer_size"] = 100_000
-    metrics = _train(tmp_path, cfg, "sac_her_fetch_reach", eval_episodes=20, eval_freq=5_000)
+    metrics, _ = _train(tmp_path, cfg, "sac_her_fetch_reach", eval_episodes=20, eval_freq=5_000)
     success = metrics.get("eval/success_mean")
     assert success is not None, f"no eval/success_mean in {sorted(metrics)}"
     assert success >= 0.9, f"FetchReach SAC+HER eval/success_mean={success:.2f} < 0.9"

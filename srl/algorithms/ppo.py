@@ -427,6 +427,18 @@ class PPO(OnPolicyAgent):
                     )
                 info["approx_kl"] = float(approx_kl.item())
 
+                # target_kl: `approx_kl` is measured on this minibatch BEFORE
+                # its gradient step (old rollout policy vs. the current one),
+                # so once it exceeds the target the policy has already moved
+                # too far -- stop before applying another step (SB3/CleanRL
+                # order). Stepping first and breaking after, as this loop
+                # used to, always applied one extra update past the limit.
+                if self.cfg.target_kl is not None and approx_kl.item() > self.cfg.target_kl:
+                    for k, v in info.items():
+                        metrics_accum.setdefault(k, []).append(v)
+                    stop_early = True
+                    break
+
                 if self.cfg.lr_schedule == "adaptive":
                     self._adapt_lr(float(approx_kl.item()))
                 info["lr"] = self._current_lr
@@ -459,9 +471,6 @@ class PPO(OnPolicyAgent):
                 for k, v in info.items():
                     metrics_accum.setdefault(k, []).append(v)
                 self._global_step += 1
-                if self.cfg.target_kl is not None and approx_kl.item() > self.cfg.target_kl:
-                    stop_early = True
-                    break
             if stop_early:
                 break
 
