@@ -128,9 +128,7 @@ def _zero_param_grads(params: list[nn.Parameter]) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def build_encoder_optimizers(
-    model: nn.Module, lr: float
-) -> tuple[
+def build_encoder_optimizers(model: nn.Module, lr: float) -> tuple[
     list[nn.Parameter],
     list[nn.Parameter],
     list[nn.Module],
