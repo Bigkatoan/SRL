@@ -5,8 +5,9 @@ from __future__ import annotations
 import argparse
 import os
 
-from srl.cli.train import _resolve_env_name, _resolve_pipeline_outputs, _train_section
-from srl.utils.pipeline_graph import render_pipeline_bundle
+from srl.cli.train import _train_section
+from srl.training.envs import resolve_env_name
+from srl.utils.pipeline_graph import render_pipeline_bundle, resolve_pipeline_outputs
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -33,8 +34,8 @@ def main(argv: list[str] | None = None) -> int:
 
     _train_cfg, raw_cfg = _train_section(args.config)
     algo_name = args.algo or raw_cfg.get("algo") or os.path.basename(args.config).split("_")[0]
-    env_name = _resolve_env_name(args.env, raw_cfg)
-    model_output, training_output = _resolve_pipeline_outputs(
+    env_name = resolve_env_name(args.env, raw_cfg)
+    model_output, training_output = resolve_pipeline_outputs(
         raw_cfg,
         run_name=f"{algo_name}_{os.path.splitext(os.path.basename(args.config))[0]}",
         logdir=args.output_dir,
