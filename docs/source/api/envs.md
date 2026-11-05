@@ -47,3 +47,18 @@
    :members:
    :show-inheritance:
 ```
+
+## RescaleActionWrapper
+
+```{eval-rst}
+.. autoclass:: srl.envs.action_rescale.RescaleActionWrapper
+   :members:
+   :show-inheritance:
+```
+
+## Final observations (`get_final_obs`)
+
+```{eval-rst}
+.. automodule:: srl.envs.vector_utils
+   :members: get_final_obs
+```
