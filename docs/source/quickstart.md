@@ -102,8 +102,12 @@ agent2 = SAC.load("runs/pendulum", env=gym.make("Pendulum-v1"))
   `srl.BaseAgent.from_config(path)` picks the class from the YAML's `algo:` key.
 - With `env=None`, `from_config` builds the YAML's `env_id` with
   `train.n_envs` vectorized copies, exactly like `srl-train`.
+- The YAML is strictly validated (a typo raises `srl.config.ConfigError` with a
+  "did you mean" hint), and `input_dim: auto` / `action_dim: auto` are filled in
+  from the env's spaces. `agent.save(dir)` also writes `config.yaml`, the fully
+  resolved config.
 - You can also construct agents directly:
-  `SAC(ModelBuilder.from_yaml(path), SACConfig(...), env=gym.make("Pendulum-v1"))`
+  `SAC(ModelBuilder.from_yaml(path, obs_space=env.observation_space, act_space=env.action_space), SACConfig(...), env=env)`
   (the target network is created for you).
 
 ### Callbacks

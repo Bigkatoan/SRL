@@ -121,12 +121,17 @@ If you change model topology, routing, or algorithm internals, expect old checkp
 ## Minimal Python usage
 
 ```python
+import gymnasium as gym
 import torch
 
 from srl.registry.builder import ModelBuilder
 from srl.utils.checkpoint import CheckpointManager
 
-model = ModelBuilder.from_yaml("configs/envs/pendulum_ppo.yaml")
+env = gym.make("Pendulum-v1")
+# pendulum_ppo.yaml uses `input_dim: auto` / `action_dim: auto`: pass the spaces.
+model = ModelBuilder.from_yaml(
+    "configs/envs/pendulum_ppo.yaml", obs_space=env.observation_space, act_space=env.action_space
+)
 optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
 
 manager = CheckpointManager("runs/demo/checkpoints", max_keep=3)

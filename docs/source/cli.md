@@ -57,7 +57,11 @@ Important flag groups from [train.py](https://github.com/Bigkatoan/SRL/blob/main
   neither is an error (exit code 2). Guessing it from the file name still works
   for now but is deprecated and prints a warning.
 - Vectorization: `--vec-mode auto|sync|async`
-- Logging and artifacts: `--logdir`, `--ckptdir`, `--log-interval`, `--episode-window`, `--console-layout`, `--plot-metrics`, `--no-plots`
+- Logging and artifacts: `--logdir`, `--ckptdir`, `--log-interval`, `--episode-window`, `--console-layout`, `--plot-metrics`, `--no-plots`.
+  The config is strictly validated first (`srl.config.load_experiment`; a typo is
+  exit code 2), and the fully resolved config -- `auto` dims filled in from the
+  env, every hyperparameter explicit, CLI flags applied -- is written to
+  `<logdir>/<run>/config.yaml`.
 - Checkpointing and resume: `--resume`; periodic checkpoints every
   `train.save_interval` env steps (default 100 000), plus `final_*`/`best_*`.
   Every checkpoint is loadable from Python with `Cls.load(path)`.

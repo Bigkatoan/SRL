@@ -35,7 +35,10 @@ from srl.core.config import AsyncRunnerConfig, SACConfig
 from srl.registry.builder import ModelBuilder
 from srl.runners import AsyncOffPolicyRunner
 
-model = ModelBuilder.from_yaml("configs/envs/halfcheetah_sac.yaml")
+env = ...  # an SRL env, e.g. srl.training.make_env("HalfCheetah-v5", "cuda:0", 1)
+model = ModelBuilder.from_yaml(  # the config uses `auto` dims: resolve them from env
+    "configs/envs/halfcheetah_sac.yaml", obs_space=env.obs_space, act_space=env.act_space
+)
 agent = SAC(model, copy.deepcopy(model), SACConfig(action_dim=6), device="cuda:0")
 
 runner_cfg = AsyncRunnerConfig(
@@ -45,7 +48,7 @@ runner_cfg = AsyncRunnerConfig(
 
 runner = AsyncOffPolicyRunner(
     agent          = agent,      # the agent owns its own replay buffer
-    env            = env,        # any gym-compatible env
+    env            = env,
     total_steps    = 500_000,
     runner_cfg     = runner_cfg,
     device         = "cuda:0",

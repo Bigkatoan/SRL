@@ -22,7 +22,10 @@ from srl.ros2.rl_node import RLInferenceNode
 
 rclpy.init()
 
-model = ModelBuilder.from_yaml("configs/envs/halfcheetah_sac.yaml")
+# A run's resolved config (`<logdir>/<run>/config.yaml`, or `config.yaml` in a
+# directory written by `agent.save`) has explicit dims; shipped configs with
+# `input_dim: auto` need `obs_space=` / `act_space=` here instead.
+model = ModelBuilder.from_yaml("runs/sac_halfcheetah_sac/config.yaml")
 checkpoint = torch.load("checkpoint.pt", map_location="cpu", weights_only=False)
 model.load_state_dict(checkpoint["model_state"])
 
