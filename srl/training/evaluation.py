@@ -29,23 +29,30 @@ def seed_best_tracker(best_cm, best_tracker, device: str) -> None:
     new score is worse than what's already saved -- silently discarding a
     genuinely-better pre-resume peak the whole feature exists to protect.
     """
-    import torch
+    from srl.utils.safe_serialization import load_trusted_or_legacy
 
-    candidates = sorted(best_cm.save_dir.glob("best_*.pt")) + sorted(
-        best_cm.save_dir.glob("best_*.safetensors")
-    )
+    candidates = [
+        p
+        for p in best_cm.save_dir.glob("best_*")
+        if p.is_dir() or (p.suffix in (".pt", ".safetensors") and not p.name.endswith(".meta.pt"))
+    ]
     if not candidates:
         return
-    latest = candidates[-1]
-    if latest.suffix == ".safetensors":
+    latest = max(candidates, key=lambda p: p.name.split(".", 1)[0])
+    payload: dict = {}
+    if latest.is_dir():
+        meta_path = latest / "meta.json"
+        if meta_path.exists():
+            import json
+
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            payload = {"metrics": meta.get("metrics") or {}, "step": meta.get("step") or 0}
+    elif latest.suffix == ".safetensors":
         meta_path = latest.with_suffix(".meta.pt")
-        payload = (
-            torch.load(meta_path, map_location=device, weights_only=False)
-            if meta_path.exists()
-            else {}
-        )
+        if meta_path.exists():
+            payload = load_trusted_or_legacy(meta_path, map_location=device)
     else:
-        payload = torch.load(latest, map_location=device, weights_only=False)
+        payload = load_trusted_or_legacy(latest, map_location=device)
     best_tracker.seed_from_checkpoint(payload, monitor="eval/score_mean")
     if best_tracker.best_score is not None:
         best_tracker.best_path = latest

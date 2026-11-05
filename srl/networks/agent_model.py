@@ -356,7 +356,13 @@ class AgentModel(nn.Module):
         if actor_out is None:
             raise RuntimeError("No actor head configured.")
 
-        if deterministic:
+        if isinstance(actor_out, dict):
+            # Every built-in head returns a dict (action / mean / dist /
+            # log_prob); the deterministic action is the distribution's mode.
+            from srl.algorithms._onpolicy_common import select_action
+
+            action, _ = select_action(actor_out, deterministic)
+        elif deterministic:
             if isinstance(actor_out, torch.Tensor):
                 action = actor_out
             elif hasattr(actor_out, "mean"):

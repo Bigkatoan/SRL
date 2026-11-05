@@ -48,8 +48,11 @@ class TrainerConfig:
     eval_episodes: int = 10
     deterministic: bool = False
     save_best: bool = False
-    #: env steps between periodic ``srl-train`` checkpoints (``ckpt_*.pt``)
+    #: env steps between periodic ``srl-train`` checkpoints (``ckpt_<step>/``)
     save_interval: int = 100_000
+    #: store the off-policy replay buffer in every srl-train checkpoint
+    #: (exact ``--resume``; can be gigabytes per checkpoint)
+    checkpoint_replay_buffer: bool = False
 
     def __post_init__(self) -> None:
         from srl.config._validate import validate_constraints

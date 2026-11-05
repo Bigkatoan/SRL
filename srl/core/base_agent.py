@@ -71,6 +71,61 @@ def _jsonable(value: Any) -> bool:
     return False
 
 
+def observation_to_tensors(
+    observation: Any,
+    *,
+    model: Any,
+    obs_key: str = "state",
+    obs_shape: tuple | None = None,
+    device: Any = "cpu",
+) -> tuple[dict[str, torch.Tensor], bool]:
+    """A raw env observation (array or dict of arrays) -> encoder-keyed batched tensors.
+
+    Returns ``(tensors, batched)``; shared by :meth:`BaseAgent.predict` and
+    :class:`srl.policy.Policy` so both see exactly the same transform.
+    """
+    from srl.envs._image_obs import maybe_hwc_to_chw
+    from srl.training._obs import remap_obs_to_encoders
+
+    if isinstance(observation, dict):
+        obs = {k: np.asarray(v) for k, v in observation.items()}
+        batched = None
+    else:
+        arr = np.asarray(observation)
+        batched = (
+            arr.ndim == len(obs_shape) + 1
+            if obs_shape is not None
+            else (arr.ndim % 2 == 0 and arr.ndim > 0)
+        )
+        # Same transform GymnasiumWrapper applies to pixel observations.
+        obs = {obs_key: maybe_hwc_to_chw(arr)}
+    names = list(model.encoders.keys())
+    input_names = getattr(model, "encoder_input_names", None)
+    obs = remap_obs_to_encoders(obs, names, encoder_input_names=input_names)
+    if batched is None:
+        first = next(iter(obs.values()))
+        batched = first.ndim > 0 and first.ndim % 2 == 0
+    tensors = {}
+    for key, value in obs.items():
+        arr = np.asarray(value, dtype=np.float32)
+        if not batched:
+            arr = arr[None]
+        tensors[key] = torch.from_numpy(arr).to(device)
+    return tensors, bool(batched)
+
+
+def to_env_action(action: np.ndarray, rescale: dict | None) -> np.ndarray:
+    """Map an action from the model's ``[-1, 1]`` domain to env units (no-op without *rescale*)."""
+    if rescale is None:
+        return action
+    a = np.asarray(action, dtype=np.float64)
+    low = np.asarray(rescale["low"], dtype=np.float64)
+    high = np.asarray(rescale["high"], dtype=np.float64)
+    finite = np.asarray(rescale["finite"], dtype=bool)
+    scaled = low + (np.clip(a, -1.0, 1.0) + 1.0) * 0.5 * (high - low)
+    return np.where(finite, scaled, a).astype(np.float32)
+
+
 class BaseAgent(abc.ABC):
     """Abstract base for all SRL agents."""
 
@@ -249,42 +304,16 @@ class BaseAgent(abc.ABC):
         return action_np, new_state
 
     def _observation_to_tensors(self, observation: Any) -> tuple[dict, bool]:
-        from srl.envs._image_obs import maybe_hwc_to_chw
-        from srl.training._obs import encoder_layout, remap_obs_to_encoders
-
-        if isinstance(observation, dict):
-            obs = {k: np.asarray(v) for k, v in observation.items()}
-            batched = None
-        else:
-            arr = np.asarray(observation)
-            batched = (
-                arr.ndim == len(self._obs_shape) + 1
-                if self._obs_shape is not None
-                else (arr.ndim % 2 == 0 and arr.ndim > 0)
-            )
-            # Same transform GymnasiumWrapper applies to pixel observations.
-            obs = {self._obs_key: maybe_hwc_to_chw(arr)}
-        names, input_names = encoder_layout(self)
-        obs = remap_obs_to_encoders(obs, names, encoder_input_names=input_names)
-        if batched is None:
-            first = next(iter(obs.values()))
-            batched = first.ndim > 0 and first.ndim % 2 == 0
-        tensors = {}
-        for key, value in obs.items():
-            arr = np.asarray(value, dtype=np.float32)
-            if not batched:
-                arr = arr[None]
-            tensors[key] = torch.from_numpy(arr).to(self.device)
-        return tensors, bool(batched)
+        return observation_to_tensors(
+            observation,
+            model=self.model,
+            obs_key=self._obs_key,
+            obs_shape=self._obs_shape,
+            device=self.device,
+        )
 
     def _to_env_action(self, action: np.ndarray) -> np.ndarray:
-        info = self._env_action_rescale
-        if info is None:
-            return action
-        a = np.asarray(action, dtype=np.float64)
-        low, high, finite = info["low"], info["high"], info["finite"]
-        scaled = low + (np.clip(a, -1.0, 1.0) + 1.0) * 0.5 * (high - low)
-        return np.where(finite, scaled, a).astype(np.float32)
+        return to_env_action(action, self._env_action_rescale)
 
     # ------------------------------------------------------------------
     # State / persistence
@@ -339,15 +368,27 @@ class BaseAgent(abc.ABC):
         """Alias of :meth:`load_checkpoint_payload`."""
         self.load_checkpoint_payload(state)
 
-    def save(self, path: str | Path, *, include_replay_buffer: bool = False) -> Path:
-        """Save the agent to directory *path* (see :mod:`srl.core.agent_io`).
+    def save(
+        self,
+        path: str | Path,
+        *,
+        include_replay_buffer: bool = False,
+        include_train_state: bool = True,
+    ) -> Path:
+        """Save the agent to directory *path* (``srl-agent`` v1; see :mod:`srl.core.agent_io`).
 
         The replay buffer is left out unless *include_replay_buffer* (it can
-        be large; ``srl-train`` checkpoints always include it for resume).
+        be large). ``include_train_state=False`` writes an inference-only
+        checkpoint (weights, config, normalizers; no optimizers / RNG).
         """
         from srl.core.agent_io import save_agent
 
-        return save_agent(self, path, include_replay_buffer=include_replay_buffer)
+        return save_agent(
+            self,
+            path,
+            include_replay_buffer=include_replay_buffer,
+            include_train_state=include_train_state,
+        )
 
     def _load_classmethod(
         cls, path: str | Path, env: Any = None, device: str | torch.device | None = None, **kwargs

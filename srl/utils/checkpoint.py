@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import random
+import shutil
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import torch
 import torch.nn as nn
+
+from srl.utils.safe_serialization import load_trusted_or_legacy, pack, unpack
 
 
 def _capture_rng_state() -> dict[str, Any]:
@@ -50,22 +53,36 @@ def _restore_rng_state(state: dict[str, Any]) -> None:
 
 
 class CheckpointManager:
-    """Save and load agent checkpoints.
+    """Save and load training checkpoints.
 
-    Uses ``safetensors`` when available, falls back to ``torch.save``.
+    * Agents (anything with ``checkpoint_payload()``, i.e. every
+      :class:`~srl.core.base_agent.BaseAgent`) are written as ``srl-agent``
+      v1 directories ``<save_dir>/<tag>_<step>/`` (see
+      :mod:`srl.core.agent_io`) with the step, metrics and RNG state in
+      ``train_state.pt``. The replay buffer is left out unless
+      *include_replay_buffer* (it can be gigabytes and was rewritten on every
+      periodic save).
+    * A bare :class:`torch.nn.Module` (no optimizer) is written as
+      ``<tag>_<step>.safetensors`` + ``.meta.pt``; with an optimizer as one
+      ``<tag>_<step>.pt``. Both load with ``torch.load(weights_only=True)``.
 
     Parameters
     ----------
     save_dir:
         Directory where checkpoints are stored.
     max_keep:
-        Keep only the last *max_keep* checkpoints.
+        Keep only the last *max_keep* checkpoints (written by this manager).
+    include_replay_buffer:
+        Store off-policy replay buffers in agent checkpoints (exact resume).
     """
 
-    def __init__(self, save_dir: str | Path, max_keep: int = 5) -> None:
+    def __init__(
+        self, save_dir: str | Path, max_keep: int = 5, *, include_replay_buffer: bool = False
+    ) -> None:
         self.save_dir = Path(save_dir)
         self.save_dir.mkdir(parents=True, exist_ok=True)
         self.max_keep = max_keep
+        self.include_replay_buffer = bool(include_replay_buffer)
         self._saved: list[Path] = []
 
     # ------------------------------------------------------------------
@@ -80,26 +97,44 @@ class CheckpointManager:
         metrics: dict[str, Any] | None = None,
         tag: str = "ckpt",
     ) -> Path:
+        from srl.core.base_agent import BaseAgent
+
+        if isinstance(model, BaseAgent):
+            return self._save_agent(model, step=step, metrics=metrics, tag=tag)
         ckpt_path = self.save_dir / f"{tag}_{step:010d}.pt"
         payload = self._build_payload(model=model, optimizer=optimizer, step=step, metrics=metrics)
 
         if self._can_use_safetensors(model, payload, optimizer):
-            try:
-                from safetensors.torch import save_file as st_save
+            from safetensors.torch import save_file as st_save
 
-                st_path = ckpt_path.with_suffix(".safetensors")
-                st_save(payload["model_state"], str(st_path))
-                meta_path = ckpt_path.with_suffix(".meta.pt")
-                meta_payload = {k: v for k, v in payload.items() if k != "model_state"}
-                torch.save(meta_payload, meta_path)
-                self._record(st_path)
-                return st_path
-            except (ImportError, Exception):
-                pass
+            st_path = ckpt_path.with_suffix(".safetensors")
+            st_save(payload["model_state"], str(st_path))
+            meta_path = ckpt_path.with_suffix(".meta.pt")
+            meta_payload = {k: v for k, v in payload.items() if k != "model_state"}
+            torch.save(pack(meta_payload), meta_path)
+            self._record(st_path)
+            return st_path
 
-        torch.save(payload, ckpt_path)
+        torch.save(pack(payload), ckpt_path)
         self._record(ckpt_path)
         return ckpt_path
+
+    def _save_agent(
+        self, agent: Any, *, step: int, metrics: dict[str, Any] | None, tag: str
+    ) -> Path:
+        from srl.core.agent_io import save_agent
+
+        target = self.save_dir / f"{tag}_{step:010d}"
+        save_agent(
+            agent,
+            target,
+            include_replay_buffer=self.include_replay_buffer,
+            step=step,
+            metrics=metrics or {},
+            extra_train_state={"rng_state": _capture_rng_state()},
+        )
+        self._record(target)
+        return target
 
     # ------------------------------------------------------------------
     # Load
@@ -113,42 +148,49 @@ class CheckpointManager:
         device: str | torch.device = "cpu",
     ) -> dict[str, Any]:
         path = Path(path)
-        if path.suffix == ".safetensors":
+        if path.is_dir():
+            from srl.core.agent_io import read_checkpoint
+
+            payload = read_checkpoint(path, map_location=device).payload
+        elif path.suffix == ".safetensors":
             from safetensors.torch import load_file as st_load
 
             state = st_load(str(path), device=str(device))
-
             meta_path = path.with_suffix(".meta.pt")
             meta: dict[str, Any] = {}
             if meta_path.exists():
-                meta = torch.load(meta_path, map_location=device, weights_only=False)
+                meta = load_trusted_or_legacy(meta_path, map_location=device)
             payload = {"model_state": state, **meta}
-            self._load_payload(model=model, payload=payload, optimizer=optimizer)
-            return payload
         else:
-            payload = torch.load(path, map_location=device, weights_only=False)
-            self._load_payload(model=model, payload=payload, optimizer=optimizer)
-            return payload
+            payload = unpack(load_trusted_or_legacy(path, map_location=device))
+        self._load_payload(model=model, payload=payload, optimizer=optimizer)
+        return payload
 
     def latest(self) -> Path | None:
-        """Return the most recently saved checkpoint path."""
+        """Return the most recently saved periodic checkpoint path."""
         if self._saved:
             return self._saved[-1]
-        # Scan directory
-        candidates = sorted(self.save_dir.glob("ckpt_*.pt")) + sorted(
-            self.save_dir.glob("ckpt_*.safetensors")
-        )
-        return candidates[-1] if candidates else None
+        candidates = [
+            p
+            for p in self.save_dir.glob("ckpt_*")
+            if p.is_dir() or p.suffix in (".pt", ".safetensors")
+        ]
+        candidates = [p for p in candidates if not p.name.endswith(".meta.pt")]
+        return max(candidates, key=lambda p: p.name.split(".", 1)[0]) if candidates else None
 
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
 
     def _record(self, path: Path) -> None:
+        if path in self._saved:
+            self._saved.remove(path)
         self._saved.append(path)
         while len(self._saved) > self.max_keep:
             old = self._saved.pop(0)
-            if old.exists():
+            if old.is_dir():
+                shutil.rmtree(old, ignore_errors=True)
+            elif old.exists():
                 old.unlink(missing_ok=True)
             # Remove companion meta file if present
             meta = old.with_suffix(".meta.pt")

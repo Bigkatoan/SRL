@@ -274,6 +274,10 @@ class PPO(OnPolicyAgent):
         return {
             "obs": {k: v.state_dict() for k, v in self._obs_normalizers.items()},
             "ret": self._ret_normalizer.state_dict() if self._ret_normalizer is not None else None,
+            # Not needed by load (the config has them) -- lets srl.load_policy
+            # apply the obs transform without rebuilding the PPO config.
+            "clip_obs": float(self.cfg.clip_obs),
+            "norm_epsilon": float(self.cfg.norm_epsilon),
         }
 
     def _load_normalizer_payload(self, payload: dict[str, Any] | None) -> None:

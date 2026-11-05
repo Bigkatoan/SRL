@@ -90,8 +90,8 @@ def test_learn_predict_save_load_round_trip(algo, tmp_path) -> None:
     np.testing.assert_allclose(batch[0], action, atol=1e-5)
 
     agent.save(tmp_path / "agent")
-    assert (tmp_path / "agent" / "agent.pt").exists()
-    assert (tmp_path / "agent" / "model.yaml").exists()
+    for name in ("meta.json", "config.yaml", "model.safetensors", "train_state.pt"):
+        assert (tmp_path / "agent" / name).exists(), name
     loaded = cls.load(tmp_path / "agent", env=gym.make("Pendulum-v1"))
     assert type(loaded) is cls
     assert loaded.num_timesteps == agent.num_timesteps
@@ -334,14 +334,14 @@ def test_eval_callback_feeds_early_stopping_and_saves_best(tmp_path) -> None:
     assert stopper.should_stop
     assert agent.num_timesteps < 200
     assert len(evaluator.evaluations) >= 2
-    assert (tmp_path / "best" / "agent.pt").exists()
+    assert (tmp_path / "best" / "meta.json").exists()
 
 
 def test_checkpoint_callback_through_learn(tmp_path) -> None:
     agent = PPO.from_config(model_config("ppo"), env=gym.make("Pendulum-v1"))
     cb = CheckpointCallback(tmp_path / "ckpt", save_interval=16)
     agent.learn(48, callbacks=cb)
-    saved = sorted((tmp_path / "ckpt").glob("ckpt_*.pt"))
+    saved = sorted((tmp_path / "ckpt").glob("ckpt_*"))
     assert len(saved) == 3
     restored = PPO.load(saved[-1])
     assert restored.num_timesteps == agent.num_timesteps

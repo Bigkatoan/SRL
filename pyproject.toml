@@ -104,6 +104,7 @@ dev = ["srl-rl[test,lint,docs,tracking]"]
 srl-train = "srl.cli.train:main"
 srl-benchmark = "srl.cli.benchmark:main"
 srl-visualize = "srl.cli.visualize:main"
+srl-policy = "srl.policy:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

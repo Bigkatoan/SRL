@@ -64,7 +64,7 @@ def test_save_interval_comes_from_the_train_block(tmp_path) -> None:
     cfg = model_config("ppo")
     cfg["train"]["save_interval"] = 16
     assert _run(tmp_path, cfg, "cfg.yaml", "--steps", "48") == 0
-    ckpts = sorted((tmp_path / "ckpt" / "ppo_cfg").glob("ckpt_*.pt"))
+    ckpts = sorted((tmp_path / "ckpt" / "ppo_cfg").glob("ckpt_*"))
     assert len(ckpts) == 3
 
 
@@ -75,7 +75,7 @@ def test_cli_final_checkpoint_loads_through_the_python_api(tmp_path) -> None:
     from srl import PPO
 
     assert _run(tmp_path, model_config("ppo"), "cfg.yaml", "--steps", "32") == 0
-    final = sorted((tmp_path / "ckpt" / "ppo_cfg").glob("final_*.pt"))[-1]
+    final = sorted((tmp_path / "ckpt" / "ppo_cfg").glob("final_*"))[-1]
     agent = PPO.load(final)
     obs, _ = gym.make("Pendulum-v1").reset(seed=0)
     action, _ = agent.predict(obs, deterministic=True)

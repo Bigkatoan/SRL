@@ -154,7 +154,7 @@ Examples
         action=argparse.BooleanOptionalAction,
         default=None,
         help=(
-            "Save a best_*.pt checkpoint (alongside, never replacing, the "
+            "Save a best_<step> checkpoint (alongside, never replacing, the "
             "existing periodic/final checkpoints) whenever eval/score_mean "
             "reaches a new run-best, tracked independently of --eval-freq's "
             "periodic checkpoint rotation. Off by default; can also be set "
@@ -442,7 +442,11 @@ def _train(args) -> int:
         env_type=args.env_type,
     )
     logger.configure_env(getattr(env, "num_envs", args.n_envs))
-    cm = CheckpointManager(os.path.join(args.ckptdir, run_name), max_keep=5)
+    cm = CheckpointManager(
+        os.path.join(args.ckptdir, run_name),
+        max_keep=5,
+        include_replay_buffer=trainer_cfg.checkpoint_replay_buffer,
+    )
     # --save-best: its own CheckpointManager (max_keep=1) so periodic saves
     # never evict the best checkpoint (see BestCheckpointTracker).
     best_cm = best_tracker = None
@@ -484,6 +488,13 @@ def _train(args) -> int:
         if args.resume:
             start_step = int(cm.load(agent, args.resume, device=device).get("step", 0))
             print(f"[srl-train] Resuming from step {start_step}: {args.resume}")
+            buffer = getattr(agent, "buffer", None)
+            if isinstance(agent, OffPolicyAgent) and buffer is not None and len(buffer) == 0:
+                print(
+                    "[srl-train] Note: the checkpoint has no replay buffer (set "
+                    "train.checkpoint_replay_buffer: true for an exact resume); "
+                    "it refills from the resumed policy."
+                )
         agent.num_timesteps = start_step
         evaluator = Evaluator(
             env_fn=lambda: _envs.make_env(args.env, device, 1, args.env_type),

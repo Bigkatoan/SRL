@@ -31,6 +31,8 @@ __all__ = [
     "ModelBuilder",
     "BaseAgent",
     "CheckpointManager",
+    "Policy",
+    "load_policy",
 ]
 
 _EXPORTS = {
@@ -43,6 +45,8 @@ _EXPORTS = {
     "ModelBuilder": ("srl.registry.builder", "ModelBuilder"),
     "BaseAgent": ("srl.core.base_agent", "BaseAgent"),
     "CheckpointManager": ("srl.utils.checkpoint", "CheckpointManager"),
+    "Policy": ("srl.policy", "Policy"),
+    "load_policy": ("srl.policy", "load_policy"),
 }
 
 

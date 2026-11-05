@@ -76,6 +76,33 @@ from srl.losses.rl_losses import (
 from srl.networks.encoders.augmentations import augment
 
 
+def sac_select_action(actor_out, deterministic: bool):
+    """``(action, log_prob)`` of a SAC actor head output.
+
+    The deterministic SAC policy is the *squashed* mode, ``tanh(mean)``.
+    ``actor_out["mean"]`` is the pre-tanh Gaussian mean -- returning it put
+    most eval actions outside ``[-1, 1]`` (then clipped by the env), i.e.
+    evaluated a different policy than the one being trained. Shared with
+    :class:`srl.policy.Policy`.
+    """
+    if isinstance(actor_out, dict):
+        if deterministic:
+            dist = actor_out.get("dist")
+            mode = getattr(dist, "mode", None)
+            if callable(mode):
+                action = mode()
+            elif actor_out.get("mean") is not None:
+                action = torch.tanh(actor_out["mean"])
+            else:
+                action = actor_out.get("action")
+        else:
+            action = actor_out.get("action")
+        return action, actor_out.get("log_prob")
+    if isinstance(actor_out, tuple):
+        return actor_out[0], actor_out[1]
+    return actor_out, None
+
+
 class SAC(OffPolicyAgent):
     """Soft Actor-Critic with automatic entropy tuning.
 
@@ -284,27 +311,7 @@ class SAC(OffPolicyAgent):
         return _first_half(online_out), _second_half(target_out)
 
     def _select_action(self, actor_out, deterministic: bool):
-        if isinstance(actor_out, dict):
-            if deterministic:
-                # The deterministic SAC policy is the *squashed* mode,
-                # tanh(mean). actor_out["mean"] is the pre-tanh Gaussian
-                # mean -- returning it put most eval actions outside
-                # [-1, 1] (then clipped by the env), i.e. evaluated a
-                # different policy than the one being trained.
-                dist = actor_out.get("dist")
-                mode = getattr(dist, "mode", None)
-                if callable(mode):
-                    action = mode()
-                elif actor_out.get("mean") is not None:
-                    action = torch.tanh(actor_out["mean"])
-                else:
-                    action = actor_out.get("action")
-            else:
-                action = actor_out.get("action")
-            return action, actor_out.get("log_prob")
-        if isinstance(actor_out, tuple):
-            return actor_out[0], actor_out[1]
-        return actor_out, None
+        return sac_select_action(actor_out, deterministic)
 
     def update(self) -> dict[str, float]:
         # HERReplayBuffer is episode-indexed (its __len__ counts episodes);
