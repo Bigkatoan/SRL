@@ -1,0 +1,78 @@
+# Phase 1 benchmark config: TD3 on Hopper-v5  (SB3 rl-zoo hyperparameters)
+#
+# Source: https://github.com/DLR-RM/rl-baselines3-zoo/blob/61956d90d9f8ac126043ed4024efa12a462d97e1/hyperparams/td3.yml
+#   (rl-zoo commit 61956d9, entry `Hopper-v4`; rl-zoo has no v5
+#   entries yet -- v4 and v5 share dynamics/reward, v5 fixes minor bugs.)
+# rl-zoo TD3 MuJoCo defaults (`&mujoco-defaults`): net_arch [400, 300] (ReLU),
+# learning_rate 1e-3 (actor and critic), batch 256, learning_starts 10k,
+# train_freq 1, gradient_steps 1, normal action noise std 0.1; SB3 TD3 defaults
+# for the rest: buffer 1M, gamma 0.99, tau 0.005, policy_delay 2,
+# target_policy_noise 0.2, target_noise_clip 0.5. Single env.
+#
+# NOTE: rl-zoo uses [400, 300], not [256, 256]; we follow the zoo so the result
+# is comparable with its benchmark.md row. (CleanRL TD3 uses 256-256, lr 3e-4.)
+#
+# SRL mapping: identity critic encoder -> twin-Q heads are MLP(concat(s, a)).
+#
+# Used by scripts/benchmark/run_matrix.py. Do not tune these per-env: the point
+# is an apples-to-apples comparison against the SB3 / CleanRL reference numbers
+# in scripts/benchmark/reference.yaml.
+
+schema_version: 1
+
+env_id: "Hopper-v5"
+env_type: "flat"
+
+algo: td3
+
+encoders:
+  - name: actor_state_enc
+    type: mlp
+    input_dim: 11
+    layers:
+      - {out_features: 400, activation: relu, norm: none}
+      - {out_features: 300, activation: relu, norm: none}
+  - name: critic_state_enc
+    type: mlp
+    input_dim: 11
+    layers: []
+
+flows:
+  - "actor_state_enc -> actor"
+  - "critic_state_enc -> critic"
+
+actor:
+  name: actor
+  type: deterministic
+  action_dim: 3
+  layers: []
+
+critic:
+  name: critic
+  type: twin_q
+  action_dim: 3
+  layers:
+    - {out_features: 400, activation: relu, norm: none}
+    - {out_features: 300, activation: relu, norm: none}
+
+train:
+  total_steps: 1_000_000
+  n_envs: 1
+  lr_actor: 1.0e-3
+  lr_critic: 1.0e-3
+  buffer_size: 1_000_000
+  batch_size: 256
+  gamma: 0.99
+  tau: 0.005
+  learning_starts: 10_000
+  gradient_steps: 1
+  action_noise: gaussian
+  noise_sigma: 0.1
+  policy_noise: 0.2
+  noise_clip: 0.5
+  policy_delay: 2
+  replay_n_step: 1
+  normalize_obs: false
+  use_fp16: false
+  eval_freq: 10_000
+  eval_episodes: 10

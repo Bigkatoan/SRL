@@ -1,0 +1,75 @@
+# Phase 1 benchmark config: PPO on Hopper-v5  (SB3 rl-zoo hyperparameters)
+#
+# Source: https://github.com/DLR-RM/rl-baselines3-zoo/blob/61956d90d9f8ac126043ed4024efa12a462d97e1/hyperparams/ppo.yml
+#   (rl-zoo commit 61956d9, entry `Hopper-v4`; rl-zoo has no v5
+#   entries yet -- v4 and v5 share dynamics/reward, v5 fixes minor bugs.)
+# rl-zoo tuned MuJoCo PPO: normalize: true (VecNormalize obs + reward, clip 10),
+# n_envs 1, n_steps 512, batch_size 32, n_epochs 5, gamma 0.999,
+# gae_lambda 0.99, learning_rate 9.80828e-05, ent_coef 0.00229519, clip_range 0.2,
+# max_grad_norm 0.7, vf_coef 0.835671; policy_kwargs log_std_init=-2,
+# ortho_init=False, activation_fn=ReLU, net_arch pi=[256, 256], vf=[256, 256].
+#
+# SRL mapping: separate 256-256 ReLU encoders for actor and critic, linear
+# output heads (no extra hidden layers), state-independent log_std init -2.
+#
+# Used by scripts/benchmark/run_matrix.py. Do not tune these per-env: the point
+# is an apples-to-apples comparison against the SB3 / CleanRL reference numbers
+# in scripts/benchmark/reference.yaml.
+
+schema_version: 1
+
+env_id: "Hopper-v5"
+env_type: "flat"
+
+algo: ppo
+
+encoders:
+  - name: actor_state_enc
+    type: mlp
+    input_dim: 11
+    layers:
+      - {out_features: 256, activation: relu, norm: none}
+      - {out_features: 256, activation: relu, norm: none}
+  - name: critic_state_enc
+    type: mlp
+    input_dim: 11
+    layers:
+      - {out_features: 256, activation: relu, norm: none}
+      - {out_features: 256, activation: relu, norm: none}
+
+flows:
+  - "actor_state_enc -> actor"
+  - "critic_state_enc -> critic"
+
+actor:
+  name: actor
+  type: gaussian
+  action_dim: 3
+  log_std_init: -2.0
+  layers: []
+
+critic:
+  name: critic
+  type: value
+  layers: []
+
+train:
+  total_steps: 1_000_000
+  n_envs: 1
+  n_steps: 512
+  batch_size: 32
+  n_epochs: 5
+  lr: 9.80828e-05
+  gamma: 0.999
+  gae_lambda: 0.99
+  clip_range: 0.2
+  entropy_coef: 0.00229519
+  vf_coef: 0.835671
+  max_grad_norm: 0.7
+  normalize_obs: true
+  normalize_reward: true
+  clip_obs: 10.0
+  clip_reward: 10.0
+  use_fp16: false
+  eval_freq: 10_000
+  eval_episodes: 10

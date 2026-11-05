@@ -33,12 +33,15 @@ from srl.registry.builder import ModelBuilder
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_DIR = REPO_ROOT / "configs"
-# configs/benchmarks/*.yaml are score-threshold tables for the matrix
-# benchmark script, not model configs -- validated separately below.
+# configs/benchmarks/*.yaml (top level only) are score-threshold tables for the
+# matrix benchmark script, not model configs -- validated separately below.
+# Subdirectories (e.g. configs/benchmarks/mujoco/) hold real model configs used
+# by scripts/benchmark/run_matrix.py and are checked like configs/envs/.
 BENCHMARK_DIR = CONFIG_DIR / "benchmarks"
 
-MODEL_CONFIGS = sorted(p for p in CONFIG_DIR.rglob("*.yaml") if BENCHMARK_DIR not in p.parents)
+MODEL_CONFIGS = sorted(p for p in CONFIG_DIR.rglob("*.yaml") if p.parent != BENCHMARK_DIR)
 BENCHMARK_CONFIGS = sorted(BENCHMARK_DIR.glob("*.yaml"))
+BENCHMARK_MODEL_CONFIGS = sorted(p for p in BENCHMARK_DIR.rglob("*.yaml") if p.parent != BENCHMARK_DIR)
 
 _COMPATIBLE_HEADS = {
     "ppo": ({"gaussian"}, {"value"}),
@@ -201,9 +204,14 @@ def _skip_reason_for(raw: dict) -> str | None:
 
 
 ENV_CONFIGS = sorted((CONFIG_DIR / "envs").glob("*.yaml"))
+ENV_SPACE_CONFIGS = ENV_CONFIGS + BENCHMARK_MODEL_CONFIGS
 
 
-@pytest.mark.parametrize("config_path", ENV_CONFIGS, ids=_ids(ENV_CONFIGS))
+def test_benchmark_model_configs_were_discovered() -> None:
+    assert len(BENCHMARK_MODEL_CONFIGS) >= 9, BENCHMARK_MODEL_CONFIGS
+
+
+@pytest.mark.parametrize("config_path", ENV_SPACE_CONFIGS, ids=_ids(ENV_SPACE_CONFIGS))
 def test_config_matches_env_spaces(config_path: Path) -> None:
     import numpy as np
 

@@ -1,0 +1,80 @@
+# Phase 1 benchmark config: SAC on Walker2d-v5  (SB3 rl-zoo hyperparameters)
+#
+# Source: https://github.com/DLR-RM/rl-baselines3-zoo/blob/61956d90d9f8ac126043ed4024efa12a462d97e1/hyperparams/sac.yml
+#   (rl-zoo commit 61956d9, entry `Walker2d-v4`; rl-zoo has no v5
+#   entries yet -- v4 and v5 share dynamics/reward, v5 fixes minor bugs.)
+# SB3 SAC defaults for MuJoCo: MlpPolicy net_arch [256, 256] (ReLU) for both
+# actor and critics, lr 3e-4 (actor, critic, entropy coef), buffer 1M, batch 256,
+# gamma 0.99, tau 0.005, learning_starts 10k, train_freq 1, gradient_steps 1,
+# ent_coef 'auto' (init 1.0 in SB3; SRL init_alpha 1.0 to match), target entropy
+# -|A|. Single env, no observation normalization.
+#
+# SRL mapping: critic encoder is an identity (no layers), so the twin-Q heads
+# see concat(obs, action) through a 256-256 MLP -- exactly SB3's Q(s, a).
+# The actor is a 256-256 encoder feeding linear mean/log_std layers (SB3's
+# latent_pi -> mu / log_std).
+#
+# Used by scripts/benchmark/run_matrix.py. Do not tune these per-env: the point
+# is an apples-to-apples comparison against the SB3 / CleanRL reference numbers
+# in scripts/benchmark/reference.yaml.
+
+schema_version: 1
+
+env_id: "Walker2d-v5"
+env_type: "flat"
+
+algo: sac
+
+encoders:
+  - name: actor_state_enc
+    type: mlp
+    input_dim: 17
+    layers:
+      - {out_features: 256, activation: relu, norm: none}
+      - {out_features: 256, activation: relu, norm: none}
+  - name: critic_state_enc
+    type: mlp
+    input_dim: 17
+    layers: []
+
+flows:
+  - "actor_state_enc -> actor"
+  - "critic_state_enc -> critic"
+
+actor:
+  name: actor
+  type: squashed_gaussian
+  action_dim: 6
+  log_std_min: -20.0
+  log_std_max: 2.0
+  layers: []
+
+critic:
+  name: critic
+  type: twin_q
+  action_dim: 6
+  layers:
+    - {out_features: 256, activation: relu, norm: none}
+    - {out_features: 256, activation: relu, norm: none}
+
+train:
+  total_steps: 1_000_000
+  n_envs: 1
+  lr_actor: 3.0e-4
+  lr_critic: 3.0e-4
+  lr_alpha: 3.0e-4
+  buffer_size: 1_000_000
+  batch_size: 256
+  gamma: 0.99
+  tau: 0.005
+  auto_entropy_tuning: true
+  init_alpha: 1.0
+  target_entropy: auto
+  learning_starts: 10_000
+  train_freq: 1
+  gradient_steps: 1
+  replay_n_step: 1
+  normalize_obs: false
+  use_fp16: false
+  eval_freq: 10_000
+  eval_episodes: 10
