@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import gymnasium as gym
 import numpy as np
+import yaml
 
 COUNTER_EP_LEN = 4
 
@@ -57,9 +58,7 @@ def register_test_envs() -> None:
     if "SRLCounter-v0" not in ids:
         gym.register("SRLCounter-v0", entry_point=CounterEnv)
     if "SRLCounterWide-v0" not in ids:
-        gym.register(
-            "SRLCounterWide-v0", entry_point=CounterEnv, kwargs={"low": -3.0, "high": 5.0}
-        )
+        gym.register("SRLCounterWide-v0", entry_point=CounterEnv, kwargs={"low": -3.0, "high": 5.0})
     if "SRLSuccessAtEnd-v0" not in ids:
         gym.register("SRLSuccessAtEnd-v0", entry_point=SuccessAtEndEnv)
 
@@ -127,3 +126,59 @@ def mlp_config(algo: str, obs_dim: int = 2, action_dim: int = 1, **train) -> dic
         raise ValueError(algo)
     cfg["train"].update(train)
     return cfg
+
+
+def run_cli(monkeypatch, tmp_path, cfg: dict, extra=(), env_id="SRLCounter-v0", on_agent=None):
+    from srl.cli import train as train_module
+
+    register_test_envs()
+    captured = {}
+    for name in ("_run_off_policy", "_run_on_policy"):
+        original = getattr(train_module, name)
+
+        def _spy(agent, *a, _orig=original, **k):
+            captured["agent"] = agent
+            if on_agent is not None:
+                on_agent(agent)
+            return _orig(agent, *a, **k)
+
+        monkeypatch.setattr(train_module, name, _spy)
+    path = tmp_path / "cfg.yaml"
+    path.write_text(yaml.safe_dump(cfg))
+    code = train_module.main(
+        [
+            "--config",
+            str(path),
+            "--env",
+            env_id,
+            "--n-envs",
+            "2",
+            "--vec-mode",
+            "sync",
+            "--device",
+            "cpu",
+            "--eval-freq",
+            "0",
+            "--no-plots",
+            "--logdir",
+            str(tmp_path / "runs"),
+            "--ckptdir",
+            str(tmp_path / "ckpt"),
+            *extra,
+        ]
+    )
+    assert code == 0
+    return captured["agent"]
+
+
+def record_buffer_adds(store: list):
+    def _hook(agent):
+        original_add = agent.buffer.add
+
+        def _add(*a, **k):
+            store.append(k)
+            return original_add(*a, **k)
+
+        agent.buffer.add = _add
+
+    return _hook

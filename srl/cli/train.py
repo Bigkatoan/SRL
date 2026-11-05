@@ -85,6 +85,7 @@ def _make_cli_env(
     """
     import gymnasium as gym
 
+    from srl.envs.action_rescale import maybe_rescale_action
     from srl.envs.goal_env_wrapper import GoalEnvWrapper
     from srl.envs.gymnasium_wrapper import GymnasiumWrapper
     from srl.envs.racecar_wrapper import RacecarWrapper
@@ -155,17 +156,24 @@ def _make_cli_env(
         base_env = ManagerBasedRlEnv(env_cfg, device=device)
         return IsaacLabWrapper(base_env, supports_partial_reset=supports_partial_reset)
 
+    # Plain-Gymnasium env types: the policy (tanh/clipped actor heads),
+    # replay buffers and warmup all work in a normalised [-1, 1] action
+    # domain; `maybe_rescale_action` maps it onto the env's real finite
+    # [low, high] bounds right at `env.step()` (no-op for spaces that are
+    # already [-1, 1], unbounded, or not continuous). isaaclab/mjlab above
+    # are left untouched: their action spaces are unbounded and their
+    # action terms do their own scaling.
     if normalized_env_type == "goal":
         _register_robotics_envs_once()
-        return GoalEnvWrapper(gym.make(normalized_env_name, **make_kwargs))
+        return maybe_rescale_action(GoalEnvWrapper(gym.make(normalized_env_name, **make_kwargs)))
 
     if normalized_env_type == "racecar":
         import racecar_gym  # noqa: F401
 
-        return RacecarWrapper(gym.make(normalized_env_name, **make_kwargs))
+        return maybe_rescale_action(RacecarWrapper(gym.make(normalized_env_name, **make_kwargs)))
 
     base = gym.make(normalized_env_name, **make_kwargs)
-    return GymnasiumWrapper(base)
+    return maybe_rescale_action(GymnasiumWrapper(base))
 
 
 def _build_parser() -> argparse.ArgumentParser:

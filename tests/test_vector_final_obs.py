@@ -6,10 +6,14 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-import yaml
-from test_envlayer_helpers import COUNTER_EP_LEN, CounterEnv, mlp_config, register_test_envs
+from test_envlayer_helpers import (
+    COUNTER_EP_LEN,
+    CounterEnv,
+    mlp_config,
+    record_buffer_adds,
+    run_cli,
+)
 
-from srl.cli import train as train_module
 from srl.envs import get_final_obs
 from srl.envs.async_vector_env import AsyncVectorEnv
 from srl.envs.gymnasium_wrapper import GymnasiumWrapper
@@ -93,64 +97,10 @@ def test_isaac_wrapper_uses_standard_final_obs_key() -> None:
     assert get_final_obs(next_obs, info)["policy"][:, 0].tolist() == [2.0, 1.0]
 
 
-def _run_cli(monkeypatch, tmp_path, cfg: dict, extra=(), env_id="SRLCounter-v0", on_agent=None):
-    register_test_envs()
-    captured = {}
-    for name in ("_run_off_policy", "_run_on_policy"):
-        original = getattr(train_module, name)
-
-        def _spy(agent, *a, _orig=original, **k):
-            captured["agent"] = agent
-            if on_agent is not None:
-                on_agent(agent)
-            return _orig(agent, *a, **k)
-
-        monkeypatch.setattr(train_module, name, _spy)
-    path = tmp_path / "cfg.yaml"
-    path.write_text(yaml.safe_dump(cfg))
-    code = train_module.main(
-        [
-            "--config",
-            str(path),
-            "--env",
-            env_id,
-            "--n-envs",
-            "2",
-            "--vec-mode",
-            "sync",
-            "--device",
-            "cpu",
-            "--eval-freq",
-            "0",
-            "--no-plots",
-            "--logdir",
-            str(tmp_path / "runs"),
-            "--ckptdir",
-            str(tmp_path / "ckpt"),
-            *extra,
-        ]
-    )
-    assert code == 0
-    return captured["agent"]
-
-
-def _record_buffer_adds(store: list):
-    def _hook(agent):
-        original_add = agent.buffer.add
-
-        def _add(*a, **k):
-            store.append(k)
-            return original_add(*a, **k)
-
-        agent.buffer.add = _add
-
-    return _hook
-
-
 def test_off_policy_stores_true_final_obs_on_truncation(monkeypatch, tmp_path) -> None:
     adds: list[dict] = []
     cfg = mlp_config("sac", total_steps=40, buffer_size=100)
-    _run_cli(monkeypatch, tmp_path, cfg, on_agent=_record_buffer_adds(adds))
+    run_cli(monkeypatch, tmp_path, cfg, on_agent=record_buffer_adds(adds))
     assert len(adds) == 40
     obs_t = np.array([np.asarray(k["obs"]["state"])[0] for k in adds])
     next_t = np.array([np.asarray(k["next_obs"]["state"])[0] for k in adds])
@@ -175,7 +125,7 @@ def test_on_policy_bootstraps_from_true_final_obs(monkeypatch, tmp_path) -> None
 
     monkeypatch.setattr(PPO, "predict", _spy_predict)
     cfg = mlp_config("ppo", total_steps=32)
-    _run_cli(monkeypatch, tmp_path, cfg)
+    run_cli(monkeypatch, tmp_path, cfg)
     # Acting observations never reach t == ep_len (that frame is replaced
     # by the reset frame); only the truncation bootstrap sees it.
     assert COUNTER_EP_LEN in seen_t

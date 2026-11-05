@@ -16,28 +16,57 @@ from typing import Any
 import numpy as np
 
 
+def _is_continuous_box(space: Any) -> bool:
+    if not (hasattr(space, "low") and hasattr(space, "high") and hasattr(space, "shape")):
+        return False
+    dtype = getattr(space, "dtype", np.float32)
+    try:
+        return bool(np.issubdtype(np.dtype(dtype), np.floating))
+    except TypeError:
+        return True
+
+
 def sample_action_space(space: Any) -> np.ndarray:
     """Uniform-random sample from an action space, for off-policy warmup.
 
-    Real gymnasium spaces have `.sample()`; isaaclab/mjlab's lightweight
-    space dataclass doesn't, so fall back to a plain numpy uniform draw over
-    its bounds.
+    Continuous (Box-like) spaces are sampled UNIFORMLY over their bounds,
+    with any non-finite bound replaced by [-1, 1]. This covers both real
+    gymnasium Boxes and isaaclab/mjlab's lightweight space dataclass (which
+    has no `.sample()`), and keeps warmup actions in the same domain the
+    policy acts in: SRL's CLI exposes every finite-bounded env through
+    `srl.envs.action_rescale.RescaleActionWrapper` (so the space already is
+    [-1, 1]), and a tanh-squashed/clipped policy on an unbounded space also
+    only ever outputs [-1, 1]. (gymnasium's own `Box.sample()` would instead
+    draw from a normal/exponential distribution on unbounded dims.)
 
-    isaaclab/mjlab action spaces are typically declared unbounded
-    ([-inf, inf] -- action terms do their own internal scale/clip), since the
-    raw policy output is what the space describes, not the physical actuator
-    range. `np.random.uniform` can't sample a non-finite range (raises
-    OverflowError), and a genuinely unbounded warmup action wouldn't be a
-    sane "explore near zero" sample anyway -- fall back to [-1, 1], the
-    conventional bounded range a Tanh/Gaussian-squashed policy actually
-    outputs before that internal scaling, on any non-finite bound.
+    The draw uses the space's own seeded generator (`space.np_random`,
+    seeded via `space.seed(...)`) when it has one, else NumPy's global RNG
+    (seeded by `srl.utils.set_random_seed`) -- so warmup is reproducible.
+    Discrete/other spaces fall back to `space.sample()`.
     """
-    if hasattr(space, "sample"):
+    if not _is_continuous_box(space):
         return space.sample()
 
-    shape = getattr(space, "shape", ())
-    low = np.broadcast_to(np.asarray(getattr(space, "low", -1.0), dtype=np.float32), shape).copy()
-    high = np.broadcast_to(np.asarray(getattr(space, "high", 1.0), dtype=np.float32), shape).copy()
+    shape = tuple(getattr(space, "shape", ()) or ())
+    low = np.broadcast_to(np.asarray(space.low, dtype=np.float64), shape).copy()
+    high = np.broadcast_to(np.asarray(space.high, dtype=np.float64), shape).copy()
     low[~np.isfinite(low)] = -1.0
     high[~np.isfinite(high)] = 1.0
-    return np.random.uniform(low, high).astype(np.float32)
+    rng = getattr(space, "np_random", None) if hasattr(space, "sample") else None
+    draw = rng.uniform(low, high) if rng is not None else np.random.uniform(low, high)
+    return np.asarray(draw, dtype=np.float32)
+
+
+def sample_vector_actions(env: Any) -> np.ndarray:
+    """Warmup actions for every sub-env of a (possibly vectorised) env.
+
+    Returns shape ``(num_envs, *action_shape)`` for vector envs
+    (``num_envs > 1`` or an env exposing a batched ``act_space`` plus
+    ``single_act_space``, i.e. isaaclab/mjlab), else one unbatched action.
+    """
+    num_envs = int(getattr(env, "num_envs", 1) or 1)
+    single = getattr(env, "single_act_space", None)
+    if num_envs > 1 or (single is not None and single is not env.act_space):
+        per_env_space = single if single is not None else env.act_space
+        return np.stack([sample_action_space(per_env_space) for _ in range(num_envs)], axis=0)
+    return sample_action_space(env.act_space)

@@ -1,5 +1,6 @@
 """srl.envs — environment wrappers, vectorized envs, Isaac Lab adapter."""
 
+from .action_rescale import RescaleActionWrapper
 from .goal_env_wrapper import GoalEnvWrapper
 from .gymnasium_wrapper import GymnasiumWrapper
 from .isaac_lab_wrapper import IsaacLabWrapper
@@ -12,6 +13,7 @@ __all__ = [
     "GymnasiumWrapper",
     "IsaacLabWrapper",
     "RacecarWrapper",
+    "RescaleActionWrapper",
     "SyncVectorEnv",
     "get_final_obs",
 ]
