@@ -819,6 +819,7 @@ def _evaluate_agent(
         truncated = False
         score = 0.0
         length = 0
+        episode_success: float | None = None
 
         while not (done or truncated):
             obs_remapped = _remap_obs_to_encoders(
@@ -853,11 +854,18 @@ def _evaluate_agent(
             for key in ("is_success", "success"):
                 if isinstance(info, dict) and key in info:
                     try:
-                        success_values.append(float(np.asarray(info[key]).reshape(-1)[0]))
+                        episode_success = float(np.asarray(info[key]).reshape(-1)[0])
                     except Exception:
                         pass
+                    break
         episode_scores.append(score)
         episode_lengths.append(length)
+        # SB3/baselines convention: an episode's success is `is_success` at
+        # its FINAL step -- not the fraction of steps that happened to report
+        # success (which under-reports e.g. FetchReach, where the goal is only
+        # reached part-way through the episode).
+        if episode_success is not None:
+            success_values.append(episode_success)
 
     metrics = {
         "eval/score_mean": float(sum(episode_scores) / len(episode_scores)),
