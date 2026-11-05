@@ -75,6 +75,28 @@ train:
   n_envs: 8
 ```
 
+Vector envs auto-reset finished sub-envs. The true terminal observation of an
+episode that just ended is available as `infos[i]["final_obs"]`; use
+`srl.envs.get_final_obs(next_obs, infos)` to get the batch to store/bootstrap
+from. `AsyncVectorEnv` starts workers with `forkserver` (or `spawn`), so env
+ids registered at runtime in the parent process are not visible in workers —
+use an importable `"module:EnvId"` id or register at import time.
+
+## Action normalisation
+
+Policies, replay buffers and warmup act in `[-1, 1]`. For continuous envs with
+finite action bounds other than `[-1, 1]`, the CLI wraps the env in
+`srl.envs.RescaleActionWrapper`, which maps actions onto `[low, high]` right
+before `env.step()` (e.g. Pendulum's `[-2, 2]` torque). Unbounded dimensions are
+passed through unchanged.
+
+## Reproducibility
+
+`--seed` seeds Python, NumPy, PyTorch and every env's spaces
+(`srl.utils.set_random_seed`); CPU runs are reproducible from the seed alone.
+`--deterministic` (or `train.deterministic: true`) additionally enables
+PyTorch's deterministic algorithms and disables TF32 for GPU runs.
+
 ## See also
 
 - [Isaac Lab Integration](isaaclab.md) — for GPU simulators

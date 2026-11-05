@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 
 from srl.envs._image_obs import maybe_hwc_to_chw
+from srl.envs.vector_utils import FINAL_OBS_KEY, FINAL_OBS_MASK_KEY, LEGACY_FINAL_OBS_KEY
 
 
 class IsaacLabWrapper:
@@ -37,8 +38,14 @@ class IsaacLabWrapper:
     ``_remap_obs_to_encoders`` function in ``srl/cli/train.py`` will then
     route each obs tensor to the correct encoder.
 
-    ``supports_partial_reset`` / ``info["true_final_obs"]``
-    -----------------------------------------------------------
+    ``supports_partial_reset`` / ``info["final_obs"]``
+    ------------------------------------------------------
+
+    (``info["final_obs"]`` + ``info["_final_obs"]`` mask is the standard SRL
+    vector-env key -- see ``srl.envs.vector_utils.get_final_obs``; it is only
+    written when ``supports_partial_reset`` is True. The legacy
+    ``info["true_final_obs"]`` described below is still always written.)
+
     Isaac Lab/mjlab's own ``env.step()`` defaults to auto-resetting any
     sub-env that just terminated or timed out INSIDE the call, handing back
     the reset (NEXT episode's first) observation with no way to recover the
@@ -169,7 +176,14 @@ class IsaacLabWrapper:
                 next_obs_wrapped[k][done_idx] = reset_obs_wrapped[k][done_idx]
 
         info = dict(info) if isinstance(info, dict) else {}
-        info["true_final_obs"] = true_final_obs_wrapped
+        # Legacy key (kept for backward compatibility; NOT a true terminal
+        # observation when `supports_partial_reset` is False).
+        info[LEGACY_FINAL_OBS_KEY] = true_final_obs_wrapped
+        if self.supports_partial_reset:
+            # Standard SRL vector-env contract (see srl.envs.vector_utils):
+            # batched pre-reset obs + mask of the sub-envs that just ended.
+            info[FINAL_OBS_KEY] = true_final_obs_wrapped
+            info[FINAL_OBS_MASK_KEY] = done_mask
 
         return (
             next_obs_wrapped,
