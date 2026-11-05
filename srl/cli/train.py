@@ -2003,6 +2003,14 @@ def _run_off_policy(
                 log_trunc = np.asarray(trunc)[:active_envs]
                 log_info = list(info)[:active_envs]
             logger.update_episodes(log_reward, log_done, log_trunc, step=env_step, info=log_info)
+            # Per-episode exploration-noise reset (DDPG's OU process).
+            _reset_noise = getattr(agent, "reset_noise", None)
+            if _reset_noise is not None:
+                _ended = np.logical_or(
+                    np.atleast_1d(np.asarray(done)), np.atleast_1d(np.asarray(trunc))
+                )
+                if _ended.any():
+                    _reset_noise(_ended)
             if vectorized_env:
                 # `next_obs` is right for continuing the rollout (`obs =
                 # next_obs` below), but wrong to STORE for any sub-env that

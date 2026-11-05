@@ -212,9 +212,18 @@ class SACConfig:
     # trigger. Permissive default (1e-8) preserves every existing run's
     # behavior byte-for-byte; set a real floor (e.g. 1e-3) to opt in.
     min_alpha: float = 1e-8
+    # Prioritized Experience Replay (CPU ReplayBuffer only; not with HER or
+    # the GPU buffer). Critic loss is IS-weighted, priorities = |TD error|.
     use_per: bool = False
     per_alpha: float = 0.6
     per_beta_start: float = 0.4
+    per_beta_steps: int = 1_000_000
+    per_eps: float = 1e-6
+    # Running mean/std observation normalizer (clip to +-obs_norm_clip),
+    # applied to flat vector inputs only and saved in checkpoints. Off by
+    # default for state tasks; the Fetch/HER configs turn it on.
+    normalize_obs: bool = False
+    obs_norm_clip: float = 5.0
     use_fp16: bool = False
     replay_n_step: int = 1
     replay_num_envs: int = 1
@@ -278,7 +287,18 @@ class DDPGConfig:
     gradient_steps: int = 1
     action_noise: str = "gaussian"  # "gaussian" | "ou"
     noise_sigma: float = 0.1
+    # Prioritized Experience Replay (CPU ReplayBuffer only; not with HER or
+    # the GPU buffer). Critic loss is IS-weighted, priorities = |TD error|.
     use_per: bool = False
+    per_alpha: float = 0.6
+    per_beta_start: float = 0.4
+    per_beta_steps: int = 1_000_000
+    per_eps: float = 1e-6
+    # Running mean/std observation normalizer (clip to +-obs_norm_clip),
+    # applied to flat vector inputs only and saved in checkpoints. Off by
+    # default for state tasks; the Fetch/HER configs turn it on.
+    normalize_obs: bool = False
+    obs_norm_clip: float = 5.0
     use_fp16: bool = False
     replay_n_step: int = 1
     replay_num_envs: int = 1
@@ -305,6 +325,18 @@ class TD3Config:
     policy_noise: float = 0.2
     noise_clip: float = 0.5
     policy_delay: int = 2
+    # Prioritized Experience Replay (CPU ReplayBuffer only; not with HER or
+    # the GPU buffer). Critic loss is IS-weighted, priorities = |TD error|.
+    use_per: bool = False
+    per_alpha: float = 0.6
+    per_beta_start: float = 0.4
+    per_beta_steps: int = 1_000_000
+    per_eps: float = 1e-6
+    # Running mean/std observation normalizer (clip to +-obs_norm_clip),
+    # applied to flat vector inputs only and saved in checkpoints. Off by
+    # default for state tasks; the Fetch/HER configs turn it on.
+    normalize_obs: bool = False
+    obs_norm_clip: float = 5.0
     use_fp16: bool = False
     replay_n_step: int = 1
     replay_num_envs: int = 1
