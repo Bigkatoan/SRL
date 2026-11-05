@@ -20,7 +20,7 @@ class PPOConfig:
     gamma: float = 0.99
     gae_lambda: float = 0.95
     clip_range: float = 0.2
-    clip_range_vf: float | None = None  # None = same as clip_range
+    clip_range_vf: float | None = None  # None = no value-function clipping (SB3 default)
     entropy_coef: float = 0.0
     vf_coef: float = 0.5
     max_grad_norm: float = 0.5

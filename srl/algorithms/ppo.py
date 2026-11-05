@@ -61,9 +61,6 @@ class PPO(BaseAgent):
             if not head_params:
                 head_params = list(self.model.parameters())
 
-            self.optimizer = torch.optim.Adam(head_params, lr=self.cfg.lr, eps=1e-5)
-            self._head_params = head_params
-
             # Build encoder/aux optimizer when aux modules exist
             aux_params: list = []
             if getattr(self.model, "aux_modules", None):
@@ -81,15 +78,47 @@ class PPO(BaseAgent):
                         )
                         if enc is not None:
                             aux_params += list(enc.parameters())
+            enc_lr = float(getattr(self.cfg, "encoder_lr", self.cfg.lr))
             if aux_params:
-                enc_lr = getattr(self.cfg, "encoder_lr", self.cfg.lr)
                 self.encoder_optimizer = torch.optim.Adam(aux_params, lr=enc_lr)
+                param_groups = [{"params": head_params, "lr": self.cfg.lr}]
+                self._head_params = head_params
             else:
+                # No auxiliary objective owns the encoders, so the RL loss
+                # itself must train them (at `encoder_lr`). Without this the
+                # encoders were excluded from every optimizer and frozen at
+                # their random init for the whole run.
                 self.encoder_optimizer = None
+                head_ids = {id(p) for p in head_params}
+                enc_params = [
+                    p
+                    for enc in self.model.encoders.values()
+                    for p in enc.parameters()
+                    if id(p) not in head_ids
+                ]
+                param_groups = [{"params": head_params, "lr": self.cfg.lr}]
+                if enc_params:
+                    param_groups.append(
+                        {
+                            "params": enc_params,
+                            "lr": enc_lr,
+                            # Keeps the encoder:head LR ratio fixed under
+                            # lr_schedule="adaptive" (see _adapt_lr).
+                            "lr_scale": enc_lr / float(self.cfg.lr),
+                        }
+                    )
+                self._head_params = head_params + enc_params
+            self.optimizer = torch.optim.Adam(param_groups, lr=self.cfg.lr, eps=1e-5)
         else:
             self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.cfg.lr, eps=1e-5)
             self._head_params = list(self.model.parameters())
             self.encoder_optimizer = None
+
+        # Detach encoder latents in the policy/value pass ONLY when a separate
+        # auxiliary optimizer owns encoder training (VisualPPO with aux heads).
+        # In every other case the PPO loss is the encoders' only training
+        # signal -- detaching there silently froze them (verified dW == 0).
+        self._detach_encoders = self.encoder_optimizer is not None
 
         self.buffer = RolloutBuffer(
             capacity=self.cfg.n_steps,
@@ -202,7 +231,7 @@ class PPO(BaseAgent):
         elif kl_mean < desired / 2.0 and kl_mean > 0.0:
             self._current_lr = min(self.cfg.max_lr, self._current_lr * factor)
         for param_group in self.optimizer.param_groups:
-            param_group["lr"] = self._current_lr
+            param_group["lr"] = self._current_lr * float(param_group.get("lr_scale", 1.0))
 
     def _adapt_entropy_coef(self, true_entropy: torch.Tensor) -> float:
         """Dual-ascent update of `self.log_entropy_coef` toward whatever
@@ -240,14 +269,16 @@ class PPO(BaseAgent):
             for mini in self.buffer.get_batches(self.cfg.batch_size):
                 obs = {k: v.to(self.device) for k, v in mini.obs.items()}
                 actions = mini.actions.to(self.device)
-                # Detach encoder latents so policy/value updates do not backpropagate
-                # into encoder parameters (encoders are updated only via aux optimizer).
+                # Encoder latents are detached only when an aux optimizer owns
+                # encoder training (see __init__'s _detach_encoders).
                 # actor_action=actions: re-evaluate the SAME action taken during
                 # rollout under the current policy (via the actor head's
                 # evaluate_actions()) instead of a freshly resampled one -- the
                 # PPO ratio exp(new_log_prob - old_log_prob) is only meaningful
                 # when both log-probs refer to the same action.
-                result = self.model(obs, detach_encoders=True, actor_action=actions)
+                result = self.model(
+                    obs, detach_encoders=self._detach_encoders, actor_action=actions
+                )
                 actor_out = result["actor_out"]
 
                 if isinstance(actor_out, dict):
@@ -277,11 +308,8 @@ class PPO(BaseAgent):
                     adv,
                     clip_eps=self.cfg.clip_range,
                 )
-                value_clip = (
-                    self.cfg.clip_range_vf
-                    if self.cfg.clip_range_vf is not None
-                    else self.cfg.clip_range
-                )
+                # clip_range_vf=None -> no value clipping (SB3 default).
+                value_clip = self.cfg.clip_range_vf
                 val_loss = ppo_value_loss(
                     result["value"].squeeze(-1),
                     mini.returns.to(self.device),

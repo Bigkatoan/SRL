@@ -23,15 +23,22 @@ def ppo_value_loss(
     values: torch.Tensor,
     returns: torch.Tensor,
     old_values: torch.Tensor | None = None,
-    clip_eps: float = 0.2,
+    clip_eps: float | None = 0.2,
 ) -> torch.Tensor:
-    """Value function loss with optional value-clipping."""
-    loss_unclipped = F.mse_loss(values, returns)
-    if old_values is not None:
-        v_clipped = old_values + torch.clamp(values - old_values, -clip_eps, clip_eps)
-        loss_clipped = F.mse_loss(v_clipped, returns)
-        return torch.max(loss_unclipped, loss_clipped)
-    return loss_unclipped
+    """Value function loss with optional value-clipping.
+
+    With clipping (``old_values`` given and ``clip_eps`` not None) this is the
+    PPO2 / SB3 / CleanRL formulation: the *elementwise* max of the unclipped
+    and clipped squared errors, then the mean over the batch. (Taking the max
+    of the two batch means instead is a different, weaker objective.)
+    ``clip_eps=None`` disables value clipping entirely.
+    """
+    if old_values is None or clip_eps is None:
+        return F.mse_loss(values, returns)
+    v_clipped = old_values + torch.clamp(values - old_values, -clip_eps, clip_eps)
+    loss_unclipped = (values - returns) ** 2
+    loss_clipped = (v_clipped - returns) ** 2
+    return torch.max(loss_unclipped, loss_clipped).mean()
 
 
 def entropy_loss(entropy: torch.Tensor) -> torch.Tensor:
