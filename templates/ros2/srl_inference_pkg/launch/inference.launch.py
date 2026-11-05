@@ -7,8 +7,9 @@ from launch_ros.actions import Node
 def generate_launch_description() -> LaunchDescription:
     return LaunchDescription(
         [
-            DeclareLaunchArgument("config_path"),
-            DeclareLaunchArgument("checkpoint_path"),
+            DeclareLaunchArgument("policy_path"),
+            DeclareLaunchArgument("checkpoint", default_value="auto"),
+            DeclareLaunchArgument("config_path", default_value=""),
             DeclareLaunchArgument("device", default_value="cpu"),
             DeclareLaunchArgument("hz", default_value="50.0"),
             Node(
@@ -18,8 +19,9 @@ def generate_launch_description() -> LaunchDescription:
                 output="screen",
                 parameters=[
                     {
+                        "policy_path": LaunchConfiguration("policy_path"),
+                        "checkpoint": LaunchConfiguration("checkpoint"),
                         "config_path": LaunchConfiguration("config_path"),
-                        "checkpoint_path": LaunchConfiguration("checkpoint_path"),
                         "device": LaunchConfiguration("device"),
                         "hz": LaunchConfiguration("hz"),
                     }

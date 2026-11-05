@@ -19,8 +19,10 @@ def resolve_msg_type(msg_type_name: str | None, default: Any = None) -> Any:
     Parameters
     ----------
     msg_type_name:
-        Either a short known message name like ``Float32MultiArray`` or a
-        dotted import path like ``std_msgs.msg.Float32MultiArray``.
+        A short known message name like ``Float32MultiArray``, a ROS
+        interface name like ``std_msgs/Float32MultiArray`` (or
+        ``std_msgs/msg/Float32MultiArray``), or a dotted import path like
+        ``std_msgs.msg.Float32MultiArray``.
     default:
         Value returned when ``msg_type_name`` is ``None``.
     """
@@ -28,6 +30,12 @@ def resolve_msg_type(msg_type_name: str | None, default: Any = None) -> Any:
         return default
 
     import_path = _KNOWN_MESSAGE_TYPES.get(msg_type_name, msg_type_name)
+    if "/" in import_path and "." not in import_path:
+        # ROS interface names: "std_msgs/Float32MultiArray" or "std_msgs/msg/Float32MultiArray".
+        parts = [p for p in import_path.split("/") if p]
+        if len(parts) == 2:
+            parts.insert(1, "msg")
+        import_path = ".".join(parts)
     if "." not in import_path:
         raise ValueError(
             f"Unknown ROS2 message type '{msg_type_name}'. Use a supported short name "
