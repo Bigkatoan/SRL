@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      MYPY_BASELINE: "196"
+      MYPY_BASELINE: "183"
 
     steps:
       - name: Checkout repository
