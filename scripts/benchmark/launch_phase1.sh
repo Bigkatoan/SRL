@@ -31,7 +31,7 @@
 # NICE only lowers CPU priority. NVIDIA consumer GPUs have no per-process
 # scheduling priority, so on a shared GPU lower MAX_PARALLEL (or use
 # DEVICE=cpu) if the owner's GPU job needs headroom; benchmark jobs need only
-# ~300-400 MB of GPU memory each.
+# ~170 MB of GPU memory each (measured, SAC Hopper).
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
