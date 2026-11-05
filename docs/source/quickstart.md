@@ -72,61 +72,77 @@ The important design point is that the CLI is consuming the same declarative YAM
 
 ## 4. Train via Python API
 
+The same YAML drives the Python API. `from_config` builds the model with
+`ModelBuilder`, reads the algorithm hyperparameters from the `train:` block,
+and wraps a raw Gymnasium env with SRL's wrapper plus action rescaling
+(the policy acts in `[-1, 1]`, the env sees its own bounds):
+
 ```python
 import gymnasium as gym
-import torch
 
-from srl.algorithms.sac import SAC
-from srl.core.config import SACConfig
-from srl.envs.gymnasium_wrapper import GymnasiumWrapper
-from srl.registry.builder import ModelBuilder
+from srl import SAC
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-model  = ModelBuilder.from_yaml("configs/envs/halfcheetah_sac.yaml")
-target = ModelBuilder.from_yaml("configs/envs/halfcheetah_sac.yaml")
+agent = SAC.from_config("configs/envs/pendulum_sac.yaml", env=gym.make("Pendulum-v1"))
+agent.learn(20_000, eval_env=gym.make("Pendulum-v1"), progress=True)
 
-cfg = SACConfig(action_dim=6, buffer_size=1_000_000, batch_size=256,
-                learning_starts=10_000)
-agent = SAC(model, target, config=cfg, device=DEVICE)
+env = gym.make("Pendulum-v1")
+obs, _ = env.reset(seed=0)
+action, _ = agent.predict(obs, deterministic=True)   # numpy in, env-unit action out
+obs, reward, terminated, truncated, info = env.step(action)
 
-env = GymnasiumWrapper(gym.make("HalfCheetah-v5"))
-obs, _ = env.reset()
-
-for step in range(1_000_000):
-    obs_t = {k: torch.from_numpy(v).float().unsqueeze(0).to(DEVICE)
-             for k, v in obs.items()}
-    if step < cfg.learning_starts:
-        action_np = env.act_space.sample()
-    else:
-        action, *_ = agent.predict(obs_t)
-        action_np = action.squeeze(0).cpu().numpy()
-
-    next_obs, reward, terminated, truncated, _ = env.step(action_np)
-    agent.buffer.add(obs=obs, action=action_np,
-                     reward=[reward], done=[terminated], truncated=[truncated],
-                     next_obs=next_obs)
-    obs = next_obs
-    if terminated or truncated:
-        obs, _ = env.reset()
-
-    if step >= cfg.learning_starts:
-        agent.update()
+agent.save("runs/pendulum")                           # a directory
+agent2 = SAC.load("runs/pendulum", env=gym.make("Pendulum-v1"))
 ```
+
+- `predict` takes one observation or a batch (numpy array, or the dict an SRL
+  wrapper returns) and returns `(action, state)`; `state` is the recurrent
+  state (`None` for feed-forward policies).
+- Every algorithm (`PPO`, `A2C`, `A3C`, `SAC`, `TD3`, `DDPG`) has the same
+  `from_config` / `learn` / `predict` / `save` / `load` API.
+  `srl.BaseAgent.from_config(path)` picks the class from the YAML's `algo:` key.
+- With `env=None`, `from_config` builds the YAML's `env_id` with
+  `train.n_envs` vectorized copies, exactly like `srl-train`.
+- You can also construct agents directly:
+  `SAC(ModelBuilder.from_yaml(path), SACConfig(...), env=gym.make("Pendulum-v1"))`
+  (the target network is created for you).
+
+### Callbacks
+
+```python
+from srl.training import CheckpointCallback, EarlyStopping, EvalCallback
+
+agent.learn(
+    200_000,
+    callbacks=[
+        EvalCallback(gym.make("Pendulum-v1"), eval_freq=5_000, best_model_save_path="runs/best"),
+        EarlyStopping(monitor="eval/score_mean", patience=5),
+        CheckpointCallback("checkpoints/pendulum", save_interval=20_000),
+    ],
+    log_dir="runs/pendulum",   # TensorBoard + metrics.jsonl
+)
+```
+
+Callbacks receive `on_training_start`, `on_step`, `on_rollout_end`
+(on-policy), `on_update`, `on_eval` and `on_training_end`; returning `False`
+from any hook stops training. See {doc}`api/training`.
 
 ---
 
 ## 5. Load a checkpoint
 
-`CheckpointManager.load(model, path, optimizer=None, device="cpu")` takes an
-explicit checkpoint path. `srl-train` writes periodic `ckpt_<step>.pt` files and
-a `final_<step>.pt` file into `<ckptdir>/<algo>_<config-stem>/`
-(e.g. `checkpoints/sac_halfcheetah_sac/`); `cm.latest()` returns the newest
-`ckpt_*` file (or `None` if there is none).
+`Cls.load(...)` accepts a directory written by `agent.save(...)` and the
+single-file checkpoints `srl-train` writes (`ckpt_<step>.pt`, `final_<step>.pt`,
+`best_<step>.pt` under `<ckptdir>/<algo>_<config-stem>/`):
 
 ```python
-from srl.utils.checkpoint import CheckpointManager
+import glob
 
-cm = CheckpointManager("checkpoints/sac_halfcheetah_sac")
-path = cm.latest() or sorted(cm.save_dir.glob("final_*.pt"))[-1]
-cm.load(agent.model, path, device=DEVICE)
+from srl import SAC
+
+path = sorted(glob.glob("checkpoints/sac_halfcheetah_sac/final_*.pt"))[-1]
+agent = SAC.load(path)                       # model rebuilt from the stored YAML
+action, _ = agent.predict(obs, deterministic=True)
 ```
+
+For resuming a CLI run use `srl-train --resume <checkpoint>`; to restore just
+the network weights, `CheckpointManager(dir).load(model, path)` still works.
