@@ -51,7 +51,12 @@ Changelog     = "https://github.com/Bigkatoan/SRL/blob/main/CHANGELOG.md"
 [project.optional-dependencies]
 mujoco = ["gymnasium[mujoco]>=0.29.0", "mujoco>=3.0.0"]
 box2d = ["box2d>=2.3.10", "pygame>=2.5.0"]
-robotics = ["gymnasium-robotics>=1.2.0"]
+robotics = [
+    "gymnasium-robotics>=1.2.0",
+    # gymnasium-robotics 1.4.2 Fetch envs assert on joint types under newer
+    # MuJoCo (fails on 3.17); 3.10 is the newest version verified here.
+    "mujoco>=3.0.0,<3.11",
+]
 # racecar_gym itself is not on PyPI, and PyPI rejects direct-URL (`pkg @
 # git+...`) dependencies in published metadata, so it cannot be declared
 # here. Install it manually -- see docs/source/installation.md:
