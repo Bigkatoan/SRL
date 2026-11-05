@@ -29,7 +29,7 @@ Two consequences worth knowing:
 - `save_best` **is** read from the `train:` block (`train.save_best: true`), unlike
   `eval_freq`/`eval_episodes` above — it also has a matching `--save-best`/
   `--no-save-best` CLI flag, which wins over the YAML value when passed. See
-  [`--save-best`](../cli.md#best-checkpoint-tracking-save-best) in the CLI reference.
+  [`--save-best`](best-checkpoint-tracking) in the CLI reference.
 
 ## Fields read directly by the CLI
 
