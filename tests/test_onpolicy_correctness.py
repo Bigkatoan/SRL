@@ -458,3 +458,70 @@ def test_ppo_normalization_can_be_disabled():
     agent.update_obs_normalizer(obs)
     assert agent.normalize_obs(obs) is obs
     np.testing.assert_allclose(agent.normalize_reward([5.0], [False]), [5.0])
+
+
+# ---------------------------------------------------------------------------
+# Bug 8: A3C dropped `truncated` (time-limit envs never reset) and seeded
+# workers from rank only
+# ---------------------------------------------------------------------------
+
+
+class _TimeLimitEnv(_FakeSingleEnv):
+    """Never terminates; truncates after `episode_len` steps."""
+
+    def step(self, action):
+        obs, reward, _, _, info = super().step(action)
+        truncated = self.t >= self.episode_len
+        self.dead = truncated
+        return obs, reward, False, truncated, info
+
+
+class _StopAfter:
+    def __init__(self, n: int):
+        self.n = n
+        self.calls = 0
+
+    def is_set(self):
+        self.calls += 1
+        return self.calls > self.n
+
+    def set(self):
+        self.n = 0
+
+
+class _Counter:
+    value = 0
+
+
+def _run_a3c_worker(env, n_steps=7, iterations=2, seed=0, rank=0):
+    import threading
+
+    from srl.algorithms.a3c import _worker_fn
+    from srl.core.config import A3CConfig
+
+    torch.manual_seed(0)
+    model = ModelBuilder.from_dict(_model_dict())
+    cfg = A3CConfig(n_steps=n_steps, batch_size=n_steps, seed=seed)
+    opt = torch.optim.Adam(model.parameters(), lr=1e-3)
+    _worker_fn(rank, model, opt, lambda: env, cfg, _Counter(), threading.Lock(), _StopAfter(iterations))
+    return model
+
+
+def test_a3c_worker_resets_on_truncation():
+    env = _TimeLimitEnv(episode_len=3, low=-0.5, high=0.5)
+    _run_a3c_worker(env, n_steps=7, iterations=2)
+    assert len(env.actions) == 14
+    # Initial reset + one per truncated episode.
+    assert env.resets == 1 + 14 // 3
+    sent = np.stack(env.actions)
+    assert np.all(sent <= 0.5) and np.all(sent >= -0.5)
+
+
+def test_a3c_worker_seed_derives_from_global_seed():
+    def _first_actions(seed):
+        env = _TimeLimitEnv(episode_len=100)
+        _run_a3c_worker(env, n_steps=3, iterations=1, seed=seed, rank=1)
+        return np.stack(env.actions)
+
+    np.testing.assert_allclose(_first_actions(5), _first_actions(5))
+    assert not np.allclose(_first_actions(5), _first_actions(6))

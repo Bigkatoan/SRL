@@ -41,13 +41,20 @@ def _worker_fn(
     stats_queue: mp.Queue | None = None,
 ) -> None:
     """Worker process: collect a trajectory, compute gradients, apply to shared model."""
+    import numpy as np
     import torch
 
+    from srl.algorithms._onpolicy_common import env_action_bounds
     from srl.core.rollout_buffer import RolloutBuffer
 
-    torch.manual_seed(rank)
+    # Derive every worker's seed from the run's global seed (previously
+    # `rank` alone, so --seed had no effect and every run was identical).
+    worker_seed = int(getattr(config, "seed", 0) or 0) + rank
+    torch.manual_seed(worker_seed)
+    np.random.seed(worker_seed % (2**32))
     env = env_fn()
     local_model = _clone_model(shared_model)
+    bounds = env_action_bounds(env)
 
     buffer = RolloutBuffer(
         capacity=config.n_steps,
@@ -56,7 +63,7 @@ def _worker_fn(
         lam=config.gae_lambda,
     )
 
-    obs, _ = env.reset()
+    obs, _ = env.reset(seed=worker_seed)
     episode_return = 0.0
     episode_length = 0
 
@@ -81,15 +88,33 @@ def _worker_fn(
             value = result["value"]
 
             action_np = action.squeeze(0).numpy()
-            next_obs, reward, done, _, _ = env.step(action_np)
+            # Clip only what reaches the env; the buffer keeps the raw sample
+            # so its stored log-prob stays consistent (SB3/CleanRL ClipAction).
+            env_action = np.clip(action_np, *bounds) if bounds is not None else action_np
+            next_obs, reward, terminated, truncated, _ = env.step(env_action)
+            terminated, truncated = bool(terminated), bool(truncated)
+            done = terminated or truncated
             reward_f = float(reward)
             episode_return += reward_f
             episode_length += 1
 
+            # Time-limit truncation: the episode is cut, not finished, so add
+            # back the value of the true final state (the env does not
+            # auto-reset, so next_obs IS that state) before the GAE chain is
+            # broken at this step.
+            train_reward = reward_f
+            if truncated and not terminated:
+                next_t = {k: torch.from_numpy(np.asarray(v)).float().unsqueeze(0)
+                          for k, v in next_obs.items()}
+                with torch.no_grad():
+                    boot = local_model(next_t)["value"]
+                if boot is not None:
+                    train_reward += config.gamma * float(boot.squeeze().item())
+
             buffer.add(
                 obs=obs,
                 action=action_np,
-                reward=reward_f,
+                reward=train_reward,
                 done=done,
                 log_prob=log_prob.squeeze(0).numpy() if log_prob is not None else None,
                 value=value.squeeze(0).numpy() if value is not None else None,
@@ -208,8 +233,15 @@ class A3C(OnPolicyActionMixin, BaseAgent):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.cfg.lr)
 
     def train(
-        self, total_timesteps: int, env_fn: Callable, logger=None, log_interval: int = 1_000
+        self,
+        total_timesteps: int,
+        env_fn: Callable,
+        logger=None,
+        log_interval: int = 1_000,
+        seed: int | None = None,
     ) -> None:
+        if seed is not None:
+            self.cfg.seed = int(seed)
         ctx = mp.get_context("spawn")
         counter = ctx.Value("i", 0)
         lock = ctx.Lock()

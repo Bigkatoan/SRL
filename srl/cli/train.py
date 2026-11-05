@@ -1360,9 +1360,12 @@ def main(argv: list[str] | None = None) -> int:
         visualizer_handle = _maybe_start_visualizer(agent, args, device)
         agent.train(
             total_timesteps=args.steps,
-            env_fn=partial(_make_cli_env, args.env, device, args.n_envs, args.env_type),
+            # n_envs is the WORKER count for A3C (n_workers above); each
+            # worker drives exactly one env (its buffer has num_envs=1).
+            env_fn=partial(_make_cli_env, args.env, device, 1, args.env_type),
             logger=logger,
             log_interval=args.log_interval,
+            seed=args.seed,
         )
 
     elif algo_name == "sac":

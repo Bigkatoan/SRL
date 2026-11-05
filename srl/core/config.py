@@ -184,6 +184,8 @@ class A3CConfig:
     max_grad_norm: float = 40.0
     n_workers: int = 4
     batch_size: int = 20
+    # Base seed; worker `rank` uses `seed + rank` (torch RNG + env.reset).
+    seed: int = 0
 
 
 @dataclass
