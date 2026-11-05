@@ -146,8 +146,9 @@ class PPO(OnPolicyActionMixin, BaseAgent):
         self._obs_normalizers: dict[str, RunningNormalizer] = {}
         self._obs_norm_cache: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
         self._ret_normalizer: RunningNormalizer | None = (
-            RunningNormalizer((1,), clip=self.cfg.clip_reward, eps=self.cfg.norm_epsilon,
-                              initial_count=1e-4)
+            RunningNormalizer(
+                (1,), clip=self.cfg.clip_reward, eps=self.cfg.norm_epsilon, initial_count=1e-4
+            )
             if self.cfg.normalize_reward
             else None
         )

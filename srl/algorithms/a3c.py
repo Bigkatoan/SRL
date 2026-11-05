@@ -63,7 +63,10 @@ def _worker_fn(
         lam=config.gae_lambda,
     )
 
-    obs, _ = env.reset(seed=worker_seed)
+    try:
+        obs, _ = env.reset(seed=worker_seed)
+    except TypeError:  # minimal envs whose reset() takes no seed
+        obs, _ = env.reset()
     episode_return = 0.0
     episode_length = 0
 
@@ -104,8 +107,10 @@ def _worker_fn(
             # broken at this step.
             train_reward = reward_f
             if truncated and not terminated:
-                next_t = {k: torch.from_numpy(np.asarray(v)).float().unsqueeze(0)
-                          for k, v in next_obs.items()}
+                next_t = {
+                    k: torch.from_numpy(np.asarray(v)).float().unsqueeze(0)
+                    for k, v in next_obs.items()
+                }
                 with torch.no_grad():
                     boot = local_model(next_t)["value"]
                 if boot is not None:

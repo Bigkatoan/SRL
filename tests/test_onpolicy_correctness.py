@@ -60,9 +60,7 @@ def _fill_buffer(agent, n_steps: int, num_envs: int, seed: int = 0) -> None:
     rng = np.random.default_rng(seed)
     for _ in range(n_steps):
         obs = {"state": rng.standard_normal((num_envs, OBS_DIM)).astype(np.float32)}
-        action, log_prob, value, _ = agent.predict(
-            {"state": torch.from_numpy(obs["state"])}
-        )
+        action, log_prob, value, _ = agent.predict({"state": torch.from_numpy(obs["state"])})
         agent.buffer.add(
             obs=obs,
             action=action.numpy(),
@@ -378,9 +376,7 @@ def test_ppo_normalization_defaults_on():
 
 def test_ppo_reward_normalization_matches_vecnormalize():
     gamma = 0.9
-    agent = PPO(
-        ModelBuilder.from_dict(_model_dict()), config=PPOConfig(gamma=gamma), device="cpu"
-    )
+    agent = PPO(ModelBuilder.from_dict(_model_dict()), config=PPOConfig(gamma=gamma), device="cpu")
     rng = np.random.default_rng(0)
     rewards = rng.standard_normal((50, 2)) * 7.0 + 3.0
     ends = rng.random((50, 2)) < 0.1
@@ -503,7 +499,9 @@ def _run_a3c_worker(env, n_steps=7, iterations=2, seed=0, rank=0):
     model = ModelBuilder.from_dict(_model_dict())
     cfg = A3CConfig(n_steps=n_steps, batch_size=n_steps, seed=seed)
     opt = torch.optim.Adam(model.parameters(), lr=1e-3)
-    _worker_fn(rank, model, opt, lambda: env, cfg, _Counter(), threading.Lock(), _StopAfter(iterations))
+    _worker_fn(
+        rank, model, opt, lambda: env, cfg, _Counter(), threading.Lock(), _StopAfter(iterations)
+    )
     return model
 
 
