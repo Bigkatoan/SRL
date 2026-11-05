@@ -94,6 +94,9 @@ class BaseAgent(abc.ABC):
     _obs_shape: tuple | None = None
     #: ``env_type`` of the YAML the agent was built from (isaaclab/mjlab/goal/...).
     _env_type: str | None = None
+    #: The resolved :class:`~srl.config.ExperimentConfig` (``from_config`` /
+    #: ``srl-train`` agents); saved as ``config.yaml`` by :meth:`save`.
+    _experiment: Any = None
 
     # ------------------------------------------------------------------
     # Abstract low-level interface
@@ -374,10 +377,14 @@ class BaseAgent(abc.ABC):
         device: str | torch.device = "cpu",
         **overrides: Any,
     ) -> BaseAgent:
-        """Build an agent from a model YAML (path or dict).
+        """Build an agent from an experiment YAML (path or dict).
 
-        The model comes from :class:`~srl.registry.builder.ModelBuilder`, the
-        algorithm config from the YAML ``train:`` block (*overrides* win).
+        The YAML is strictly validated (:func:`srl.config.load_experiment`;
+        unknown keys raise :class:`~srl.config.ConfigError`). The env is
+        built first, so ``input_dim: auto`` / ``action_dim: auto`` are
+        resolved from its spaces; the model comes from
+        :class:`~srl.registry.builder.ModelBuilder`, the algorithm config
+        from the YAML ``train:`` block (*overrides* win and are validated).
         *env* may be a raw Gymnasium env (wrapped with SRL's wrapper and
         :class:`~srl.envs.RescaleActionWrapper` automatically), an SRL env,
         an env id string, or ``None`` to build the YAML's ``env_id``.

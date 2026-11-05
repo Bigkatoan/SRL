@@ -180,9 +180,9 @@ _register_algorithms()
 
 def _cli_env_factory(env_type: str):
     def make(env_id: str, *, device: str = "cpu", n_envs: int = 1, render: bool = False):
-        from srl.cli.train import _make_cli_env
+        from srl.training.envs import make_env
 
-        return _make_cli_env(env_id, device, n_envs, env_type, render=render)
+        return make_env(env_id, device, n_envs, env_type, render=render)
 
     make.__name__ = f"make_{env_type}_env"
     return make

@@ -10,7 +10,7 @@ Every key of `train:` falls into one of these groups (see
 mean" suggestion — see [strict validation](../config_reference.md#strict-validation):
 
 1. **Trainer keys** — `total_steps`, `n_envs`, `device`, `seed`, `log_interval`,
-   `eval_freq`, `eval_episodes`, `deterministic`, `save_best`. Each has a matching
+   `eval_freq`, `eval_episodes`, `deterministic`, `save_best`, `save_interval`. Each has a matching
    `srl-train` flag (`--steps`, `--n-envs`, `--device`, ...) that wins when passed.
 2. **Async-runner keys** — `use_async`, `use_gpu_buffer` (`AsyncRunnerConfig`).
 3. **Algorithm hyperparameters** — the fields of the algorithm's config dataclass in
@@ -37,6 +37,7 @@ overwrite whatever the YAML says.
 | `eval_episodes` | int | 10 | Episodes per evaluation (`--eval-episodes`) |
 | `deterministic` | bool | false | Deterministic torch kernels (`--deterministic`) |
 | `save_best` | bool | false | Keep a `best_*` checkpoint (`--save-best`, see [`--save-best`](best-checkpoint-tracking)) |
+| `save_interval` | int | 100_000 | Env steps between periodic `srl-train` checkpoints (no CLI flag) |
 
 ## Off-policy fields (SAC, DDPG, TD3)
 

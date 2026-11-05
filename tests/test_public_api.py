@@ -41,6 +41,8 @@ def model_config(algo: str) -> dict:
         actor = {"name": "actor", "type": "gaussian", "action_dim": ACT_DIM, "log_std_init": -0.5}
         critic = {"name": "critic", "type": "value"}
         train = dict(_ON_POLICY_TRAIN)
+        if algo == "a2c":
+            del train["n_epochs"]  # A2C takes one gradient step per rollout
         if algo == "a3c":
             train = {"n_steps": 8, "n_envs": 1}
     else:
@@ -370,3 +372,70 @@ def test_no_deprecation_warnings_on_the_new_api(tmp_path) -> None:
         agent.predict(_obs())
         agent.save(tmp_path / "td3")
         TD3.load(tmp_path / "td3")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Config wiring: strict load, `auto` dims, one algorithm registry, resolved dump
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def _auto_config(algo: str = "sac") -> dict:
+    cfg = model_config(algo)
+    cfg["encoders"] = [dict(_ENC[0], input_dim="auto")]
+    cfg["actor"] = dict(cfg["actor"], action_dim="auto")
+    if "action_dim" in cfg["critic"]:
+        cfg["critic"] = dict(cfg["critic"], action_dim="auto")
+    return cfg
+
+
+def test_from_config_resolves_auto_dims_from_the_env() -> None:
+    agent = SAC.from_config(_auto_config(), env=gym.make("Pendulum-v1"))
+    exp = agent._experiment
+    assert exp.model.encoders[0].input_dim == OBS_DIM
+    assert exp.model.actor.action_dim == exp.model.critic.action_dim == ACT_DIM
+    assert agent.cfg.action_dim == ACT_DIM
+
+
+def test_from_config_cross_checks_explicit_dims() -> None:
+    from srl.config import ConfigError
+
+    cfg = model_config("sac")
+    cfg["encoders"] = [dict(_ENC[0], input_dim=OBS_DIM + 1)]
+    with pytest.raises(ConfigError, match="does not match the environment observation size"):
+        SAC.from_config(cfg, env=gym.make("Pendulum-v1"))
+
+
+def test_from_config_overrides_are_strictly_validated() -> None:
+    from srl.config import ConfigError
+
+    with pytest.raises(ConfigError, match="did you mean 'batch_size'"):
+        SAC.from_config(model_config("sac"), env=gym.make("Pendulum-v1"), batch_sise=4)
+
+
+def test_save_writes_a_reloadable_resolved_config(tmp_path) -> None:
+    from srl.config import load_experiment
+
+    agent = SAC.from_config(_auto_config(), env=gym.make("Pendulum-v1"), batch_size=16)
+    path = agent.save(tmp_path / "agent")
+    exp = load_experiment(path / "config.yaml")
+    assert exp == agent._experiment
+    assert exp.model.encoders[0].input_dim == OBS_DIM  # explicit in the dump
+    assert exp.algo_config.batch_size == 16
+    loaded = SAC.load(path)  # no env needed: dims are explicit in the stored spec
+    assert loaded._experiment == exp
+
+
+def test_algorithms_mapping_is_a_view_of_the_registry() -> None:
+    from srl.algorithms import ALGORITHMS
+    from srl.registry import AlgorithmRegistry, AlgorithmSpec
+    from srl.registry.registry import register_algorithm
+
+    assert set(ALGORITHMS) == set(AlgorithmRegistry.available())
+    for name, (agent_cls, cfg_cls) in ALGORITHMS.items():
+        assert agent_cls.algo_name == name and agent_cls.config_cls is cfg_cls
+    register_algorithm("my_sac", AlgorithmSpec("my_sac", SAC.config_cls, SAC, off_policy=True))
+    try:
+        assert ALGORITHMS["my_sac"] == (SAC, SAC.config_cls)
+    finally:
+        AlgorithmRegistry.unregister("my_sac")
+    assert "my_sac" not in ALGORITHMS

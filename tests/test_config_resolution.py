@@ -183,23 +183,23 @@ def test_build_algo_config_folds_aliases() -> None:
 
 
 @pytest.mark.parametrize("path", MODEL_CONFIGS, ids=lambda p: p.name)
-def test_strict_builder_matches_legacy_cli_builder(path: Path) -> None:
-    """build_algo_config() yields the same effective config the CLI used to build."""
-    from srl.cli.train import _build_algo_config, _resolve_algo_config_cls
+def test_every_yaml_hyperparameter_reaches_the_algo_config(path: Path) -> None:
+    """build_algo_config() keeps every train: hyperparameter the YAML sets (the
+    removed lenient CLI builder copied them verbatim; strictness adds checks only)."""
+    from srl.config import split_train_section
 
     exp = load_experiment(path)
     raw = yaml.safe_load(path.read_text())
-    train = raw.get("train") or {}
-    spec = AlgorithmRegistry.get(exp.algo)
-    legacy_cls, extra = _resolve_algo_config_cls(exp.algo, spec.config_cls, raw, train)
-    legacy = _build_algo_config(legacy_cls, train, **extra)
-    assert type(legacy) is type(exp.algo_config)
-    if spec.off_policy:
-        assert normalize_offpolicy_schedule(legacy) == normalize_offpolicy_schedule(exp.algo_config)
-    skip = {"start_steps", "update_after", "update_every", "learning_starts", "train_freq"}
-    for f in dataclasses.fields(legacy):
-        if f.name not in skip:
-            assert getattr(legacy, f.name) == getattr(exp.algo_config, f.name), f.name
+    algo_keys = split_train_section(raw.get("train") or {})["algo"]
+    for key, value in algo_keys.items():
+        if key in ("start_steps", "update_every"):
+            continue
+        got = getattr(exp.algo_config, key)
+        if isinstance(value, str) and not isinstance(got, str):
+            value = type(got)(float(value)) if isinstance(got, (int, float)) else value
+        if isinstance(got, tuple):
+            got = list(got)
+        assert got == pytest.approx(value) if isinstance(got, float) else got == value, key
 
 
 # ──────────────────────────────────────────────────────────────────────────────

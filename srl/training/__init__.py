@@ -12,7 +12,7 @@ The training loops behind :meth:`srl.core.base_agent.BaseAgent.learn` and
 * Env helpers: :func:`make_env`, :func:`wrap_env`, :func:`build_training_env`.
 """
 
-from srl.training.algo_config import ConfigurationError, make_algo_config
+from srl.training.algo_config import ConfigurationError, env_derived_overrides
 from srl.training.base import Trainer
 from srl.training.callbacks import (
     BaseCallback,
@@ -44,8 +44,8 @@ __all__ = [
     "OnPolicyTrainer",
     "Trainer",
     "build_training_env",
+    "env_derived_overrides",
     "evaluate_agent",
-    "make_algo_config",
     "make_env",
     "wrap_env",
 ]

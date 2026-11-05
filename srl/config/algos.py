@@ -48,6 +48,8 @@ class TrainerConfig:
     eval_episodes: int = 10
     deterministic: bool = False
     save_best: bool = False
+    #: env steps between periodic ``srl-train`` checkpoints (``ckpt_*.pt``)
+    save_interval: int = 100_000
 
     def __post_init__(self) -> None:
         from srl.config._validate import validate_constraints

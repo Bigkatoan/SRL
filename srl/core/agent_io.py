@@ -10,6 +10,8 @@ Directory format ``srl-agent`` v0 (written by :func:`save_agent`)::
       meta.json    human-readable summary (format, algo, config, versions)
       model.yaml   the model spec the agent was built from (when known)
       model.pt     torch.save(model) -- only when no model spec is known
+      config.yaml  srl.config.dump_resolved_config() of the experiment the agent
+                   was built from (from_config / srl-train agents only)
 
 ``agent.checkpoint_payload()`` embeds an ``"srl_agent"`` metadata block
 (algo, config class + JSON-able config fields, model spec, action rescale
@@ -31,6 +33,7 @@ __all__ = [
     "FORMAT_NAME",
     "FORMAT_VERSION",
     "agent_from_config",
+    "build_agent_from_experiment",
     "load_agent",
     "read_payload",
     "save_agent",
@@ -39,6 +42,7 @@ __all__ = [
 FORMAT_NAME = "srl-agent"
 FORMAT_VERSION = 0
 _PAYLOAD_FILE = "agent.pt"
+_CONFIG_FILE = "config.yaml"
 
 
 def _srl_version() -> str:
@@ -89,7 +93,28 @@ def save_agent(agent, path: str | Path, *, include_replay_buffer: bool = False) 
             stale.unlink()
     else:
         torch.save(agent.model, path / "model.pt")
+    _write_resolved_config(agent, path / _CONFIG_FILE)
     return path
+
+
+def _write_resolved_config(agent, target: Path) -> None:
+    """``config.yaml``: the fully resolved experiment the agent was built from.
+
+    Written with :func:`srl.config.dump_resolved_config` (explicit dims, every
+    hyperparameter including defaults, the agent's *current* algorithm
+    config), so ``srl.config.load_experiment(<dir>/config.yaml)`` reproduces
+    the run's configuration. Skipped for agents not built from a config.
+    """
+    import dataclasses
+
+    exp = getattr(agent, "_experiment", None)
+    if exp is None:
+        return
+    from srl.config import dump_resolved_config
+
+    if dataclasses.is_dataclass(agent.cfg) and type(agent.cfg) is type(exp.algo_config):
+        exp = dataclasses.replace(exp, algo_config=agent.cfg)
+    dump_resolved_config(exp, target)
 
 
 def read_payload(path: str | Path, map_location: Any = "cpu") -> dict[str, Any]:
@@ -115,7 +140,11 @@ def _resolve_device(device: Any) -> torch.device:
 
 
 def _resolve_agent_class(cls, algo: str | None):
-    from srl.algorithms import get_algorithm
+    """The agent class for *algo* via :data:`srl.registry.AlgorithmRegistry`.
+
+    A concrete *cls* (``SAC.load``) wins but must match *algo* when one is
+    recorded; ``BaseAgent`` (or ``None``) dispatches on *algo*.
+    """
     from srl.core.base_agent import BaseAgent
 
     if cls is None or cls is BaseAgent or getattr(cls, "algo_name", "") == "":
@@ -124,7 +153,9 @@ def _resolve_agent_class(cls, algo: str | None):
                 "Cannot tell which algorithm this is: no 'algo' recorded. "
                 "Call the concrete class (e.g. SAC.load(...)) instead."
             )
-        return get_algorithm(algo)[0]
+        from srl.config.algos import algorithm_spec
+
+        return algorithm_spec(algo).agent_class()
     if algo and cls.algo_name and algo != cls.algo_name:
         raise TypeError(
             f"{cls.__name__}: this agent/config is for {algo.upper()}; use "
@@ -183,10 +214,23 @@ def load_agent(
     agent = agent_cls(model, config=cfg, device=device, env=env)
     agent._model_spec = meta.get("model_spec")
     agent.load_checkpoint_payload(payload)
+    if path.is_dir() and (path / _CONFIG_FILE).exists():
+        agent._experiment = _read_resolved_config(path / _CONFIG_FILE)
     if env is not None:
         # The live env wins over the stored action map.
         agent._attach_env(env)
     return agent
+
+
+def _read_resolved_config(path: Path) -> Any:
+    """The saved ``config.yaml`` as an ExperimentConfig, or ``None`` if it no longer validates."""
+    from srl.config import ConfigError, load_experiment
+
+    try:
+        return load_experiment(path)
+    except (ConfigError, OSError) as exc:
+        warnings.warn(f"{path}: could not re-read the saved config ({exc})", stacklevel=3)
+        return None
 
 
 def _load_raw_config(config: str | Path | dict) -> dict:
@@ -198,41 +242,126 @@ def _load_raw_config(config: str | Path | dict) -> dict:
         return yaml.safe_load(fh) or {}
 
 
-def agent_from_config(cls, config: str | Path | dict, *, env=None, device="cpu", **overrides):
-    """Implementation of :meth:`BaseAgent.from_config`."""
+def build_agent_from_experiment(
+    exp: Any,
+    env: Any,
+    *,
+    cls: Any = None,
+    device: Any = "cpu",
+    n_envs: int | None = None,
+    source: str | None = None,
+):
+    """Build the agent described by a validated :class:`~srl.config.ExperimentConfig`.
+
+    The one construction path shared by :meth:`BaseAgent.from_config` and
+    ``srl-train``. *env* (an SRL env, or ``None``) is built *before* the
+    model, so ``input_dim: auto`` / ``input_shape: auto`` / ``action_dim:
+    auto`` are filled from its per-env spaces (explicit values are
+    cross-checked against them), and the env-derived algorithm fields
+    (``num_envs``, ``action_dim``, ``replay_num_envs``, A3C ``n_workers``,
+    HER's goal split) are set. The fully resolved experiment is kept on the
+    agent (``agent._experiment``) and written as ``config.yaml`` by
+    :func:`save_agent`.
+    """
+    import dataclasses
+
+    from srl.config import ConfigError, resolve_auto_dims_from_env
     from srl.registry.builder import ModelBuilder
     from srl.training.algo_config import (
-        ConfigurationError,
-        make_algo_config,
+        configure_her_from_env,
+        env_derived_overrides,
         validate_algo_model_compatibility,
     )
-    from srl.training.envs import build_training_env, resolve_env_spec, resolve_env_type, wrap_env
 
-    raw = _load_raw_config(config)
-    declared = str(raw.get("algo") or "").strip().lower() or None
-    agent_cls = _resolve_agent_class(cls, declared)
-    algo = agent_cls.algo_name
-    source = str(config) if not isinstance(config, dict) else "<dict>"
-    error = validate_algo_model_compatibility(raw, algo, source)
+    if not exp.algo or exp.algo_config is None:
+        where = source or exp.source or "<dict>"
+        raise ConfigError(
+            f"Config '{where}' does not declare an algorithm: add `algo: <ppo|sac|ddpg|"
+            "td3|a2c|a3c>` to the YAML or pass --algo."
+        )
+    agent_cls = _resolve_agent_class(cls, exp.algo)
+    error = validate_algo_model_compatibility(exp.model, exp.algo, source or exp.source or "<dict>")
     if error is not None:
-        raise ConfigurationError(error)
+        raise ConfigError(error)
+
+    model_cfg = resolve_auto_dims_from_env(exp.model, env) if env is not None else exp.model
+    model = ModelBuilder.from_config(model_cfg)
+
+    overrides = env_derived_overrides(exp.algo, env, n_envs=n_envs, seed=int(exp.trainer.seed))
+    known = {f.name for f in dataclasses.fields(exp.algo_config)}
+    algo_cfg = dataclasses.replace(
+        exp.algo_config, **{k: v for k, v in overrides.items() if k in known}
+    )
+    if env is not None:
+        # HER needs the goal split and the env's sparse reward fn, neither of
+        # which can come from YAML -- resolve them before the buffer is built.
+        configure_her_from_env(algo_cfg, env, exp.env.env_type)
 
     device = _resolve_device(device)
-    env_type = resolve_env_type(raw)
-    if env is None and (raw.get("env_id") or (raw.get("train") or {}).get("env_id")):
-        env_name, env_type = resolve_env_spec(None, raw)
-        n_envs = int((raw.get("train") or {}).get("n_envs", 1)) if algo != "a3c" else 1
-        env = build_training_env(env_name, device=str(device), n_envs=n_envs, env_type=env_type)
+    agent = agent_cls(model, config=algo_cfg, device=device, env=env)
+    resolved = dataclasses.replace(exp, model=model_cfg, algo_config=algo_cfg)
+    agent._experiment = resolved
+    # Explicit dims: load() rebuilds the model from this without an env.
+    agent._model_spec = _experiment_to_dict(resolved)
+    agent._env_type = exp.env.env_type
+    return agent
+
+
+def _experiment_to_dict(exp: Any) -> dict:
+    from srl.config import experiment_to_dict
+
+    return experiment_to_dict(exp)
+
+
+def agent_from_config(cls, config: str | Path | dict, *, env=None, device="cpu", **overrides):
+    """Implementation of :meth:`BaseAgent.from_config`.
+
+    ``config`` is strictly validated with :func:`srl.config.load_experiment`
+    (*overrides* are merged into its ``train:`` block first, so they are
+    validated too).
+    """
+    import copy
+
+    from srl.config import ConfigError, infer_algo_name, load_experiment
+    from srl.training.algo_config import validate_algo_model_compatibility
+    from srl.training.envs import build_training_env, normalize_env_name, wrap_env
+
+    raw = copy.deepcopy(_load_raw_config(config))
+    source = None if isinstance(config, dict) else str(config)
+    if overrides:
+        train = dict(raw.get("train") or {})
+        train.update(overrides)
+        raw["train"] = train
+    declared = infer_algo_name(raw, source)
+    agent_cls = _resolve_agent_class(cls, declared)
+    # Head/algorithm mismatch first: it explains the strict train: errors
+    # (another algorithm's hyperparameters) that load_experiment would report.
+    error = validate_algo_model_compatibility(raw, agent_cls.algo_name, source or "<dict>")
+    if error is not None:
+        raise ConfigError(error)
+    exp = load_experiment(raw, algo=agent_cls.algo_name)
+    if source is not None:
+        exp.source = source
+
+    device = _resolve_device(device)
+    env_type = exp.env.env_type
+    n_envs = int(exp.trainer.n_envs)
+    if env is None and exp.env.env_id:
+        env_name = normalize_env_name(exp.env.env_id, env_type)
+        env = build_training_env(
+            env_name,
+            device=str(device),
+            n_envs=1 if agent_cls.algo_name == "a3c" else n_envs,
+            env_type=env_type,
+            seed=int(exp.trainer.seed),
+        )
     else:
         env = wrap_env(env, device=str(device), env_type=env_type)
-
-    # The env is built before the model on purpose (env-derived model dims).
-    model = ModelBuilder.from_dict(raw)
-    n_envs = None if algo != "a3c" else int((raw.get("train") or {}).get("n_envs", 1))
-    algo_cfg = make_algo_config(
-        algo, raw, env=env, env_type=env_type, n_envs=n_envs, overrides=overrides
+    return build_agent_from_experiment(
+        exp,
+        env,
+        cls=agent_cls,
+        device=device,
+        n_envs=n_envs if agent_cls.algo_name == "a3c" else None,
+        source=source,
     )
-    agent = agent_cls(model, config=algo_cfg, device=device, env=env)
-    agent._model_spec = raw
-    agent._env_type = env_type
-    return agent

@@ -104,6 +104,7 @@ class AsyncVectorEnv:
         self._parent_conns[0].send(("spaces", None))
         self.obs_space, self.act_space = self._parent_conns[0].recv()
         self.single_act_space = self.act_space
+        self.single_obs_space = self.obs_space
 
     def reset(self, **kwargs) -> tuple[dict[str, np.ndarray], list[dict]]:
         for index, conn in enumerate(self._parent_conns):

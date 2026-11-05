@@ -89,6 +89,9 @@ def _env_class_supports_partial_reset(env_class) -> bool:
     return "env_ids" in params
 
 
+_BUILTIN_ENV_TYPES = ("flat", "goal", "racecar", "isaaclab", "mjlab")
+
+
 def make_env(env_name: str, device: str, n_envs: int, env_type: str = "flat", render: bool = False):
     """Build an env for training/eval, or (``render=True``) for the
     ``--visualize`` live viewer's plain-Gymnasium path (flat/goal/racecar
@@ -104,6 +107,12 @@ def make_env(env_name: str, device: str, n_envs: int, env_type: str = "flat", re
     from srl.envs.racecar_wrapper import RacecarWrapper
 
     normalized_env_type = (env_type or "flat").strip().lower()
+    if normalized_env_type not in _BUILTIN_ENV_TYPES:
+        # A plugin env type (srl.registry.register_env / "srl.envs" entry point).
+        from srl.registry.registry import EnvRegistry
+
+        factory = EnvRegistry.get(normalized_env_type)
+        return factory(env_name, device=device, n_envs=n_envs, render=render)
     normalized_env_name = normalize_env_name(env_name, normalized_env_type)
     make_kwargs = {"render_mode": "human"} if render else {}
 

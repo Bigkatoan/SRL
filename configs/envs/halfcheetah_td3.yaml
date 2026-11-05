@@ -1,4 +1,4 @@
-# TD3 on HalfCheetah-v5  (obs=17, act=6)
+# TD3 on HalfCheetah-v5  (obs=17, act=6; dims resolved from the env: `auto`)
 # Target return: ~9000 (convergence ~1M steps)
 
 schema_version: 1
@@ -11,14 +11,14 @@ algo: td3
 encoders:
   - name: actor_state_enc
     type: mlp
-    input_dim: 17
+    input_dim: auto
     latent_dim: 256
     layers:
       - {out_features: 256, activation: relu, norm: layer_norm}
       - {out_features: 256, activation: relu, norm: layer_norm}
   - name: critic_state_enc
     type: mlp
-    input_dim: 17
+    input_dim: auto
     latent_dim: 256
     layers:
       - {out_features: 256, activation: relu, norm: layer_norm}
@@ -31,14 +31,14 @@ flows:
 actor:
   name: actor
   type: deterministic
-  action_dim: 6
+  action_dim: auto
   layers:
     - {out_features: 256, activation: relu, norm: layer_norm}
 
 critic:
   name: critic
   type: twin_q
-  action_dim: 6
+  action_dim: auto
   layers:
     - {out_features: 256, activation: relu, norm: layer_norm}
 

@@ -66,9 +66,11 @@ behind {meth}`BaseAgent.learn() <srl.core.base_agent.BaseAgent.learn>` and
 ## Configuration and logging
 
 ```{eval-rst}
-.. autofunction:: srl.training.make_algo_config
+.. autofunction:: srl.training.env_derived_overrides
 
-.. autoexception:: srl.training.ConfigurationError
+``srl.training.ConfigurationError`` is an alias of {class}`srl.config.ConfigError`.
+YAML -> dataclass construction itself lives in {mod}`srl.config`
+({func}`~srl.config.load_experiment`, {func}`~srl.config.build_algo_config`).
 
 .. autoclass:: srl.training.NullLogger
    :show-inheritance:

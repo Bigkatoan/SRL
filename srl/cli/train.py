@@ -12,11 +12,13 @@ import argparse
 import os
 import sys
 import warnings
+from typing import Any
 
+from srl.config._validate import ConfigError
 from srl.training import envs as _envs
-from srl.training.algo_config import ConfigurationError
 
-_DEFAULT_SAVE_INTERVAL = 100_000
+#: Old name of :class:`srl.config.ConfigError` (kept for imports from here).
+ConfigurationError = ConfigError
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -188,6 +190,7 @@ Examples
 
 
 def _train_section(config_path: str) -> tuple[dict, dict]:
+    """``(train block, whole YAML)`` of *config_path*, unvalidated (pipeline rendering)."""
     import yaml
 
     with open(config_path, encoding="utf-8") as handle:
@@ -196,54 +199,59 @@ def _train_section(config_path: str) -> tuple[dict, dict]:
 
 
 def _resolve_algo(cli_algo: str | None, raw_cfg: dict, config_path: str) -> str:
-    """``--algo`` wins, then the YAML ``algo:`` key; never silently defaults."""
+    """``--algo`` wins, then the YAML ``algo:`` key; never silently defaults.
+
+    Guessing from the file name (``srl.config.infer_algo_name``) still works
+    but warns.
+    """
+    from srl.config import infer_algo_name
+
     algo = cli_algo or raw_cfg.get("algo")
     if algo:
         return str(algo).strip().lower()
-    stem = os.path.basename(config_path).lower()
-    for guess in ("td3", "sac", "ddpg", "a3c", "a2c", "ppo"):
-        if guess in stem:
-            message = (
-                f"Config '{config_path}' has no `algo:` key; guessing '{guess}' from the "
-                "file name is deprecated and will be removed. Add `algo: "
-                f"{guess}` to the YAML or pass --algo {guess}."
-            )
-            warnings.warn(message, DeprecationWarning, stacklevel=2)
-            print(f"[srl-train] Warning: {message}", file=sys.stderr)
-            return guess
+    guess = infer_algo_name(raw_cfg, config_path)
+    if guess:
+        message = (
+            f"Config '{config_path}' has no `algo:` key; guessing '{guess}' from the "
+            "file name is deprecated and will be removed. Add `algo: "
+            f"{guess}` to the YAML or pass --algo {guess}."
+        )
+        warnings.warn(message, DeprecationWarning, stacklevel=2)
+        print(f"[srl-train] Warning: {message}", file=sys.stderr)
+        return guess
     raise ConfigurationError(
         f"Config '{config_path}' does not declare an algorithm: add `algo: <ppo|sac|ddpg|"
         "td3|a2c|a3c>` to the YAML or pass --algo."
     )
 
 
-def _apply_train_defaults(args, train_cfg: dict) -> None:
-    """CLI flag wins if passed, else the YAML ``train:`` block, else the default."""
-
-    def pick(name: str, key: str, default, cast):
-        value = getattr(args, name)
-        setattr(args, name, value if value is not None else cast(train_cfg.get(key, default)))
-
-    pick("device", "device", "auto", str)
-    pick("seed", "seed", 0, int)
-    pick("log_interval", "log_interval", 2048, int)
-    pick("eval_freq", "eval_freq", 50_000, int)
-    pick("eval_episodes", "eval_episodes", 10, int)
-    pick("deterministic", "deterministic", False, bool)
-    pick("save_best", "save_best", False, bool)
-    pick("steps", "total_steps", 1_000_000, int)
-    pick("n_envs", "n_envs", 1, int)
+_TRAINER_FLAGS = {
+    # args attribute -> TrainerConfig field
+    "device": "device",
+    "seed": "seed",
+    "log_interval": "log_interval",
+    "eval_freq": "eval_freq",
+    "eval_episodes": "eval_episodes",
+    "deterministic": "deterministic",
+    "save_best": "save_best",
+    "steps": "total_steps",
+    "n_envs": "n_envs",
+}
 
 
-def _runner_cfg(train_cfg: dict):
-    """``train.use_async`` / ``train.use_gpu_buffer`` -> AsyncRunnerConfig (else None)."""
-    if not (train_cfg.get("use_async") or train_cfg.get("use_gpu_buffer")):
-        return None
-    from srl.core.config import AsyncRunnerConfig
+def _apply_train_defaults(args, trainer) -> Any:
+    """CLI flag wins if passed, else the validated ``train:`` value (or its default).
 
-    return AsyncRunnerConfig(
-        use_async=bool(train_cfg.get("use_async", False)),
-        use_gpu_buffer=bool(train_cfg.get("use_gpu_buffer", False)),
+    Returns the :class:`~srl.config.TrainerConfig` with the flags applied,
+    which is what the resolved config dump records.
+    """
+    import dataclasses
+
+    for name, key in _TRAINER_FLAGS.items():
+        if getattr(args, name) is None:
+            setattr(args, name, getattr(trainer, key))
+    return dataclasses.replace(
+        trainer, **{key: getattr(args, name) for name, key in _TRAINER_FLAGS.items()}
     )
 
 
@@ -317,7 +325,7 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     try:
         return _train(args)
-    except ConfigurationError as exc:
+    except ConfigError as exc:
         print(f"[srl-train] {exc}", file=sys.stderr)
         return 2
 
@@ -327,10 +335,11 @@ def _train(args) -> int:
 
     import torch
 
-    from srl.algorithms import get_algorithm
+    from srl.config import dump_resolved_config, load_experiment
+    from srl.core.agent_io import build_agent_from_experiment
     from srl.core.base_agent import OffPolicyAgent
-    from srl.registry.builder import ModelBuilder
-    from srl.training.algo_config import make_algo_config, validate_algo_model_compatibility
+    from srl.registry.registry import AlgorithmRegistry
+    from srl.training.algo_config import report_aux_config, validate_algo_model_compatibility
     from srl.training.callbacks import CheckpointCallback
     from srl.training.evaluation import Evaluator, seed_best_tracker
     from srl.utils.checkpoint import BestCheckpointTracker, CheckpointManager
@@ -339,8 +348,20 @@ def _train(args) -> int:
     from srl.utils.seeding import set_random_seed
 
     print(f"[srl-train] Loading config: {args.config}")
-    train_cfg, raw_cfg = _train_section(args.config)
-    _apply_train_defaults(args, train_cfg)
+    _, raw_cfg = _train_section(args.config)
+    algo_name = _resolve_algo(args.algo, raw_cfg, args.config)
+    if algo_name not in AlgorithmRegistry:
+        print(
+            f"[srl-train] Unknown algorithm: {algo_name} "
+            f"(available: {AlgorithmRegistry.available()})",
+            file=sys.stderr,
+        )
+        return 1
+    compatibility_error = validate_algo_model_compatibility(raw_cfg, algo_name, args.config)
+    if compatibility_error is not None:
+        raise ConfigurationError(compatibility_error)
+    exp = load_experiment(args.config, algo=algo_name)
+    trainer_cfg = _apply_train_defaults(args, exp.trainer)
     device = args.device
     if device == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -351,16 +372,13 @@ def _train(args) -> int:
         torch.backends.cudnn.allow_tf32 = True
         torch.set_float32_matmul_precision("high")
 
-    algo_name = _resolve_algo(args.algo, raw_cfg, args.config)
-    try:
-        agent_cls, _ = get_algorithm(algo_name)
-    except KeyError:
-        print(f"[srl-train] Unknown algorithm: {algo_name}", file=sys.stderr)
-        return 1
-    args.env, args.env_type = _envs.resolve_env_spec(args.env, raw_cfg)
-    compatibility_error = validate_algo_model_compatibility(raw_cfg, algo_name, args.config)
-    if compatibility_error is not None:
-        raise ConfigurationError(compatibility_error)
+    args.env_type = exp.env.env_type
+    env_name = args.env or exp.env.env_id
+    if not env_name:
+        raise ConfigurationError(
+            "Environment id is required. Pass --env or set env_id in the YAML config."
+        )
+    args.env = _envs.normalize_env_name(env_name, args.env_type)
 
     print(f"[srl-train] Algorithm: {algo_name.upper()}")
     run_name = f"{algo_name}_{os.path.splitext(os.path.basename(args.config))[0]}"
@@ -399,8 +417,9 @@ def _train(args) -> int:
     )
 
     plot_metrics = [m.strip() for m in args.plot_metrics.split(",") if m.strip()]
+    run_dir = os.path.join(args.logdir, run_name)
     logger = Logger(
-        log_dir=os.path.join(args.logdir, run_name),
+        log_dir=run_dir,
         verbose=True,
         config=LoggerConfig(
             console_interval=args.log_interval,
@@ -433,15 +452,23 @@ def _train(args) -> int:
         if args.resume:
             seed_best_tracker(best_cm, best_tracker, device)
 
-    # Env before model: integration point for srl.config's env-derived
-    # auto dims (resolve_auto_dims_from_env / ModelBuilder.from_config).
-    model = ModelBuilder.from_yaml(args.config)
-    algo_cfg = make_algo_config(
-        algo_name, raw_cfg, env=env, env_type=args.env_type, n_envs=args.n_envs
+    # Env before model: `auto` dims are resolved from the env's spaces.
+    import dataclasses
+
+    exp = dataclasses.replace(
+        exp, trainer=trainer_cfg, env=dataclasses.replace(exp.env, env_id=env_name)
     )
-    agent = agent_cls(model, config=algo_cfg, device=device, env=env)
-    agent._model_spec = raw_cfg
-    agent._env_type = args.env_type
+    agent = build_agent_from_experiment(
+        exp,
+        env,
+        device=device,
+        n_envs=args.n_envs if is_a3c else None,
+        source=args.config,
+    )
+    report_aux_config(algo_name, raw_cfg, agent.cfg)
+    resolved_path = os.path.join(run_dir, "config.yaml")
+    dump_resolved_config(agent._experiment, resolved_path)
+    print(f"[srl-train] Resolved config: {resolved_path}")
     visualizer_handle = _maybe_start_visualizer(agent, args, device)
 
     if is_a3c:
@@ -468,11 +495,12 @@ def _train(args) -> int:
             best_cm=best_cm,
             best_tracker=best_tracker,
         )
-        save_interval = int(train_cfg.get("save_interval", _DEFAULT_SAVE_INTERVAL))
-        extra = {"runner_cfg": _runner_cfg(train_cfg)} if isinstance(agent, OffPolicyAgent) else {}
+        extra = {"runner_cfg": exp.runner} if isinstance(agent, OffPolicyAgent) else {}
         agent.learn(
             max(args.steps - start_step, 0),
-            callbacks=[CheckpointCallback(cm, save_interval=save_interval, model=agent)],
+            callbacks=[
+                CheckpointCallback(cm, save_interval=trainer_cfg.save_interval, model=agent)
+            ],
             logger=logger,
             evaluator=evaluator,
             seed=args.seed,

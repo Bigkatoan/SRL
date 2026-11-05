@@ -1,4 +1,4 @@
-# SAC on FetchPickAndPlace-v4  (obs_flat=31, act=4)
+# SAC on FetchPickAndPlace-v4  (obs_flat=31, act=4; dims resolved from the env: `auto`)
 # SAC + HER (future, k=4) with observation normalization.
 # Target: success_rate > 0.70 (convergence ~5M steps)
 
@@ -13,14 +13,14 @@ algo: sac
 encoders:
   - name: actor_state_enc
     type: mlp
-    input_dim: 31
+    input_dim: auto
     latent_dim: 256
     layers:
       - {out_features: 256, activation: relu, norm: layer_norm}
       - {out_features: 256, activation: relu, norm: layer_norm}
   - name: critic_state_enc
     type: mlp
-    input_dim: 31
+    input_dim: auto
     latent_dim: 256
     layers:
       - {out_features: 256, activation: relu, norm: layer_norm}
@@ -33,7 +33,7 @@ flows:
 actor:
   name: actor
   type: squashed_gaussian
-  action_dim: 4
+  action_dim: auto
   log_std_min: -5.0
   log_std_max: 2.0
   layers:
@@ -42,7 +42,7 @@ actor:
 critic:
   name: critic
   type: twin_q
-  action_dim: 4
+  action_dim: auto
   layers:
     - {out_features: 256, activation: relu, norm: layer_norm}
 

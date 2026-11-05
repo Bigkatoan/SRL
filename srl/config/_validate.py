@@ -502,6 +502,7 @@ DEFAULT_RANGES: dict[str, Range] = {
             "entropy_coef_anneal_steps",
             "total_steps",
             "log_interval",
+            "save_interval",
             "eval_episodes",
             "latent_dim",
             "aux_latent_dim",

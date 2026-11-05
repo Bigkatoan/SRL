@@ -230,7 +230,9 @@ class A3CConfig(_Validated):
     n_workers: int = 4
     batch_size: int = 20
     # Base seed; worker `rank` uses `seed + rank` (torch RNG + env.reset).
-    seed: int = 0
+    # Not a train: key of its own -- it is the trainer-level `train.seed`
+    # (set by from_config / srl-train, and by learn(seed=...)).
+    seed: int = field(default=0, metadata={"yaml": False})
 
 
 @dataclass

@@ -326,6 +326,7 @@ that wins when passed):
 | `eval_episodes` | int ≥ 1 | 10 |
 | `deterministic` | bool | false |
 | `save_best` | bool | false |
+| `save_interval` | int ≥ 1 | 100_000 |
 
 **Async-runner keys** (`AsyncRunnerConfig`): `use_async`, `use_gpu_buffer`.
 

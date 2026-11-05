@@ -1,4 +1,4 @@
-# PPO on Hopper-v5  (obs=11, act=3)
+# PPO on Hopper-v5  (obs=11, act=3; dims resolved from the env: `auto`)
 # Target return: ~2500 (convergence ~1M steps)
 
 schema_version: 1
@@ -11,14 +11,14 @@ algo: ppo
 encoders:
   - name: actor_state_enc
     type: mlp
-    input_dim: 11
+    input_dim: auto
     latent_dim: 256
     layers:
       - {out_features: 256, activation: tanh, norm: none}
       - {out_features: 256, activation: tanh, norm: none}
   - name: critic_state_enc
     type: mlp
-    input_dim: 11
+    input_dim: auto
     latent_dim: 256
     layers:
       - {out_features: 256, activation: tanh, norm: none}
@@ -31,7 +31,7 @@ flows:
 actor:
   name: actor
   type: gaussian
-  action_dim: 3
+  action_dim: auto
   log_std_init: -1.0
   layers:
     - {out_features: 128, activation: tanh, norm: none}

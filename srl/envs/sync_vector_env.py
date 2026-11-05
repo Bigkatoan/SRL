@@ -37,6 +37,7 @@ class SyncVectorEnv:
         # attribute IsaacLabWrapper exposes, so warmup samplers can treat
         # every vector env uniformly.
         self.single_act_space = self.act_space
+        self.single_obs_space = self.obs_space
 
     def reset(self, **kwargs) -> tuple[dict[str, np.ndarray], list[dict]]:
         obs_list, info_list = zip(

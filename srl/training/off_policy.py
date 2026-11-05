@@ -15,6 +15,7 @@ from typing import Any
 
 import numpy as np
 
+from srl.config.algos import normalize_offpolicy_schedule
 from srl.envs.vector_utils import get_final_obs
 from srl.training._obs import (
     agent_act,
@@ -40,13 +41,11 @@ def warn_if_no_updates_will_run(agent, total_steps: int, start_step: int) -> Non
     -- easy to misdiagnose as a training bug rather than what it actually is:
     no learning happened at all in this run.
     """
-    update_after = getattr(agent.cfg, "update_after", None)
-    source = "update_after"
-    if update_after is None:
-        update_after = getattr(agent.cfg, "learning_starts", None)
-        source = "learning_starts"
-    if update_after is None:
+    cfg = agent.cfg
+    if getattr(cfg, "update_after", None) is None and getattr(cfg, "learning_starts", None) is None:
         return
+    source = "update_after" if getattr(cfg, "update_after", None) is not None else "learning_starts"
+    update_after = normalize_offpolicy_schedule(cfg).update_after
     remaining_steps = int(total_steps) - int(start_step)
     if remaining_steps < int(update_after):
         print(
@@ -56,30 +55,6 @@ def warn_if_no_updates_will_run(agent, total_steps: int, start_step: int) -> Non
             f"config's train.total_steps) past {source}, or lower it, to actually train.",
             file=sys.stderr,
         )
-
-
-def _schedule(cfg) -> tuple[int, int, int, int]:
-    """``(random_steps, update_after, update_every, gradient_steps)``.
-
-    Single place that interprets the off-policy schedule fields (to be
-    replaced by ``srl.config.normalize_offpolicy_schedule`` once merged).
-    """
-    random_steps = getattr(cfg, "start_steps", None)
-    if random_steps is None:
-        random_steps = getattr(cfg, "learning_starts", 10_000)
-    update_after = getattr(cfg, "update_after", None)
-    if update_after is None:
-        update_after = getattr(cfg, "learning_starts", 10_000)
-    update_every = getattr(cfg, "update_every", None)
-    if update_every is None:
-        update_every = getattr(cfg, "train_freq", 1)
-    gradient_steps = max(int(getattr(cfg, "gradient_steps", 1)), 1)
-    return (
-        max(int(random_steps), 0),
-        max(int(update_after), 0),
-        max(int(update_every), 1),
-        (gradient_steps),
-    )
 
 
 class OffPolicyTrainer(Trainer):
@@ -112,19 +87,11 @@ class OffPolicyTrainer(Trainer):
         from srl import runners
 
         agent = self.agent
-        gradient_steps = _schedule(agent.cfg)[3]
-        # The async runner has always treated an explicit 0 for these as
-        # "unset" (falls back to learning_starts) -- keep its `or` semantics.
-        random_steps = int(
-            getattr(agent.cfg, "start_steps", None) or getattr(agent.cfg, "learning_starts", 10_000)
-        )
-        update_after = int(
-            getattr(agent.cfg, "update_after", None)
-            or getattr(agent.cfg, "learning_starts", 10_000)
-        )
-        update_every = int(
-            getattr(agent.cfg, "update_every", None) or getattr(agent.cfg, "train_freq", 1)
-        )
+        schedule = normalize_offpolicy_schedule(agent.cfg)
+        random_steps = schedule.learning_starts
+        update_after = schedule.update_after
+        update_every = schedule.train_freq
+        gradient_steps = schedule.gradient_steps
 
         def _log_fn(step: int, metrics: dict) -> None:
             self.step = max(self.step, int(step))
@@ -178,7 +145,9 @@ class OffPolicyTrainer(Trainer):
         from srl.core.her_replay_buffer import HERReplayBuffer
 
         agent, env = self.agent, self.env
-        random_steps, update_after, update_every, gradient_steps = _schedule(agent.cfg)
+        schedule = normalize_offpolicy_schedule(agent.cfg)
+        random_steps, update_after = schedule.learning_starts, schedule.update_after
+        update_every, gradient_steps = schedule.train_freq, schedule.gradient_steps
         obs, reset_info = env.reset(seed=self.seed)
         encoder_names, encoder_input_names = encoder_layout(agent)
         # HER collection: episodes go in via add_transition() with the goal

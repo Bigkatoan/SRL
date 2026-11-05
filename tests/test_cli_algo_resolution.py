@@ -80,3 +80,17 @@ def test_cli_final_checkpoint_loads_through_the_python_api(tmp_path) -> None:
     obs, _ = gym.make("Pendulum-v1").reset(seed=0)
     action, _ = agent.predict(obs, deterministic=True)
     assert action.shape == (1,) and np.all(np.abs(action) <= 2.0)
+
+
+def test_cli_writes_the_resolved_config_to_the_run_dir(tmp_path) -> None:
+    from srl.config import load_experiment
+
+    cfg = model_config("ppo")
+    cfg["encoders"] = [dict(cfg["encoders"][0], input_dim="auto")]
+    cfg["actor"] = dict(cfg["actor"], action_dim="auto")
+    assert _run(tmp_path, cfg, "cfg.yaml", "--steps", "32", "--seed", "3") == 0
+    exp = load_experiment(tmp_path / "runs" / "ppo_cfg" / "config.yaml")
+    assert exp.model.encoders[0].input_dim == 3 and exp.model.actor.action_dim == 1
+    # CLI flags are recorded as what actually ran.
+    assert exp.trainer.seed == 3 and exp.trainer.total_steps == 32
+    assert exp.env.env_id == "Pendulum-v1"

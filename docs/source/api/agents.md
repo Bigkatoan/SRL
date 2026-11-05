@@ -15,8 +15,10 @@ from {class}`~srl.core.base_agent.OffPolicyAgent`.
 | `act(obs_tensors, hidden=None, deterministic=False)` | low level | tensor action in the model's `[-1, 1]` domain: `(action, log_prob, value, hidden)` |
 | `update()` | low level | one gradient update from the agent's buffer |
 
-Algorithms are registered by name in {data}`srl.algorithms.ALGORITHMS`
-(`name -> (agent class, config class)`); that name is the YAML `algo:` key.
+Algorithms are registered by name in `srl.registry.AlgorithmRegistry` (an
+`AlgorithmSpec` per name; plugins use the same API, see [Extending SRL](../extending.md));
+that name is the YAML `algo:` key. {data}`srl.algorithms.ALGORITHMS` is a read-only
+`name -> (agent class, config class)` view of the registry kept for compatibility.
 
 ## BaseAgent
 
@@ -50,7 +52,7 @@ agent) and as `agent.load(path)` (restores in place).
 
 ```{eval-rst}
 .. automodule:: srl.core.agent_io
-   :members: save_agent, load_agent, read_payload
+   :members: save_agent, load_agent, read_payload, build_agent_from_experiment
 ```
 
 ## Algorithm registry

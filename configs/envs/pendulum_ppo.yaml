@@ -1,4 +1,4 @@
-# PPO on Pendulum-v1  (obs=3, act=1)
+# PPO on Pendulum-v1  (obs=3, act=1; dims resolved from the env: `auto`)
 # Hyperparameters follow rl-baselines3-zoo's Pendulum-v1 PPO (minus gSDE):
 # gamma 0.9, lr 1e-3, n_steps 1024 x 4 envs, 10 epochs, obs+reward
 # normalisation. Target eval return > -400 by ~200k steps (~-200 when solved).
@@ -13,14 +13,14 @@ algo: ppo
 encoders:
   - name: actor_state_enc
     type: mlp
-    input_dim: 3
+    input_dim: auto
     latent_dim: 64
     layers:
       - {out_features: 64, activation: tanh, norm: none}
       - {out_features: 64, activation: tanh, norm: none}
   - name: critic_state_enc
     type: mlp
-    input_dim: 3
+    input_dim: auto
     latent_dim: 64
     layers:
       - {out_features: 64, activation: tanh, norm: none}
@@ -33,7 +33,7 @@ flows:
 actor:
   name: actor
   type: gaussian
-  action_dim: 1
+  action_dim: auto
   log_std_init: -0.5
   layers:
     - {out_features: 64, activation: tanh, norm: none}

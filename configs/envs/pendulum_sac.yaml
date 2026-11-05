@@ -1,4 +1,4 @@
-# SAC on Pendulum-v1  (obs=3, act=1)
+# SAC on Pendulum-v1  (obs=3, act=1; dims resolved from the env: `auto`)
 # rl-baselines3-zoo Pendulum-v1 SAC hyperparameters. Eval return > -250 by
 # ~20k steps (random policy ~ -1200; ~-150 when solved). Also the config used
 # by the Python-API quickstart:
@@ -16,14 +16,14 @@ algo: sac
 encoders:
   - name: actor_state_enc
     type: mlp
-    input_dim: 3
+    input_dim: auto
     latent_dim: 256
     layers:
       - {out_features: 256, activation: relu}
       - {out_features: 256, activation: relu}
   - name: critic_state_enc
     type: mlp
-    input_dim: 3
+    input_dim: auto
     latent_dim: 256
     layers:
       - {out_features: 256, activation: relu}
@@ -36,7 +36,7 @@ flows:
 actor:
   name: actor
   type: squashed_gaussian
-  action_dim: 1
+  action_dim: auto
   log_std_min: -5.0
   log_std_max: 2.0
   layers:
@@ -45,7 +45,7 @@ actor:
 critic:
   name: critic
   type: twin_q
-  action_dim: 1
+  action_dim: auto
   layers:
     - {out_features: 256, activation: relu}
 
