@@ -34,6 +34,8 @@ repo rather than installing straight from the git URL.
 ```bash
 # package-only install, if you don't need the example configs
 pip install git+https://github.com/Bigkatoan/SRL.git
+# or pin a release tag:
+pip install "srl-rl @ git+https://github.com/Bigkatoan/SRL.git@v0.3.0"
 ```
 
 ## Editable install (for development)
