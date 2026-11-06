@@ -211,6 +211,7 @@ tests/
 !tests/
 tests/*
 !tests/test_*.py
+!tests/evaluator_compat.py
 venv/
 *.pt
 *.safetensors

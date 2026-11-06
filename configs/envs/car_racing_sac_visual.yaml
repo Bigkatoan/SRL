@@ -19,6 +19,8 @@
 # incompatible with CNN encoders -- the buffer hands back half-precision
 # tensors while the model's weights stay float32.
 
+schema_version: 1
+
 env_id: "CarRacing-v3"
 env_type: "flat"
 
@@ -54,11 +56,6 @@ critic:
   action_dim: 3
   layers:
     - {out_features: 256, activation: relu}
-
-losses:
-  - {name: sac_q,           weight: 1.0}
-  - {name: sac_policy,      weight: 1.0}
-  - {name: sac_temperature, weight: 1.0}
 
 train:
   total_steps: 1_000_000

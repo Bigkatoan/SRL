@@ -1,6 +1,9 @@
 # Multi-modal SAC: visual + state + text description
 # Contrastive self-supervised representation for the visual branch
 
+schema_version: 1
+algo: sac
+
 encoders:
   - name: visual_enc
     type: cnn
@@ -47,14 +50,6 @@ critic:
   type: twin_q
   action_dim: 6
   layers: [{out_features: 256, activation: relu}]
-
-losses:
-  - name: sac_q
-    weight: 1.0
-  - name: sac_policy
-    weight: 1.0
-  - name: contrastive
-    weight: 0.5
 
 ros2:
   observations:

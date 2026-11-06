@@ -2,6 +2,8 @@
 # Requires IsaacLab + IsaacSim
 # Target return: ~5000 (convergence ~10M steps)
 
+schema_version: 1
+
 env_id: "Isaac-Humanoid-v0"
 env_type: "isaaclab"
 
@@ -42,11 +44,6 @@ critic:
   type: value
   layers:
     - {out_features: 128, activation: elu, norm: none}
-
-losses:
-  - {name: policy,  weight: 1.0}
-  - {name: value,   weight: 1.0}
-  - {name: entropy, weight: 0.0}
 
 train:
   total_steps: 10_000_000

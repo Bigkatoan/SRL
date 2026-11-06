@@ -47,11 +47,13 @@ jobs:
 
   mypy:
     # Ratchet: fail only if the error count grows above the baseline
-    # (292 on 2026-11-05). Lower MYPY_BASELINE as errors get fixed.
+    # (292 on 2026-11-05; 196 after the Phase 2 integration -- 184 in a local
+    # CI-like env, where main measured 280 vs 292 in CI). Lower MYPY_BASELINE
+    # as errors get fixed.
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      MYPY_BASELINE: "292"
+      MYPY_BASELINE: "183"
 
     steps:
       - name: Checkout repository

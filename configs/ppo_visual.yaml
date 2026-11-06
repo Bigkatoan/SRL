@@ -1,5 +1,8 @@
 # PPO on a visual environment — CNN encoder with autoencoder auxiliary loss
 
+schema_version: 1
+algo: ppo
+
 encoders:
   - name: visual_enc
     type: cnn
@@ -25,15 +28,3 @@ critic:
   name: critic
   type: value
   layers: [{out_features: 256, activation: relu}]
-
-losses:
-  - name: policy
-    weight: 1.0
-  - name: value
-    weight: 0.5
-  - name: entropy
-    weight: 0.01
-  - name: reconstruction
-    weight: 0.1
-    schedule: cosine
-    total_steps: 2000000

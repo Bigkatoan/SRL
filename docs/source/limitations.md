@@ -24,7 +24,10 @@ Environment creation is still handled procedurally by the CLI and wrapper classe
 
 ### Arbitrary custom loss registration from YAML
 
-Built-in losses can be selected, but there is not yet a general registry that lets users declare any custom loss purely from YAML.
+Each algorithm builds its own loss terms; their weights are set through `train:`
+hyperparameters (`vf_coef`, `entropy_coef`, `aux_weight`, ...). There is no YAML-level
+loss list (the old, never-read `losses:` block was removed) and no loss registry —
+a custom loss means a custom algorithm (see [Extending SRL](extending.md)).
 
 ### Hindsight Experience Replay (HER) beyond single-env SAC
 

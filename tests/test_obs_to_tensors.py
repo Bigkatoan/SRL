@@ -12,7 +12,7 @@ CNN-encoder config with a channel-count mismatch several layers downstream.
 
 from __future__ import annotations
 
-from srl.cli.train import _obs_to_tensors
+from srl.training._obs import obs_to_tensors as _obs_to_tensors
 
 
 def test_force_batch_expands_unbatched_flat_state_vector() -> None:

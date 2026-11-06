@@ -116,14 +116,14 @@ def test_on_policy_bootstraps_from_true_final_obs(monkeypatch, tmp_path) -> None
     from srl.algorithms.ppo import PPO
 
     seen_t: list[float] = []
-    original_predict = PPO.predict
+    original_predict = PPO.act
 
     def _spy_predict(self, obs, *a, **k):
         first = next(iter(obs.values()))
         seen_t.extend(np.asarray(first.detach().cpu())[..., 0].reshape(-1).tolist())
         return original_predict(self, obs, *a, **k)
 
-    monkeypatch.setattr(PPO, "predict", _spy_predict)
+    monkeypatch.setattr(PPO, "act", _spy_predict)
     cfg = mlp_config("ppo", total_steps=32)
     run_cli(monkeypatch, tmp_path, cfg)
     # Acting observations never reach t == ep_len (that frame is replaced

@@ -35,7 +35,10 @@ from srl.core.config import AsyncRunnerConfig, SACConfig
 from srl.registry.builder import ModelBuilder
 from srl.runners import AsyncOffPolicyRunner
 
-model = ModelBuilder.from_yaml("configs/envs/halfcheetah_sac.yaml")
+env = ...  # an SRL env, e.g. srl.training.make_env("HalfCheetah-v5", "cuda:0", 1)
+model = ModelBuilder.from_yaml(  # the config uses `auto` dims: resolve them from env
+    "configs/envs/halfcheetah_sac.yaml", obs_space=env.obs_space, act_space=env.act_space
+)
 agent = SAC(model, copy.deepcopy(model), SACConfig(action_dim=6), device="cuda:0")
 
 runner_cfg = AsyncRunnerConfig(
@@ -45,7 +48,7 @@ runner_cfg = AsyncRunnerConfig(
 
 runner = AsyncOffPolicyRunner(
     agent          = agent,      # the agent owns its own replay buffer
-    env            = env,        # any gym-compatible env
+    env            = env,
     total_steps    = 500_000,
     runner_cfg     = runner_cfg,
     device         = "cuda:0",
@@ -82,8 +85,10 @@ runner_cfg = AsyncRunnerConfig(use_async=False, use_gpu_buffer=True)
 |---|---|---|---|
 | `use_async` | `bool` | `False` | Enable collector/trainer thread split |
 | `use_gpu_buffer` | `bool` | `False` | Replace CPU buffer with `GPUReplayBuffer` |
-| `prefill_steps` | `int` | `0` | Declared but currently unread — use the runner's `random_steps` argument |
-| `queue_maxsize` | `int` | `2` | Declared but currently unread |
+
+(The former `prefill_steps` / `queue_maxsize` fields were never read and have been
+removed; they are ignored with a deprecation warning if a `train:` block still sets
+them.)
 
 The runner's own constructor arguments control the loop: `random_steps` (random-action
 warmup), `update_after` (minimum buffer fill), `update_every` (env steps per trigger),
@@ -99,15 +104,16 @@ Set `use_async`/`use_gpu_buffer` directly under a SAC/DDPG/TD3 config's `train:`
 algo: sac
 train:
   n_envs: 512
-  update_every: 512
+  train_freq: 512
   gradient_steps: 16
   use_async: true
   use_gpu_buffer: true
 ```
 
 `random_steps`/`update_after`/`update_every`/`gradient_steps` are read from the
-algorithm config the same way the sync path already reads them (`start_steps`,
-`update_after`, `update_every`, `gradient_steps` in the YAML `train:` block) --
+algorithm config the same way the sync path already reads them (`learning_starts`,
+`update_after`, `train_freq`, `gradient_steps` in the YAML `train:` block, resolved by
+`srl.config.normalize_offpolicy_schedule`) --
 nothing async-specific to configure beyond the two boolean flags themselves.
 
 ```{note}

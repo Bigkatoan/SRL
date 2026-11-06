@@ -9,7 +9,8 @@ Two layers of checks:
 * ``test_config_builds_and_forwards`` -- pure model check, no simulator
   needed. Builds the model with :class:`ModelBuilder` and pushes dummy
   observations (shaped from each encoder's ``input_dim``/``input_shape``)
-  through it.
+  through it. Configs with ``input_dim: auto`` / ``action_dim: auto`` are
+  resolved from the env's (known, hard-coded) space sizes first.
 * ``test_config_matches_env_spaces`` -- constructs the real environment the
   config targets (via the same factory ``srl-train`` uses) and checks the
   observation/action dims agree with the YAML. Skipped, with the reason, when
@@ -19,6 +20,7 @@ Two layers of checks:
 
 from __future__ import annotations
 
+import dataclasses
 import importlib.util
 import math
 from pathlib import Path
@@ -46,6 +48,47 @@ _COMPATIBLE_HEADS = {
     "ddpg": ({"deterministic"}, {"q", "q_function", "twin_q"}),
     "td3": ({"deterministic"}, {"twin_q"}),
 }
+
+
+# Space sizes of the envs whose shipped configs use `auto` dims, so the
+# model check needs no simulator: env_id -> (flat obs size, action dim).
+# test_config_matches_env_spaces checks the real envs agree.
+_KNOWN_DIMS = {
+    "Pendulum-v1": (3, 1),
+    "Hopper-v5": (11, 3),
+    "HalfCheetah-v5": (17, 6),
+    "Walker2d-v5": (17, 6),
+    "FetchReach-v4": (16, 4),
+    "FetchPush-v4": (31, 4),
+    "FetchSlide-v4": (31, 4),
+    "FetchPickAndPlace-v4": (31, 4),
+}
+
+
+def _uses_auto(raw: dict) -> bool:
+    heads = [raw.get("actor") or {}, raw.get("critic") or {}]
+    return any(e.get("input_dim") == "auto" for e in raw.get("encoders") or []) or any(
+        h.get("action_dim") == "auto" for h in heads
+    )
+
+
+def _resolve_known_dims(raw: dict) -> dict:
+    """``raw`` with `auto` dims filled from :data:`_KNOWN_DIMS` via srl.config."""
+    import copy
+
+    from srl.config import resolve_auto_dims
+
+    env_id = raw.get("env_id")
+    assert env_id in _KNOWN_DIMS, f"add {env_id!r} to _KNOWN_DIMS"
+    obs_dim, act_dim = _KNOWN_DIMS[env_id]
+    cfg = resolve_auto_dims(raw, {"state": (obs_dim,)}, (act_dim,))
+    out = copy.deepcopy(raw)
+    for enc, resolved in zip(out["encoders"], cfg.encoders, strict=True):
+        enc["input_dim"] = resolved.input_dim
+    for role in ("actor", "critic"):
+        if out.get(role) and getattr(cfg, role).action_dim is not None:
+            out[role]["action_dim"] = getattr(cfg, role).action_dim
+    return out
 
 
 def _ids(paths: list[Path]) -> list[str]:
@@ -84,7 +127,11 @@ def test_config_builds_and_forwards(config_path: Path) -> None:
     assert raw.get("encoders"), "config declares no encoders"
     assert raw.get("actor"), "config declares no actor head"
 
-    model = ModelBuilder.from_yaml(str(config_path))
+    if _uses_auto(raw):
+        raw = _resolve_known_dims(raw)
+        model = ModelBuilder.from_dict(raw)
+    else:
+        model = ModelBuilder.from_yaml(str(config_path))
     model.eval()
 
     algo = str(raw.get("algo") or "").lower()
@@ -160,22 +207,37 @@ ENV_CONFIGS = sorted((CONFIG_DIR / "envs").glob("*.yaml"))
 def test_config_matches_env_spaces(config_path: Path) -> None:
     import numpy as np
 
-    from srl.cli.train import _make_cli_env, _resolve_env_action_dim, _resolve_env_spec
+    from srl.training.envs import env_action_dim as _resolve_env_action_dim
+    from srl.training.envs import make_env as _make_cli_env
+    from srl.training.envs import resolve_env_spec as _resolve_env_spec
 
     raw = _load(config_path)
     reason = _skip_reason_for(raw)
     if reason:
         pytest.skip(reason)
 
+    from srl.config import resolve_auto_dims_from_env
+
     env_name, env_type = _resolve_env_spec(None, raw)
     env = _make_cli_env(env_name, "cpu", 1, env_type)
     try:
+        # What srl-train does: fill `auto` dims from the env, cross-check the rest.
+        model_cfg = resolve_auto_dims_from_env(raw, env)
+        if _uses_auto(raw):
+            assert _resolve_known_dims(raw)["encoders"][0]["input_dim"] == (
+                model_cfg.encoders[0].input_dim
+            ), "_KNOWN_DIMS is stale"
+        raw = {
+            **raw,
+            "encoders": [dataclasses.asdict(e) for e in model_cfg.encoders],
+            "actor": {"action_dim": model_cfg.actor.action_dim},
+        }
         obs, _ = env.reset(seed=0)
         assert _resolve_env_action_dim(env) == int(raw["actor"]["action_dim"])
         assert len(obs) == 1, f"expected single-key obs dict, got {list(obs)}"
         obs_shape = tuple(np.asarray(next(iter(obs.values()))).shape)
         for enc in raw["encoders"]:
-            if "input_shape" in enc:
+            if enc.get("input_shape"):
                 assert obs_shape == tuple(enc["input_shape"]), enc["name"]
             else:
                 assert math.prod(obs_shape) == int(enc["input_dim"]), enc["name"]

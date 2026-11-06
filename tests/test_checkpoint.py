@@ -69,3 +69,32 @@ def test_checkpoint_manager_latest_returns_recent_path(tmp_path) -> None:
     latest = manager.save(model, step=2)
 
     assert manager.latest() == latest
+
+
+def test_checkpoint_manager_files_load_without_pickle(tmp_path) -> None:
+    import warnings
+
+    from srl.utils.safe_serialization import load_weights_only
+
+    model = nn.Linear(2, 1)
+    optimizer = torch.optim.Adam(model.parameters())
+    manager = CheckpointManager(tmp_path)
+    with_opt = manager.save(model, optimizer=optimizer, step=3)
+    bare = manager.save(model, step=4)
+    assert with_opt.suffix == ".pt" and bare.suffix == ".safetensors"
+    # numpy RNG state etc. are stored as tensors: weights_only=True works.
+    assert load_weights_only(with_opt)["step"] == 3
+    assert load_weights_only(bare.with_suffix(".meta.pt"))["step"] == 4
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert manager.load(nn.Linear(2, 1), with_opt)["step"] == 3
+
+
+def test_checkpoint_manager_loads_legacy_pickled_files_with_a_warning(tmp_path) -> None:
+    from srl.utils.safe_serialization import LegacyCheckpointWarning
+
+    model = nn.Linear(2, 1)
+    legacy = tmp_path / "ckpt_0000000001.pt"
+    torch.save({"model_state": model.state_dict(), "step": 1, "x": np.zeros(2)}, legacy)
+    with pytest.warns(LegacyCheckpointWarning):
+        assert CheckpointManager(tmp_path).load(nn.Linear(2, 1), legacy)["step"] == 1

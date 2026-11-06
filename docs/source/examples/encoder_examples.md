@@ -55,9 +55,9 @@ train:
   lr_actor: 3e-4
   lr_critic: 3e-4
   buffer_size: 100000
-  start_steps: 1000
+  learning_starts: 1000
   update_after: 1000
-  update_every: 50
+  train_freq: 50
 ```
 
 Smoke test:
@@ -200,8 +200,8 @@ Both heads see `128 + 64 = 192` input features here — the builder sums the ups
   loss returns `None` without a momentum encoder.
 - On Isaac Lab vision tasks, `encoder_update_freq: 2` and a large batch are a good
   starting point.
-- CNN shorthand layers are `[out_channels, kernel, padding, activation, pooling]`. The
-  third slot is padding, not stride — use the dict form when you need a stride.
+- CNN shorthand layers are `[out_channels, kernel, stride, activation, pooling]`. The
+  third slot is stride, not padding — use the dict form when you need explicit padding.
 
 ## See also
 

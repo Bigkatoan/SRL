@@ -21,6 +21,39 @@ _KIND_COLORS = {
 }
 
 
+def resolve_pipeline_outputs(
+    raw_cfg: dict,
+    *,
+    run_name: str,
+    logdir: str,
+    cli_model_path: str | None,
+    cli_training_path: str | None,
+    export_only: bool,
+) -> tuple[str | None, str | None]:
+    """Resolve the model/training pipeline PNG paths (CLI flag > YAML > auto)."""
+    import os
+
+    visualization_cfg = raw_cfg.get("visualization") or {}
+    model_path = cli_model_path
+    training_path = cli_training_path
+
+    if model_path is None and visualization_cfg.get("save_model_pipeline"):
+        model_path = visualization_cfg.get("model_pipeline_path") or "auto"
+    if training_path is None and visualization_cfg.get("save_training_pipeline"):
+        training_path = visualization_cfg.get("training_pipeline_path") or "auto"
+
+    if export_only and model_path is None and training_path is None:
+        model_path = "auto"
+        training_path = "auto"
+
+    base_dir = os.path.join(logdir, run_name)
+    if model_path == "auto":
+        model_path = os.path.join(base_dir, "model_pipeline.png")
+    if training_path == "auto":
+        training_path = os.path.join(base_dir, "training_pipeline.png")
+    return model_path, training_path
+
+
 def render_pipeline_bundle(
     raw_cfg: dict[str, Any],
     *,

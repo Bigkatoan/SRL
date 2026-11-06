@@ -11,7 +11,8 @@ distribution's mode, clipped to the same bounds.
 
 The bounds are whatever range the *model's* action space is: the training
 loop sets them from the env's (single) action space via
-:meth:`OnPolicyActionMixin.set_action_bounds`.
+:meth:`srl.core.base_agent.OnPolicyAgent.set_action_bounds`
+(the bound-tracking / clipping code lives on that class).
 TODO(envlayer): once env-side action rescaling lands (model acts in
 [-1, 1], wrapper maps to the env's Box), the env wrapper should expose the
 normalized Box as its action space so these bounds become [-1, 1]
@@ -23,7 +24,6 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-import torch
 
 
 def box_bounds(space: Any) -> tuple[np.ndarray, np.ndarray] | None:
@@ -69,59 +69,3 @@ def select_action(actor_out: Any, deterministic: bool) -> tuple[Any, Any]:
     if isinstance(actor_out, tuple):
         return actor_out[0], actor_out[1]
     return actor_out, None
-
-
-class OnPolicyActionMixin:
-    """Adds action-bound bookkeeping + clipping to an on-policy agent."""
-
-    _action_low: torch.Tensor | None = None
-    _action_high: torch.Tensor | None = None
-
-    def set_action_bounds(self, low: Any, high: Any) -> None:
-        """Set the action range that env-bound actions are clipped to."""
-        if low is None or high is None:
-            self._action_low = self._action_high = None
-            return
-        dev = self.device  # type: ignore[attr-defined]
-        self._action_low = torch.as_tensor(np.asarray(low, dtype=np.float32), device=dev)
-        self._action_high = torch.as_tensor(np.asarray(high, dtype=np.float32), device=dev)
-
-    def set_action_bounds_from_env(self, env: Any) -> bool:
-        bounds = env_action_bounds(env)
-        if bounds is None:
-            return False
-        self.set_action_bounds(*bounds)
-        return True
-
-    @property
-    def action_bounds(self) -> tuple[torch.Tensor, torch.Tensor] | None:
-        if self._action_low is None or self._action_high is None:
-            return None
-        return self._action_low, self._action_high
-
-    def clip_action(self, action: Any) -> Any:
-        """Clip an action (tensor or ndarray) to the configured bounds.
-
-        No-op when no bounds are known.
-        """
-        if self._action_low is None or self._action_high is None or action is None:
-            return action
-        if isinstance(action, torch.Tensor):
-            low = self._action_low.to(action.device, action.dtype)
-            high = self._action_high.to(action.device, action.dtype)
-            return torch.max(torch.min(action, high), low)
-        low = self._action_low.cpu().numpy()
-        high = self._action_high.cpu().numpy()
-        return np.clip(action, low, high)
-
-    def _action_bounds_payload(self) -> dict[str, Any] | None:
-        if self.action_bounds is None:
-            return None
-        return {
-            "low": self._action_low.detach().cpu().numpy(),
-            "high": self._action_high.detach().cpu().numpy(),
-        }
-
-    def _load_action_bounds_payload(self, payload: dict[str, Any] | None) -> None:
-        if payload is not None:
-            self.set_action_bounds(payload.get("low"), payload.get("high"))

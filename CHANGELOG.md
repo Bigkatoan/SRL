@@ -6,6 +6,39 @@ The format follows Keep a Changelog and the project uses Semantic Versioning as 
 
 ## [Unreleased]
 
+### Phase 2: Python API, strict configs, one registry
+
+**Python API**
+- Every algorithm has `from_config(yaml, env=...)`, `learn(total_timesteps, env=None, eval_env=None, callbacks=None, log_dir=None, progress=False)`, `predict(obs) -> (action, state)` (numpy in, env-unit action out), `save(dir)` and `Cls.load(dir_or_checkpoint, env=None)`. `srl-train` checkpoints load with `Cls.load(path)`.
+- New `srl.training` package: `OnPolicyTrainer`, `OffPolicyTrainer`, `Evaluator`, callbacks (`CheckpointCallback`, `EvalCallback`, `EarlyStopping`, `LogCallback`) with ordered hooks. `srl-train` and `from_config` share one construction path (`srl.core.agent_io.build_agent_from_experiment`); the CLI is a thin layer over `agent.learn()`.
+- `BaseAgent` / `OnPolicyAgent` / `OffPolicyAgent` hold the shared agent code. `agent.save(dir)` also writes `config.yaml`, the fully resolved experiment (`srl.config.dump_resolved_config`); `srl-train` writes the same file to `<logdir>/<run>/config.yaml`.
+
+**Checkpoint format v1, `srl.load_policy`, deployment**
+- `agent.save(dir)` and every `srl-train` checkpoint (`ckpt_<step>/`, `final_<step>/`, `best_<step>/`) write one directory format, `srl-agent` v1: `meta.json` (format/versions, obs/action spec, normalizers), `config.yaml` (resolved experiment, re-validated on load), `model.safetensors` (strict key check), `normalizers.json`, optional `train_state.pt` (optimizers, RNG, counters) and `replay_buffer/`. Nothing in it needs pickle: all `.pt` files load with `torch.load(weights_only=True)`. Missing files, a foreign `format` or a newer `format_version` raise `CheckpointFormatError`.
+- v0 directories (`agent.pt`) and single-file `*.pt` checkpoints still load (`weights_only=False` with a `LegacyCheckpointWarning`).
+- `srl.load_policy(path, device="cpu")` -> `srl.Policy`: inference-only (`policy(obs)` = `agent.predict(obs, deterministic=True)[0]`), from an agent directory, an `srl-train` checkpoint directory (best / final / latest) or a legacy file; `Policy.export_torchscript(path)`; `python -m srl.policy info|export` (`srl-policy`).
+- ROS 2: `srl.ros2.rl_node` loads the policy with `srl.load_policy` (`policy_path` parameter; topics from the checkpoint's `ros2:` block), so `auto`-dim configs, normalizers and action rescaling work; the inference core is the ROS-free `PolicyRunner`. `resolve_msg_type` accepts `pkg/Msg` names. Template package updated.
+- Periodic `srl-train` checkpoints no longer embed the replay buffer (it was rewritten, multi-GB, on every save); `train.checkpoint_replay_buffer: true` restores the old behaviour. `CheckpointManager(..., include_replay_buffer=...)`.
+- `agent.save(dir, include_train_state=False)` writes an inference-only checkpoint. `AgentModel.act` works with dict-returning heads.
+- `CheckpointManager` no longer swallows safetensors write errors.
+- Auxiliary-loss config diagnostics are `warnings.warn` (`UserWarning`); a train key of another algorithm says to remove it.
+
+**Strict configs (`srl.config`)**
+- `load_experiment(path_or_dict, algo=None)` validates the whole YAML (model, env keys, `train:`); unknown keys, wrong types, bad enums/ranges raise one `ConfigError` listing every problem, with "did you mean" hints. Config dataclasses validate in `__post_init__`. Files carry `schema_version: 1`.
+- `input_dim: auto` / `input_shape: auto` / `action_dim: auto` are resolved from the env's spaces (the env is now built before the model); explicit values are cross-checked against the env. The simple shipped configs (Pendulum, Hopper/HalfCheetah/Walker2d, Fetch) use `auto`.
+- `srl.config.build_algo_config` / `normalize_offpolicy_schedule` / `build_runner_config` are the only YAML -> config builders (the lenient CLI copies are gone). `train.save_interval` is a trainer key.
+- One algorithm registry: `srl.registry.AlgorithmRegistry` (`AlgorithmSpec`); built-ins register like plugins, entry-point groups `srl.algorithms` / `srl.encoders` / `srl.heads` / `srl.envs`. `srl.algorithms.ALGORITHMS` is a read-only view of it; plugin env types are built through `EnvRegistry`.
+
+**Removed / deprecated**
+- Removed: `LossRegistry`/`register_loss` (losses are fixed per algorithm), `RecurrentPPOConfig`, `srl.core.BasePolicy`, `srl.envs.collector.Collector`, `srl.training.make_algo_config`, the private `srl.cli.train._run_*` / eval / config helpers (public equivalents in `srl.training` / `srl.config`).
+- Deprecated (warn, then ignored or folded): top-level `losses:` blocks (never read; removed from the shipped YAMLs), `frame_stack: 1` (any other value is an error), `start_steps` -> `learning_starts`, `update_every` -> `train_freq`, `train.env_id`/`env_type` -> top level, `AsyncRunnerConfig.prefill_steps`/`queue_maxsize` (ignored), `agent.predict(tensor_dict)` 4-tuple (use `agent.act`), `agent.save("file.pt")`, guessing the algorithm from the file name. `srl.training.ConfigurationError` is an alias of `srl.config.ConfigError`.
+
+**Fixed**
+- PPO `target_kl` applied one more gradient step after the KL limit was exceeded; it now stops before stepping (SB3/CleanRL order).
+- Gaussian actor heads created a second, never-trained `log_std_param` next to the distribution's real `dist.log_std` (old checkpoints still load).
+- `pendulum_ppo.yaml` / the PPO Pendulum learning test: lr 3e-4, batch 256 (was rl-zoo's 1e-3 / 64, which without gSDE blew up approx_kl once the log-std shrank and collapsed the learned policy). The learning test runs seeds 0-2 and asserts on the mean of the last 3 evals.
+- `EarlyStopping` monitors `eval/score_mean` and actually stops training; `srl-train` requires `algo:` (YAML) or `--algo`.
+
 ### Breaking / behaviour changes (correctness audit, planned 0.3.0)
 - Continuous actions now live in a normalized `[-1, 1]` domain: `RescaleActionWrapper` maps them to env bounds at `env.step`; warmup samples uniformly in `[-1, 1]`.
 - Gaussian actor heads default to state-independent std (`state_dependent_std: false`); old checkpoints trained with the implicit state-dependent std need `state_dependent_std: true`.

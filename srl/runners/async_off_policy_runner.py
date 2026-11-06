@@ -68,6 +68,7 @@ import torch
 from srl.core.base_agent import BaseAgent
 from srl.core.config import AsyncRunnerConfig
 from srl.envs.vector_utils import get_final_obs
+from srl.training._obs import agent_act
 from srl.utils.spaces import sample_vector_actions
 
 
@@ -215,6 +216,7 @@ class AsyncOffPolicyRunner:
         # ------------------------------------------------------------------
         self._train_cond = threading.Condition(threading.Lock())
         self._stop_event = threading.Event()
+        self._stop_requested = False
         self._pending_updates: int = 0  # number of update() calls queued
         self._metrics_lock = threading.Lock()
         self._latest_metrics: dict[str, float] = {}
@@ -227,6 +229,10 @@ class AsyncOffPolicyRunner:
     # ------------------------------------------------------------------
     # Public entry point
     # ------------------------------------------------------------------
+
+    def request_stop(self) -> None:
+        """Ask the collector loop to stop after the current step (callback early-stop)."""
+        self._stop_requested = True
 
     def run(self) -> None:
         """Run the full training loop (blocks until ``total_steps`` reached)."""
@@ -249,7 +255,7 @@ class AsyncOffPolicyRunner:
         t_start = time.perf_counter()
         collect_steps = 0
 
-        while step < end_step:
+        while step < end_step and not self._stop_requested:
             obs_t = self._obs_to_tensor(obs, self.device)
             remaining = max(end_step - step, 0)
             active_envs = min(num_envs, remaining) if vectorized else 1
@@ -269,7 +275,7 @@ class AsyncOffPolicyRunner:
                 action = sample_vector_actions(self.env)
                 action_t = torch.as_tensor(action, dtype=torch.float32, device=self.device)
             else:
-                action_t, _, _, _ = self.agent.predict(obs_t, deterministic=False)
+                action_t, _, _, _ = agent_act(self.agent, obs_t, deterministic=False)
                 action = action_t.cpu().numpy() if hasattr(action_t, "cpu") else action_t
 
             result = self.env.step(action)
@@ -374,7 +380,7 @@ class AsyncOffPolicyRunner:
         next_log_step = step + log_interval
 
         try:
-            while step < end_step:
+            while step < end_step and not self._stop_requested:
                 obs_t = self._obs_to_tensor(obs, self.device)
                 remaining = max(end_step - step, 0)
                 active_envs = min(num_envs, remaining) if vectorized else 1
@@ -384,7 +390,7 @@ class AsyncOffPolicyRunner:
                     action = sample_vector_actions(self.env)
                     action_t = torch.as_tensor(action, dtype=torch.float32, device=self.device)
                 else:
-                    action_t, _, _, _ = self.agent.predict(obs_t, deterministic=False)
+                    action_t, _, _, _ = agent_act(self.agent, obs_t, deterministic=False)
                     action = (
                         action_t.detach().cpu().numpy() if hasattr(action_t, "cpu") else action_t
                     )

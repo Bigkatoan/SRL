@@ -19,27 +19,18 @@ Fixes
 
 from __future__ import annotations
 
-import threading
-
 import numpy as np
 import torch
 import torch.nn as nn
 
 from srl.algorithms._common import (
-    _soft_update,
     _unique_encoder_params,  # noqa: F401 -- re-exported for backwards compat
     _zero_param_grads,
-    batch_discounts,
-    build_encoder_optimizers,
-    forward_with_mode,
     is_weighted_mse,
-    maybe_build_obs_normalizer,
     maybe_update_priorities,
-    prepare_obs,
 )
-from srl.core.base_agent import BaseAgent
+from srl.core.base_agent import OffPolicyAgent
 from srl.core.config import DDPGConfig
-from srl.core.prioritized_replay_buffer import build_replay_buffer
 from srl.losses.rl_losses import ddpg_policy_loss
 
 
@@ -103,7 +94,7 @@ class GaussianActionNoise:
         return torch.randn(int(n), self.action_dim) * self.sigma
 
 
-class DDPG(BaseAgent):
+class DDPG(OffPolicyAgent):
     """Deep Deterministic Policy Gradient.
 
     Parameters
@@ -111,61 +102,36 @@ class DDPG(BaseAgent):
     model:
         AgentModel with a DeterministicActorHead and QFunctionHead.
     target_model:
-        Target network (same architecture).
+        Optional target network (same architecture); deep-copied from
+        *model* when omitted. ``DDPG(model, config)`` also works.
     config:
         DDPGConfig.
+    device:
+        PyTorch device.
+    env:
+        Optional training env (raw Gymnasium envs are wrapped).
     """
+
+    algo_name = "ddpg"
+    config_cls = DDPGConfig
 
     def __init__(
         self,
         model: nn.Module,
-        target_model: nn.Module,
+        target_model: nn.Module | None = None,
         config: DDPGConfig | None = None,
         device: str | torch.device = "cpu",
+        *,
+        env=None,
     ) -> None:
-        self.model = model
-        self.target_model = target_model
-        self.cfg = config or DDPGConfig()
-        self._device = torch.device(device)
+        super().__init__(model, target_model, config, device, env=env)
 
-        self.model.to(self.device)
-        self.target_model.to(self.device)
-        self.target_model.load_state_dict(self.model.state_dict())
-        for p in self.target_model.parameters():
-            p.requires_grad = False
-        self.target_model.eval()
-        self._model_lock = threading.Lock()
-
-        _encoder_lr = getattr(self.cfg, "encoder_lr", self.cfg.lr_critic)
-        (
-            self._encoder_param_list,
-            self._actor_only_encoder_param_list,
-            _,
-            self.encoder_optimizer,
-            self.actor_only_encoder_optimizer,
-        ) = build_encoder_optimizers(self.model, _encoder_lr)
-        self.actor_optimizer = torch.optim.Adam(
-            list(self.model.actor.parameters()),
-            lr=self.cfg.lr_actor,
-        )
-        self.critic_optimizer = torch.optim.Adam(
-            list(self.model.critic.parameters()),
-            lr=self.cfg.lr_critic,
-        )
-        self._encoder_update_counter: int = 0
-
+    def _build_exploration(self) -> None:
         action_dim = self.cfg.action_dim or 1
         if self.cfg.action_noise == "ou":
             self.noise = OrnsteinUhlenbeckNoise(action_dim, sigma=self.cfg.noise_sigma)
         else:
             self.noise = GaussianActionNoise(action_dim, sigma=self.cfg.noise_sigma)
-
-        self.buffer = build_replay_buffer(self.cfg)
-        self.obs_normalizer = maybe_build_obs_normalizer(self.cfg)
-        self._global_step = 0
-
-    def _forward_model(self, mode: str, *args, **kwargs):
-        return forward_with_mode(self.model, self._model_lock, mode, *args, **kwargs)
 
     def reset_noise(self, env_ids=None) -> None:
         """Reset exploration noise for the envs whose episode just ended.
@@ -174,41 +140,21 @@ class DDPG(BaseAgent):
         """
         self.noise.reset(env_ids)
 
-    def predict(self, obs, hidden=None, deterministic=False):
-        with torch.no_grad():
-            obs = prepare_obs(self.model, self.obs_normalizer, obs)
-            result = self._forward_model("eval", obs, hidden_states=hidden, compute_critic=False)
-        actor_out = result["actor_out"]
-        if isinstance(actor_out, dict):
-            action = actor_out.get("action")
-        else:
-            action = actor_out
+    def _select_action(self, actor_out, deterministic: bool):
+        action = actor_out.get("action") if isinstance(actor_out, dict) else actor_out
         if not deterministic and action is not None:
             if action.dim() > 1:
                 noise = self.noise.sample(action.shape[0])
             else:
                 noise = self.noise.sample()
             action = (action + noise.to(device=action.device, dtype=action.dtype)).clamp(-1.0, 1.0)
-        return action, None, None, result["new_hidden"]
-
-    def learn(self, total_timesteps: int) -> None:
-        raise NotImplementedError
+        return action, None
 
     def update(self) -> dict[str, float]:
-        if len(self.buffer) < self.cfg.batch_size:
+        if not self._can_update():
             return {}
 
-        batch = self.buffer.sample(self.cfg.batch_size)
-
-        obs = {k: v.to(self.device) for k, v in batch.obs.items()}
-        next_obs = {k: v.to(self.device) for k, v in batch.next_obs.items()}
-        obs = prepare_obs(self.model, self.obs_normalizer, obs, update_stats=True)
-        next_obs = prepare_obs(self.model, self.obs_normalizer, next_obs)
-        actions = batch.actions.to(self.device)
-        rewards = batch.rewards.to(self.device)
-        dones = batch.dones.to(self.device)
-        discount = batch_discounts(batch, self.cfg.gamma, self.device)
-        is_weights = batch.weights.to(self.device) if batch.weights is not None else None
+        batch, obs, next_obs, actions, rewards, dones, discount, is_weights = self._sample_batch()
 
         with torch.no_grad():
             next_actor_out = self.target_model(next_obs, compute_critic=False)["actor_out"]
@@ -277,7 +223,7 @@ class DDPG(BaseAgent):
         # Zero encoder grads again — clean for next update() call
         _zero_param_grads(self._encoder_param_list)
 
-        _soft_update(self.model, self.target_model, self.cfg.tau)
+        self._soft_update_target()
         self._global_step += 1
 
         return {
@@ -285,66 +231,3 @@ class DDPG(BaseAgent):
             "ddpg/actor_loss": actor_loss.item(),
             "ddpg/target_q_mean": target_q.mean().item(),
         }
-
-    def save(self, path: str) -> None:
-        torch.save(self.checkpoint_payload(), path)
-
-    def load(self, path: str) -> None:
-        ckpt = torch.load(path, map_location=self.device, weights_only=False)
-        self.load_checkpoint_payload(ckpt)
-
-    def checkpoint_payload(self) -> dict[str, object]:
-        payload = {
-            "model_state": self.model.state_dict(),
-            "target_model_state": self.target_model.state_dict(),
-            "actor_optimizer_state": self.actor_optimizer.state_dict(),
-            "critic_optimizer_state": self.critic_optimizer.state_dict(),
-            "replay_buffer_state": self.buffer.state_dict(),
-            "algo_step": self._global_step,
-            "encoder_update_counter": self._encoder_update_counter,
-        }
-        if self.encoder_optimizer is not None:
-            payload["encoder_optimizer_state"] = self.encoder_optimizer.state_dict()
-        if self.actor_only_encoder_optimizer is not None:
-            payload["actor_only_encoder_optimizer_state"] = (
-                self.actor_only_encoder_optimizer.state_dict()
-            )
-        if self.obs_normalizer is not None:
-            payload["obs_normalizer_state"] = self.obs_normalizer.state_dict()
-        return payload
-
-    def load_checkpoint_payload(self, payload: dict[str, object]) -> None:
-        model_state = payload.get("model_state", payload.get("model"))
-        if model_state is not None:
-            self.model.load_state_dict(model_state)
-        target_state = payload.get("target_model_state", payload.get("target"))
-        if target_state is not None:
-            self.target_model.load_state_dict(target_state)
-        actor_optimizer_state = payload.get("actor_optimizer_state")
-        if actor_optimizer_state is not None:
-            self.actor_optimizer.load_state_dict(actor_optimizer_state)
-        critic_optimizer_state = payload.get("critic_optimizer_state")
-        if critic_optimizer_state is not None:
-            self.critic_optimizer.load_state_dict(critic_optimizer_state)
-        replay_buffer_state = payload.get("replay_buffer_state")
-        if replay_buffer_state is not None:
-            self.buffer.load_state_dict(replay_buffer_state)
-        self._global_step = int(payload.get("algo_step", payload.get("step", 0)))
-        self._encoder_update_counter = int(payload.get("encoder_update_counter", 0))
-        enc_opt = payload.get("encoder_optimizer_state")
-        if self.encoder_optimizer is not None and enc_opt is not None:
-            self.encoder_optimizer.load_state_dict(enc_opt)
-        actor_enc_opt = payload.get("actor_only_encoder_optimizer_state")
-        if self.actor_only_encoder_optimizer is not None and actor_enc_opt is not None:
-            self.actor_only_encoder_optimizer.load_state_dict(actor_enc_opt)
-        norm_state = payload.get("obs_normalizer_state")
-        if self.obs_normalizer is not None and norm_state is not None:
-            self.obs_normalizer.load_state_dict(norm_state)
-
-
-def _encoder_params_for_head(model: nn.Module, head_name: str) -> list[nn.Parameter]:
-    encoder_names = model.encoder_names_for_head(head_name)
-    params: list[nn.Parameter] = []
-    for encoder_name in encoder_names:
-        params.extend(list(model.encoders[encoder_name].parameters()))
-    return params

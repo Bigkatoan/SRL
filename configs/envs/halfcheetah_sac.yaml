@@ -1,5 +1,7 @@
-# SAC on HalfCheetah-v5  (obs=17, act=6)
+# SAC on HalfCheetah-v5  (obs=17, act=6; dims resolved from the env: `auto`)
 # Target return: ~8000 (convergence ~1M steps)
+
+schema_version: 1
 
 env_id: "HalfCheetah-v5"
 env_type: "flat"
@@ -9,14 +11,14 @@ algo: sac
 encoders:
   - name: actor_state_enc
     type: mlp
-    input_dim: 17
+    input_dim: auto
     latent_dim: 256
     layers:
       - {out_features: 256, activation: relu, norm: layer_norm}
       - {out_features: 256, activation: relu, norm: layer_norm}
   - name: critic_state_enc
     type: mlp
-    input_dim: 17
+    input_dim: auto
     latent_dim: 256
     layers:
       - {out_features: 256, activation: relu, norm: layer_norm}
@@ -29,7 +31,7 @@ flows:
 actor:
   name: actor
   type: squashed_gaussian
-  action_dim: 6
+  action_dim: auto
   log_std_min: -5.0
   log_std_max: 2.0
   layers:
@@ -38,14 +40,9 @@ actor:
 critic:
   name: critic
   type: twin_q
-  action_dim: 6
+  action_dim: auto
   layers:
     - {out_features: 256, activation: relu, norm: layer_norm}
-
-losses:
-  - {name: sac_q,           weight: 1.0}
-  - {name: sac_policy,      weight: 1.0}
-  - {name: sac_temperature, weight: 1.0}
 
 visualization:
   save_model_pipeline: false
@@ -85,9 +82,9 @@ train:
   tau: 0.005
   alpha: 0.2
   auto_entropy_tuning: false
-  start_steps: 10_000
+  learning_starts: 10_000  # random-action warmup
   update_after: 1_000
-  update_every: 50
+  train_freq: 50
   gradient_steps: 50
   replay_n_step: 3
   use_fp16: false

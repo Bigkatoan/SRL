@@ -16,10 +16,15 @@
    :show-inheritance:
 ```
 
-## Callbacks
+## Safe serialization
 
 ```{eval-rst}
-.. automodule:: srl.utils.callbacks
-   :members: LogCallback, CheckpointCallback
-   :show-inheritance:
+.. automodule:: srl.utils.safe_serialization
+   :members: pack, unpack, load_weights_only, load_trusted_or_legacy, LegacyCheckpointWarning
 ```
+
+## Callbacks
+
+The callbacks moved to {mod}`srl.training.callbacks` (see the
+[srl.training reference](training.md#callbacks)); `srl.utils.callbacks`
+re-exports them for backward compatibility.

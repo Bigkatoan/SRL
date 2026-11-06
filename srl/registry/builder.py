@@ -7,43 +7,24 @@ from typing import Any
 
 import yaml
 
+from srl.config._validate import ConfigError
 from srl.registry.config_schema import AgentModelConfig, EncoderConfig, HeadConfig
 from srl.registry.flow_graph import FlowGraph
 from srl.registry.registry import EncoderRegistry, HeadRegistry
-
-# Built-in types special-cased in _build_encoder/_build_head below, so they
-# never go through EncoderRegistry/HeadRegistry.register(...) -- a typo'd
-# type name (e.g. "mlpp") used to hit the registry's generic error message,
-# which reports "Registered: []" even though mlp/cnn/lstm/text are all valid,
-# because the registry genuinely has nothing in it unless a project also
-# registers its own custom types.
-_BUILTIN_ENCODER_TYPES = ("mlp", "cnn", "lstm", "text")
-_BUILTIN_HEAD_TYPES = (
-    "gaussian",
-    "squashed_gaussian",
-    "deterministic",
-    "value",
-    "twin_q",
-    "q",
-    "q_function",
-)
-_ACTION_DIM_REQUIRED_HEAD_TYPES = {
-    "gaussian",
-    "squashed_gaussian",
-    "deterministic",
-    "twin_q",
-    "q",
-    "q_function",
-}
 
 
 def _validate_config(cfg: AgentModelConfig) -> None:
     """Fail fast with an actionable message instead of a cryptic torch error
     (e.g. "mat1 and mat2 shapes cannot be multiplied", or a bare TypeError
     from nn.Linear(None, ...)) deep inside the first forward pass.
+
+    Type names and per-type requirements come from the registries, so
+    built-in and plugin types are checked identically.
     """
+    errors: list[str] = []
     seen_encoders: dict[str, EncoderConfig] = {}
-    for enc_cfg in cfg.encoders:
+    for i, enc_cfg in enumerate(cfg.encoders):
+        path = f"encoders[{i}] ('{enc_cfg.name}')"
         prior = seen_encoders.get(enc_cfg.name)
         if prior is not None and (
             prior.type != enc_cfg.type
@@ -51,7 +32,7 @@ def _validate_config(cfg: AgentModelConfig) -> None:
             or prior.input_dim != enc_cfg.input_dim
             or prior.input_shape != enc_cfg.input_shape
         ):
-            raise ValueError(
+            errors.append(
                 f"Encoder '{enc_cfg.name}' is declared more than once with different "
                 "configs. ModelBuilder builds only the first declaration and silently "
                 "ignores later ones with the same name -- this is almost certainly a "
@@ -60,75 +41,44 @@ def _validate_config(cfg: AgentModelConfig) -> None:
             )
         seen_encoders.setdefault(enc_cfg.name, enc_cfg)
 
-        enc_type = enc_cfg.type.lower()
-        if enc_type in ("mlp", "lstm") and enc_cfg.input_dim is None:
-            raise ValueError(
-                f"Encoder '{enc_cfg.name}' (type='{enc_cfg.type}') requires 'input_dim' to be set."
-            )
-        if enc_type == "cnn" and enc_cfg.input_shape is None:
-            raise ValueError(
-                f"Encoder '{enc_cfg.name}' (type='cnn') requires 'input_shape' "
-                "([C, H, W]) to be set."
-            )
-        if enc_type not in _BUILTIN_ENCODER_TYPES and enc_type not in EncoderRegistry:
-            available = sorted(set(_BUILTIN_ENCODER_TYPES) | set(EncoderRegistry.available()))
-            raise ValueError(
-                f"Encoder '{enc_cfg.name}' has unknown type '{enc_cfg.type}'. "
-                f"Available: {available}"
-            )
+        try:
+            entry = EncoderRegistry.entry(enc_cfg.type)
+        except (ConfigError, ImportError) as exc:
+            errors.append(f"{path}: {exc}")
+            continue
+        for attr in entry.requires:
+            if getattr(enc_cfg, attr, None) is None:
+                errors.append(
+                    f"{path}: type '{enc_cfg.type}' requires '{attr}', which is 'auto' or "
+                    "missing and was not resolved. Set it explicitly, or build with the env "
+                    "spaces (ModelBuilder.from_dict(d, obs_space=..., act_space=...) / "
+                    "srl.config.resolve_auto_dims)."
+                )
 
     for role, head_cfg in (("actor", cfg.actor), ("critic", cfg.critic)):
         if head_cfg is None:
             continue
-        head_type = head_cfg.type.lower()
-        if head_type in _ACTION_DIM_REQUIRED_HEAD_TYPES and not head_cfg.action_dim:
-            raise ValueError(
-                f"{role}.action_dim is required for {role} type '{head_cfg.type}' "
-                "but is missing (or 0)."
+        try:
+            entry = HeadRegistry.entry(head_cfg.type)
+        except (ConfigError, ImportError) as exc:
+            errors.append(f"{role}: {exc}")
+            continue
+        if entry.requires_action_dim and not head_cfg.action_dim:
+            errors.append(
+                f"{role}.action_dim is required for {role} type '{head_cfg.type}' but is "
+                "'auto' or missing and was not resolved. Set it explicitly, or build with "
+                "the env spaces (act_space=...)."
             )
-        if head_type not in _BUILTIN_HEAD_TYPES and head_type not in HeadRegistry:
-            available = sorted(set(_BUILTIN_HEAD_TYPES) | set(HeadRegistry.available()))
-            raise ValueError(f"{role} has unknown type '{head_cfg.type}'. Available: {available}")
+        for attr in entry.requires:
+            if getattr(head_cfg, attr, None) is None:
+                errors.append(f"{role}: type '{head_cfg.type}' requires '{attr}'")
+    if errors:
+        raise ConfigError(errors)
 
 
 def _build_encoder(cfg: EncoderConfig):
-    """Instantiate a single encoder from its config."""
-    enc_type = cfg.type.lower()
-
-    if enc_type == "mlp":
-        from srl.networks.encoders.mlp_encoder import MLPEncoder
-
-        enc = MLPEncoder(
-            input_dim=cfg.input_dim,  # type: ignore[arg-type]
-            layer_configs=cfg.layers,
-            latent_dim=cfg.latent_dim,
-        )
-    elif enc_type == "cnn":
-        from srl.networks.encoders.cnn_encoder import CNNEncoder
-
-        enc = CNNEncoder(
-            input_shape=tuple(cfg.input_shape),  # type: ignore[arg-type]
-            layer_configs=cfg.layers,
-            latent_dim=cfg.latent_dim,
-        )
-    elif enc_type == "lstm":
-        from srl.networks.encoders.mlp_encoder import MLPEncoder
-        from srl.networks.encoders.recurrent import LSTMEncoder
-
-        base = MLPEncoder(
-            input_dim=cfg.input_dim,  # type: ignore[arg-type]
-            layer_configs=cfg.layers,
-            latent_dim=cfg.latent_dim,
-        )
-        enc = LSTMEncoder(base_encoder=base, hidden_size=cfg.lstm_hidden)
-    elif enc_type == "text":
-        from srl.networks.encoders.text_encoder import CharCNNTextEncoder
-
-        enc = CharCNNTextEncoder(latent_dim=cfg.latent_dim)
-    else:
-        # Try registry
-        enc_cls = EncoderRegistry.get(enc_type)
-        enc = enc_cls(cfg)
+    """Instantiate a single encoder from its config via the encoder registry."""
+    enc = EncoderRegistry.get(cfg.type)(cfg)
 
     # Optional: wrap with MomentumEncoder
     if cfg.use_momentum:
@@ -137,7 +87,7 @@ def _build_encoder(cfg: EncoderConfig):
         enc = MomentumEncoder(encoder=enc, tau=cfg.momentum_tau)
 
     # Optional: wrap with recurrent if requested separately (e.g. for CNN)
-    if cfg.recurrent and enc_type not in ("lstm",):
+    if cfg.recurrent and not _is_recurrent_type(cfg.type):
         from srl.networks.encoders.recurrent import LSTMEncoder
 
         enc = LSTMEncoder(base_encoder=enc, hidden_size=cfg.lstm_hidden)
@@ -145,47 +95,20 @@ def _build_encoder(cfg: EncoderConfig):
     return enc
 
 
+def _is_recurrent_type(enc_type: str) -> bool:
+    return bool(getattr(EncoderRegistry.get(enc_type), "srl_is_recurrent", False))
+
+
 def _get_encoder_latent_dim(cfg: EncoderConfig) -> int:
     """Return the output latent dimension of an encoder config."""
-    if cfg.recurrent or cfg.type.lower() == "lstm":
+    if cfg.recurrent or _is_recurrent_type(cfg.type):
         return cfg.lstm_hidden
     return cfg.latent_dim
 
 
 def _build_head(cfg: HeadConfig, input_dim: int):
-    """Instantiate an actor or critic head from its config."""
-    head_type = cfg.type.lower()
-
-    if head_type in ("gaussian", "squashed_gaussian", "deterministic"):
-        from srl.networks.heads.actor_head import build_actor_head
-
-        extra_kw = {}
-        if head_type == "gaussian":
-            # Previously never forwarded, so every YAML/dict setting of
-            # `state_dependent_std` was silently ignored.
-            extra_kw["state_dependent_std"] = bool(cfg.state_dependent_std)
-        return build_actor_head(
-            head_type=head_type,
-            input_dim=input_dim,
-            action_dim=cfg.action_dim,  # type: ignore[arg-type]
-            layer_configs=cfg.layers,
-            log_std_init=cfg.log_std_init,
-            log_std_min=cfg.log_std_min,
-            log_std_max=cfg.log_std_max,
-            **extra_kw,
-        )
-    elif head_type in ("value", "twin_q", "q", "q_function"):
-        from srl.networks.heads.critic_head import build_critic_head
-
-        return build_critic_head(
-            head_type=head_type,
-            input_dim=input_dim,
-            layer_configs=cfg.layers,
-            action_dim=cfg.action_dim,
-        )
-    else:
-        head_cls = HeadRegistry.get(head_type)
-        return head_cls(cfg, input_dim)
+    """Instantiate an actor or critic head from its config via the head registry."""
+    return HeadRegistry.get(cfg.type)(cfg, input_dim)
 
 
 # ---------------------------------------------------------------------------
@@ -204,14 +127,37 @@ class ModelBuilder:
     """
 
     @staticmethod
-    def from_yaml(path: str | Path) -> Any:  # returns AgentModel
-        with open(path) as fh:
-            d = yaml.safe_load(fh)
-        return ModelBuilder.from_dict(d)
+    def from_yaml(
+        path: str | Path, *, obs_space: Any = None, act_space: Any = None
+    ) -> Any:  # returns AgentModel
+        with open(path, encoding="utf-8") as fh:
+            d = yaml.safe_load(fh) or {}
+        return ModelBuilder.from_dict(d, obs_space=obs_space, act_space=act_space)
 
     @staticmethod
-    def from_dict(d: dict[str, Any]) -> Any:  # returns AgentModel
-        cfg = AgentModelConfig.from_dict(d)
+    def from_dict(
+        d: dict[str, Any], *, obs_space: Any = None, act_space: Any = None
+    ) -> Any:  # returns AgentModel
+        """Strictly parse ``d`` and build the model.
+
+        ``obs_space`` / ``act_space`` (optional) resolve ``input_dim: auto``,
+        ``input_shape: auto`` and ``action_dim: auto`` and cross-check explicit
+        values -- see :func:`srl.config.resolve_auto_dims`.
+        """
+        return ModelBuilder.from_config(
+            AgentModelConfig.from_dict(d), obs_space=obs_space, act_space=act_space
+        )
+
+    @staticmethod
+    def from_config(
+        cfg: AgentModelConfig, *, obs_space: Any = None, act_space: Any = None
+    ) -> Any:  # returns AgentModel
+        """Build from an already-parsed :class:`AgentModelConfig`
+        (e.g. ``load_experiment(...).model``)."""
+        if obs_space is not None or act_space is not None:
+            from srl.config.auto_dims import resolve_auto_dims
+
+            cfg = resolve_auto_dims(cfg, obs_space, act_space)
         _validate_config(cfg)
         return ModelBuilder._build(cfg)
 

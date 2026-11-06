@@ -5,63 +5,52 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-from srl.algorithms._onpolicy_common import OnPolicyActionMixin, select_action
-from srl.core.base_agent import BaseAgent
+from srl.core.base_agent import OnPolicyAgent
 from srl.core.config import A2CConfig
-from srl.core.rollout_buffer import RolloutBuffer
 from srl.losses.loss_composer import LossComposer
 from srl.losses.rl_losses import a2c_policy_loss, a2c_value_loss, entropy_loss
 
 
-class A2C(OnPolicyActionMixin, BaseAgent):
-    """Synchronous Advantage Actor-Critic."""
+class A2C(OnPolicyAgent):
+    """Synchronous Advantage Actor-Critic.
+
+    Parameters
+    ----------
+    model:
+        :class:`~srl.networks.agent_model.AgentModel` with a Gaussian actor
+        and a Value critic.
+    config:
+        :class:`~srl.core.config.A2CConfig`.
+    device:
+        PyTorch device.
+    env:
+        Optional training env (raw Gymnasium envs are wrapped).
+    """
+
+    algo_name = "a2c"
+    config_cls = A2CConfig
 
     def __init__(
         self,
         model: nn.Module,
         config: A2CConfig | None = None,
         device: str | torch.device = "cpu",
+        *,
+        env=None,
     ) -> None:
-        self.model = model
-        self.cfg = config or A2CConfig()
-        self._device = torch.device(device)
-        self.model.to(self._device)
-
+        super().__init__(model, config, device, env=env)
         self.optimizer = torch.optim.RMSprop(
             self.model.parameters(),
             lr=self.cfg.lr,
             alpha=0.99,
             eps=self.cfg.rms_prop_eps,
         )
-
-        self.buffer = RolloutBuffer(
-            capacity=self.cfg.n_steps,
-            num_envs=getattr(self.cfg, "num_envs", 1),
-            gamma=self.cfg.gamma,
-            lam=self.cfg.gae_lambda,
-            device=self.device,
-        )
+        self.buffer = self._build_rollout_buffer()
 
         self.composer = LossComposer()
         self.composer.add("policy", weight=1.0)
         self.composer.add("value", weight=self.cfg.vf_coef)
         self.composer.add("entropy", weight=self.cfg.entropy_coef)
-
-        self._global_step = 0
-
-    def predict(self, obs, hidden=None, deterministic=False):
-        self.model.eval()
-        with torch.no_grad():
-            result = self.model(obs, hidden_states=hidden)
-        # Stochastic: raw sample (clip with self.clip_action() at env.step);
-        # deterministic: distribution mode clipped to the action bounds.
-        action, log_prob = select_action(result["actor_out"], deterministic)
-        if deterministic:
-            action = self.clip_action(action)
-        return action, log_prob, result["value"], result["new_hidden"]
-
-    def learn(self, total_timesteps: int) -> None:
-        raise NotImplementedError
 
     def update(self) -> dict[str, float]:
         self.model.train()
@@ -128,27 +117,11 @@ class A2C(OnPolicyActionMixin, BaseAgent):
         self.buffer.reset()
         return {k: sum(v) / len(v) for k, v in metrics_accum.items()}
 
-    def save(self, path: str) -> None:
-        torch.save(self.checkpoint_payload(), path)
+    def _algo_payload(self) -> dict[str, object]:
+        return {**self._base_payload(), "optimizer_state": self.optimizer.state_dict()}
 
-    def load(self, path: str) -> None:
-        ckpt = torch.load(path, map_location=self.device, weights_only=False)
-        self.load_checkpoint_payload(ckpt)
-
-    def checkpoint_payload(self) -> dict[str, object]:
-        return {
-            "model_state": self.model.state_dict(),
-            "optimizer_state": self.optimizer.state_dict(),
-            "algo_step": self._global_step,
-            "action_bounds": self._action_bounds_payload(),
-        }
-
-    def load_checkpoint_payload(self, payload: dict[str, object]) -> None:
-        model_state = payload.get("model_state", payload.get("model"))
-        if model_state is not None:
-            self.model.load_state_dict(model_state)
+    def _load_algo_payload(self, payload: dict[str, object]) -> None:
+        self._load_base_payload(payload)
         optimizer_state = payload.get("optimizer_state")
         if optimizer_state is not None:
             self.optimizer.load_state_dict(optimizer_state)
-        self._global_step = int(payload.get("algo_step", payload.get("step", 0)))
-        self._load_action_bounds_payload(payload.get("action_bounds"))

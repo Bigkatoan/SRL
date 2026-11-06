@@ -6,38 +6,34 @@ The source of truth is [srl/utils/checkpoint.py](https://github.com/Bigkatoan/SR
 
 ## What gets saved
 
-`CheckpointManager.save(...)` writes a payload with these fields:
+For an agent (every `BaseAgent`), `CheckpointManager.save(agent, step=..., metrics=..., tag=...)`
+writes an `srl-agent` format v1 **directory** `{tag}_{step:010d}/` -- the same
+format as `agent.save(dir)`, see [Saving, loading & deployment](deployment.md):
+weights in `model.safetensors`, the resolved `config.yaml`, normalizer
+statistics, and `train_state.pt` with the optimizers, `step`, `metrics` and the
+`python`/`numpy`/`torch` (+ CUDA) RNG state. The replay buffer is left out
+unless the manager was built with `include_replay_buffer=True`
+(`srl-train`: `train.checkpoint_replay_buffer: true`).
 
-- `model_state`: `state_dict()` for plain `torch.nn.Module` models, or the result of `checkpoint_payload()` for richer agent objects
-- `step`: integer training step attached to the save
-- `metrics`: free-form metrics dict attached by the caller
-- `rng_state`: `python`/`numpy`/`torch` (+ CUDA, if available) RNG state at save time
-- `optimizer_state`: included only when an optimizer is passed
+For a bare `torch.nn.Module`:
 
-If `safetensors` is available and the payload is just model weights plus metadata, SRL writes:
+- without an optimizer: `{tag}_{step:010d}.safetensors` (weights) + `.meta.pt`
+  (`step`, `metrics`, `rng_state`)
+- with an optimizer: one `{tag}_{step:010d}.pt` (`model_state`,
+  `optimizer_state`, `step`, `metrics`, `rng_state`)
 
-- `*.safetensors` for tensor weights
-- `*.meta.pt` for `step` and `metrics`
+Every file SRL writes loads with `torch.load(weights_only=True)`. Checkpoints
+from older SRL versions (pickled `*.pt`) still load, with
+`torch.load(weights_only=False)` after a `LegacyCheckpointWarning`.
 
-Otherwise it falls back to a single `*.pt` file via `torch.save`.
-
-## Default file naming
-
-Checkpoint files are named:
+## Default naming
 
 ```text
-{tag}_{step:010d}.pt
+checkpoints/<run>/
+  ckpt_0000005000/        periodic (last 5 kept)
+  final_0000100000/
+  best_0000080000/        with --save-best
 ```
-
-Examples:
-
-- `ckpt_0000005000.pt`
-- `final_0000100000.pt`
-
-When `safetensors` is used, the weight file keeps the same stem:
-
-- `ckpt_0000005000.safetensors`
-- `ckpt_0000005000.meta.pt`
 
 ## Retention policy
 
@@ -45,7 +41,7 @@ When `safetensors` is used, the weight file keeps the same stem:
 
 That policy is local and simple by design:
 
-- old checkpoint files are deleted once the in-memory save list exceeds `max_keep`
+- old checkpoints (directories or files) are deleted once the in-memory save list exceeds `max_keep`
 - companion `*.meta.pt` files are also deleted when present
 - `latest()` returns the newest known checkpoint, or scans the checkpoint directory if the manager instance has no local save history yet
 
@@ -55,7 +51,7 @@ That policy is local and simple by design:
 
 - `--ckptdir`: directory where checkpoints are written (default `checkpoints/`)
 - `--logdir`: directory where TensorBoard/metrics artifacts are written (default `runs/`)
-- `--resume`: resume from an existing checkpoint file
+- `--resume`: resume from an existing checkpoint (directory or legacy file)
 
 Checkpoints and run artifacts live in two separate top-level directories,
 not nested inside one another — `--ckptdir`/`<run_name>/` is a *sibling* of
@@ -64,7 +60,7 @@ not nested inside one another — `--ckptdir`/`<run_name>/` is a *sibling* of
 ```text
 checkpoints/
   ppo_pendulum_ppo/
-    final_0000100000.pt
+    final_0000100000/
 
 runs/
   ppo_pendulum_ppo/
@@ -83,7 +79,7 @@ training CLI from the algorithm and config stem, and is the same under both
 
 ## Resume semantics
 
-Resume is step-based, not experiment-discovery-based. You point `--resume` at the exact checkpoint file you want to restore.
+Resume is step-based, not experiment-discovery-based. You point `--resume` at the exact checkpoint you want to restore.
 
 Example:
 
@@ -92,12 +88,15 @@ srl-train --config configs/envs/pendulum_ppo.yaml \
           --env Pendulum-v1 \
           --algo ppo \
           --steps 200000 \
-          --resume checkpoints/ppo_pendulum_ppo/final_0000100000.pt
+          --resume checkpoints/ppo_pendulum_ppo/final_0000100000
 ```
 
 What resume restores depends on the saved payload:
 
 - model weights are always expected
+- an off-policy replay buffer only when the checkpoint has one
+  (`train.checkpoint_replay_buffer: true`); otherwise it refills from the
+  resumed policy
 - optimizer state is restored only if it was saved and the receiving code passes an optimizer into `load(...)`
 - `python`/`numpy`/`torch` RNG state is restored automatically when present, so a
   resumed run continues with the same exploration-noise/minibatch-shuffle sequence an
@@ -107,38 +106,9 @@ What resume restores depends on the saved payload:
 
 ## Compatibility expectations
 
-SRL does not yet define a long-term checkpoint compatibility policy across major schema or architecture changes.
-
-Treat checkpoints as compatible only when all of these stay aligned:
-
-- the YAML model graph
-- encoder/head shapes
-- algorithm-specific checkpoint payload format
-- the SRL version you trained with
-
-If you change model topology, routing, or algorithm internals, expect old checkpoints to become load-incompatible.
-
-## Minimal Python usage
-
-```python
-import torch
-
-from srl.registry.builder import ModelBuilder
-from srl.utils.checkpoint import CheckpointManager
-
-model = ModelBuilder.from_yaml("configs/envs/pendulum_ppo.yaml")
-optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
-
-manager = CheckpointManager("runs/demo/checkpoints", max_keep=3)
-path = manager.save(model, optimizer=optimizer, step=5000, metrics={"score": 123.4})
-
-payload = manager.load(model, path, optimizer=optimizer, device="cpu")
-print(payload["step"], payload["metrics"])
-```
-
-## Recommended practice
-
-- Keep checkpoint directories per run, not shared across unrelated experiments.
-- Use `final_*` saves for explicit promotion points and `ckpt_*` for rolling periodic saves.
-- Treat `summary.json` and checkpoint files together as one artifact set when comparing experiments.
-- If you need long-lived checkpoints, pin the exact YAML config alongside the saved weights.
+Agent checkpoints carry `format: srl-agent` and a `format_version` in
+`meta.json`; this SRL reads versions 0 and 1 and rejects newer ones with a
+clear error. The stored `config.yaml` is re-validated on load, and the weights
+are loaded with a strict key check against the model it describes, so a
+checkpoint whose config no longer validates, or whose weights do not fit the
+model, fails loudly instead of loading partially.

@@ -5,40 +5,40 @@ config dataclasses.
 
 ## How the block is consumed
 
-`srl-train` uses it in two ways:
+Every key of `train:` falls into one of these groups (see
+`srl.config.split_train_section`); **anything else is an error** with a "did you
+mean" suggestion — see [strict validation](../config_reference.md#strict-validation):
 
-1. **`total_steps`, `n_envs`, `env_id`, and `env_type`** are read directly by the CLI
-   (each is overridden by the matching command-line flag when one is passed).
-2. **Everything else** is matched by name against the fields of the algorithm's config
-   dataclass in [srl/core/config.py](https://github.com/Bigkatoan/SRL/blob/main/srl/core/config.py)
-   — `PPOConfig`, `A2CConfig`, `A3CConfig`, `SACConfig`, `DDPGConfig`, or `TD3Config`.
+1. **Trainer keys** — `total_steps`, `n_envs`, `device`, `seed`, `log_interval`,
+   `eval_freq`, `eval_episodes`, `deterministic`, `save_best`, `save_interval`. Each has a matching
+   `srl-train` flag (`--steps`, `--n-envs`, `--device`, ...) that wins when passed.
+2. **Async-runner keys** — `use_async`, `use_gpu_buffer` (`AsyncRunnerConfig`).
+3. **Algorithm hyperparameters** — the fields of the algorithm's config dataclass in
+   [srl/core/config.py](https://github.com/Bigkatoan/SRL/blob/main/srl/core/config.py)
+   (`PPOConfig`, `A2CConfig`, `A3CConfig`, `SACConfig`, `DDPGConfig`, `TD3Config`, or the
+   `VisualPPOConfig`/`VisualSACConfig` variants). Values are type-, enum- and
+   range-checked; a key that belongs to a different algorithm is reported as such.
+4. **Legacy env keys** — `env_id`, `env_type`, `include_goal` are still accepted here
+   with a deprecation warning; put them at the top level of the file.
 
-```{warning}
-Keys that do not match a field on the selected algorithm's dataclass are **silently
-ignored**. If a hyperparameter appears to have no effect, check that it is spelled
-exactly as the dataclass field and that it exists on the algorithm you are running.
-```
+`action_dim`, `num_envs` and `replay_num_envs` are derived from the environment and
+overwrite whatever the YAML says.
 
-Two consequences worth knowing:
-
-- `device`, `seed`, `log_interval`, `eval_freq`, and `eval_episodes` are **command-line
-  flags only** (`--device`, `--seed`, `--log-interval`, `--eval-freq`,
-  `--eval-episodes`). They are not read from the `train:` block.
-- `action_dim` and the parallel-env count are derived from the environment and
-  overwrite whatever the YAML says.
-- `save_best` **is** read from the `train:` block (`train.save_best: true`), unlike
-  `eval_freq`/`eval_episodes` above — it also has a matching `--save-best`/
-  `--no-save-best` CLI flag, which wins over the YAML value when passed. See
-  [`--save-best`](best-checkpoint-tracking) in the CLI reference.
-
-## Fields read directly by the CLI
+## Trainer keys
 
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `total_steps` | int | 1_000_000 | Total environment steps (`--steps`) |
 | `n_envs` | int | 1 | Parallel environments (`--n-envs`) |
-| `env_id` | str | — | Environment id; also settable at the top level of the file |
-| `env_type` | str | `flat` | Wrapper selection; also settable at the top level |
+| `device` | str | `auto` | `auto`, `cpu`, `cuda`, ... (`--device`) |
+| `seed` | int | 0 | Base seed (`--seed`) |
+| `log_interval` | int | 2048 | Console log interval in env steps (`--log-interval`) |
+| `eval_freq` | int | 50_000 | Evaluation interval in env steps; 0 disables (`--eval-freq`) |
+| `eval_episodes` | int | 10 | Episodes per evaluation (`--eval-episodes`) |
+| `deterministic` | bool | false | Deterministic torch kernels (`--deterministic`) |
+| `save_best` | bool | false | Keep a `best_*` checkpoint (`--save-best`, see [`--save-best`](best-checkpoint-tracking)) |
+| `save_interval` | int | 100_000 | Env steps between periodic `srl-train` checkpoints (no CLI flag) |
+| `checkpoint_replay_buffer` | bool | false | Store the off-policy replay buffer in every `srl-train` checkpoint, for an exact `--resume` (can be gigabytes; no CLI flag) |
 
 ## Off-policy fields (SAC, DDPG, TD3)
 
@@ -51,11 +51,10 @@ Two consequences worth knowing:
 | `batch_size` | int | 256 | Gradient-update batch size |
 | `gamma` | float | 0.99 | Discount factor |
 | `tau` | float | 0.005 | Soft target-update coefficient |
-| `learning_starts` | int | 10_000 | Random steps before learning begins |
-| `start_steps` | int | `null` | Overrides `learning_starts` for the random-action warmup |
-| `update_after` | int | `null` | Minimum buffer fill before the first update; falls back to `learning_starts` |
-| `update_every` | int | `null` | Env steps between updates; falls back to `train_freq` |
-| `gradient_steps` | int | 1 | Gradient updates per trigger |
+| `learning_starts` | int | 10_000 | Env steps of uniform-random actions before the policy acts |
+| `update_after` | int | `learning_starts` | Env steps collected before the first gradient update |
+| `train_freq` | int | 1 | Env steps between update rounds |
+| `gradient_steps` | int | 1 | Gradient updates per round |
 | `encoder_update_freq` | int | 1 | Encoder optimizer steps every N critic updates |
 | `replay_n_step` | int | 1 | N-step return horizon: per-env sliding window; targets use the stored `gamma**k` (k shortens at episode ends) |
 | `normalize_obs` | bool | false | Running mean/std normalization of flat float observations (saved in checkpoints) |
@@ -67,9 +66,18 @@ Two consequences worth knowing:
 SAC also accepts `alpha`, `init_alpha`, `auto_entropy_tuning`, `target_entropy`,
 `min_alpha` (floor on the auto-tuned temperature, permissive `1e-8` default —
 see `SACConfig.min_alpha`'s docstring in `srl/core/config.py` for why this
-exists), `target_update_interval`, `train_freq`. DDPG and TD3 accept `action_noise`
+exists) and `target_update_interval`. DDPG and TD3 accept `action_noise`
 (`gaussian` | `ou`) and `noise_sigma`; TD3 additionally accepts `policy_noise`
 (0.2), `noise_clip` (0.5), and `policy_delay` (2).
+
+```{note}
+`start_steps` and `update_every` are deprecated aliases of `learning_starts` and
+`train_freq`. They still load (with a `ConfigDeprecationWarning`) and keep their
+exact previous meaning — `start_steps` sets the random-action warmup while
+`update_after` keeps defaulting to the *original* `learning_starts`.
+`srl.config.normalize_offpolicy_schedule(cfg)` is the single function that resolves
+the four canonical values for a config object.
+```
 
 ```{note}
 `encoder_lr`, `encoder_optimize_with_critic`, `aux_loss_type`, and `aux_weight` live on
@@ -119,9 +127,9 @@ train:
   encoder_lr:                   1e-4
   tau:                          0.005
   buffer_size:                  100_000
-  start_steps:                  1000
+  learning_starts:              1000
   update_after:                 1000
-  update_every:                 50
+  train_freq:                   50
   gradient_steps:               1
   encoder_update_freq:          2
   encoder_optimize_with_critic: true
@@ -129,9 +137,7 @@ train:
 ```
 
 `encoder_lr` is a `VisualSACConfig`-only field, so setting it here is what makes
-`srl-train` auto-select `VisualSACConfig` for this run (see the note above) --
-`eval_freq` and `eval_episodes` are **not** valid inside `train:`; they are
-`--eval-freq`/`--eval-episodes` command-line flags only.
+`srl-train` auto-select `VisualSACConfig` for this run (see the note above).
 
 ## Full example — PPO on Isaac Lab
 
@@ -154,4 +160,4 @@ train:
 
 - [Configuration Reference](../config_reference.md)
 - [Algorithms](../algorithms.md)
-- [CLI Reference](../cli.md) — the flags that are not settable from YAML
+- [CLI Reference](../cli.md) — the flags that override `train:` keys

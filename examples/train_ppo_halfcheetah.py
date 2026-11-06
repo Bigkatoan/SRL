@@ -1,97 +1,40 @@
-"""Train PPO on HalfCheetah-v4 using a config file."""
+"""Train PPO on HalfCheetah-v5 (8 vectorized envs, from the YAML) with the Python API.
+
+Usage: python examples/train_ppo_halfcheetah.py --steps 1000000"""
+
+import argparse
 
 import gymnasium as gym
-import torch
 
-from srl.algorithms.ppo import PPO
-from srl.core.config import PPOConfig
-from srl.envs.gymnasium_wrapper import GymnasiumWrapper
-from srl.envs.sync_vector_env import SyncVectorEnv
-from srl.registry.builder import ModelBuilder
-from srl.utils.callbacks import CheckpointCallback, LogCallback
-from srl.utils.checkpoint import CheckpointManager
-from srl.utils.logger import Logger
-
-# ---- Config ---------------------------------------------------------------
-YAML_CONFIG = "configs/ppo_state.yaml"
-TOTAL_STEPS = 1_000_000
-N_ENVS = 4
-N_STEPS = 2048
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-
-# ---- Build model ----------------------------------------------------------
-model = ModelBuilder.from_yaml(YAML_CONFIG)
+from srl import PPO
 
 
-# ---- Vectorised envs -------------------------------------------------------
-def make_env():
-    return GymnasiumWrapper(gym.make("HalfCheetah-v4"))
+def main() -> None:
+    p = argparse.ArgumentParser()
+    p.add_argument("--steps", type=int, default=1_000_000)
+    p.add_argument("--device", default="auto")
+    args = p.parse_args()
+
+    # env=None -> the YAML's env_id / train.n_envs build the (vectorized) training env.
+    agent = PPO.from_config("configs/envs/halfcheetah_ppo.yaml", device=args.device)
+    agent.learn(
+        args.steps,
+        eval_env="HalfCheetah-v5",
+        eval_freq=50_000,
+        log_dir="runs/ppo_halfcheetah",
+        progress=True,
+    )
+    agent.save("runs/ppo_halfcheetah/final")
+
+    # Roll out the trained policy: numpy obs in, env-unit actions out.
+    env = gym.make("HalfCheetah-v5")
+    obs, _ = env.reset(seed=0)
+    for _ in range(1000):
+        action, _ = agent.predict(obs, deterministic=True)
+        obs, reward, terminated, truncated, _ = env.step(action)
+        if terminated or truncated:
+            obs, _ = env.reset()
 
 
-env = SyncVectorEnv([make_env for _ in range(N_ENVS)])
-
-# ---- Agent -----------------------------------------------------------------
-cfg = PPOConfig(
-    n_steps=N_STEPS,
-    num_envs=N_ENVS,
-    batch_size=256,
-    n_epochs=10,
-    gamma=0.99,
-    gae_lambda=0.95,
-    clip_range=0.2,
-    lr=3e-4,
-    entropy_coef=0.0,
-    vf_coef=0.5,
-    max_grad_norm=0.5,
-)
-agent = PPO(model, config=cfg, device=DEVICE)
-
-# ---- Callbacks -------------------------------------------------------------
-logger = Logger(log_dir="runs/ppo_halfcheetah")
-cm = CheckpointManager("checkpoints/ppo_halfcheetah")
-callbacks = [
-    LogCallback(logger, log_interval=cfg.n_steps * N_ENVS),
-    CheckpointCallback(cm, save_interval=50_000),
-]
-
-# ---- Training loop ---------------------------------------------------------
-obs, _ = env.reset()
-step = 0
-
-while step < TOTAL_STEPS:
-    # Collect N_STEPS * N_ENVS transitions
-    for _ in range(N_STEPS):
-        obs_t = {k: torch.from_numpy(v).float().to(DEVICE) for k, v in obs.items()}
-        action, log_prob, value, _ = agent.predict(obs_t)
-
-        action_np = action.cpu().numpy()
-        next_obs, reward, done, truncated, info = env.step(action_np)
-
-        agent.buffer.add(
-            obs=obs,
-            action=action_np,
-            reward=reward,
-            done=done,
-            truncated=truncated,
-            log_prob=log_prob.cpu().numpy() if log_prob is not None else None,
-            value=value.cpu().numpy() if value is not None else None,
-        )
-        obs = next_obs
-        step += N_ENVS
-
-    # Bootstrap and update
-    last_obs_t = {k: torch.from_numpy(v).float().to(DEVICE) for k, v in obs.items()}
-    with torch.no_grad():
-        _, _, last_value, _ = agent.predict(last_obs_t)
-    last_val = last_value.cpu().numpy() if last_value is not None else None
-    agent.buffer.compute_returns_and_advantages(last_value=last_val)
-
-    metrics = agent.update()
-    metrics["step"] = step
-
-    for cb in callbacks:
-        cb.on_step_end(step, metrics)
-
-print("Training complete.")
-env.close()
-logger.close()
+if __name__ == "__main__":  # guard needed: vector envs spawn worker processes
+    main()

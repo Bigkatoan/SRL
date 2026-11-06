@@ -1,6 +1,8 @@
 # PPO on CarRacing-v3  (obs=96x96x3 RGB, act=3)
 # Target return: > 700 (convergence ~5M steps)
 
+schema_version: 1
+
 env_id: "CarRacing-v3"
 env_type: "flat"
 
@@ -33,12 +35,6 @@ critic:
   type: value
   layers:
     - {out_features: 256, activation: relu}
-
-losses:
-  - {name: policy,         weight: 1.0}
-  - {name: value,          weight: 0.5}
-  - {name: entropy,        weight: 0.01}
-  - {name: reconstruction, weight: 0.1}
 
 train:
   total_steps: 5_000_000

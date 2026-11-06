@@ -1,6 +1,8 @@
 # PPO on LunarLanderContinuous-v3  (obs=8, act=2)
 # Target return: > 200 (convergence ~1.5M steps)
 
+schema_version: 1
+
 env_id: "LunarLanderContinuous-v3"
 env_type: "flat"
 
@@ -39,11 +41,6 @@ critic:
   type: value
   layers:
     - {out_features: 64, activation: tanh, norm: none}
-
-losses:
-  - {name: policy,  weight: 1.0}
-  - {name: value,   weight: 0.5}
-  - {name: entropy, weight: 0.01}
 
 train:
   total_steps: 1_500_000

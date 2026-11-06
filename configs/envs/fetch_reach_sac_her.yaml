@@ -1,4 +1,4 @@
-# SAC + Hindsight Experience Replay on FetchReach-v4  (obs_flat=16, act=4)
+# SAC + Hindsight Experience Replay on FetchReach-v4  (obs_flat=16, act=4; dims resolved from the env: `auto`)
 # Flat obs = [observation(10) | achieved_goal(3) | desired_goal(3)]
 #
 # This is fetch_reach_sac.yaml with HER switched on. FetchReach's reward is
@@ -11,22 +11,27 @@
 #
 # Target: success_rate > 0.90 (converges far sooner than the non-HER config)
 
+schema_version: 1
+
 env_id: "FetchReach-v4"
 env_type: "goal"
+# HER re-appends the desired goal to every sampled observation, so the flat
+# obs must include the goal (include_goal: false is rejected at startup).
+include_goal: true
 
 algo: sac
 
 encoders:
   - name: actor_state_enc
     type: mlp
-    input_dim: 16
+    input_dim: auto
     latent_dim: 256
     layers:
       - {out_features: 256, activation: relu, norm: layer_norm}
       - {out_features: 256, activation: relu, norm: layer_norm}
   - name: critic_state_enc
     type: mlp
-    input_dim: 16
+    input_dim: auto
     latent_dim: 256
     layers:
       - {out_features: 256, activation: relu, norm: layer_norm}
@@ -39,7 +44,7 @@ flows:
 actor:
   name: actor
   type: squashed_gaussian
-  action_dim: 4
+  action_dim: auto
   log_std_min: -5.0
   log_std_max: 2.0
   layers:
@@ -48,14 +53,9 @@ actor:
 critic:
   name: critic
   type: twin_q
-  action_dim: 4
+  action_dim: auto
   layers:
     - {out_features: 256, activation: relu, norm: layer_norm}
-
-losses:
-  - {name: sac_q,           weight: 1.0}
-  - {name: sac_policy,      weight: 1.0}
-  - {name: sac_temperature, weight: 1.0}
 
 train:
   total_steps: 500_000
@@ -87,9 +87,3 @@ train:
   # Running mean/std normalization of the flat obs, clipped to +-5.
   normalize_obs: true
   obs_norm_clip: 5.0
-
-  # GoalEnv settings
-  env_id: "FetchReach-v4"
-  # HER re-appends the desired goal to every sampled observation, so the flat
-  # obs must include the goal (include_goal: false is rejected at startup).
-  include_goal: true

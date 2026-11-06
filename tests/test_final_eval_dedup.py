@@ -29,7 +29,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import srl.cli.train as train_module
+from evaluator_compat import maybe_run_evaluation, patch_evaluate_agent
 
 
 class _FakeLogger:
@@ -50,14 +50,13 @@ def _fake_args(eval_freq: int, steps: int = 100_000) -> SimpleNamespace:
 
 
 def _patch_evaluate_agent(monkeypatch, score: float = -1.0) -> None:
-    """Monkeypatches _evaluate_agent/_make_cli_env so tests never build a
-    real env."""
+    """Monkeypatches evaluate_agent (and the evaluator compat helper builds a
+    dummy eval env) so tests never build a real env."""
 
     def _fake_evaluate_agent(agent, eval_env, **kwargs):
         return {"eval/score_mean": score, "eval/score_max": score, "eval/episodes": 1.0}
 
-    monkeypatch.setattr(train_module, "_evaluate_agent", _fake_evaluate_agent)
-    monkeypatch.setattr(train_module, "_make_cli_env", lambda *a, **k: object())
+    patch_evaluate_agent(monkeypatch, _fake_evaluate_agent)
 
 
 def test_last_eval_step_tracks_the_real_step_eval_fired_at(monkeypatch) -> None:
@@ -66,7 +65,7 @@ def test_last_eval_step_tracks_the_real_step_eval_fired_at(monkeypatch) -> None:
 
     # Periodic eval fires at an overshot step (3072), not the nominal
     # threshold (3000) -- next_eval_step's schedule is still exact.
-    next_eval_step, eval_env, last_eval_step = train_module._maybe_run_evaluation(
+    next_eval_step, eval_env, last_eval_step = maybe_run_evaluation(
         agent=object(),
         args=args,
         logger=_FakeLogger(),
@@ -91,7 +90,7 @@ def test_final_eval_correctly_skipped_even_with_overshoot(monkeypatch) -> None:
 
     # Simulate the loop's last periodic call landing exactly on the
     # (overshot) final step.
-    next_eval_step, eval_env, last_eval_step = train_module._maybe_run_evaluation(
+    next_eval_step, eval_env, last_eval_step = maybe_run_evaluation(
         agent=object(),
         args=args,
         logger=_FakeLogger(),
@@ -118,7 +117,7 @@ def test_final_eval_still_runs_when_nothing_evaluated_this_step(monkeypatch) -> 
 
     # Training ended at step=3000, short of the next scheduled threshold --
     # no eval has happened near the end yet, final eval must run.
-    next_eval_step, eval_env, last_eval_step = train_module._maybe_run_evaluation(
+    next_eval_step, eval_env, last_eval_step = maybe_run_evaluation(
         agent=object(),
         args=args,
         logger=_FakeLogger(),

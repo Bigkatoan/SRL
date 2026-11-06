@@ -10,10 +10,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from srl.algorithms._onpolicy_common import OnPolicyActionMixin, select_action
-from srl.core.base_agent import BaseAgent
+from srl.core.base_agent import OnPolicyAgent
 from srl.core.config import PPOConfig
-from srl.core.rollout_buffer import RolloutBuffer
 from srl.losses.aux_losses import reconstruction_loss
 from srl.losses.loss_composer import LossComposer
 from srl.losses.rl_losses import (
@@ -21,11 +19,10 @@ from srl.losses.rl_losses import (
     ppo_clip_loss,
     ppo_value_loss,
 )
-from srl.utils.checkpoint import CheckpointManager
 from srl.utils.normalizer import RunningNormalizer
 
 
-class PPO(OnPolicyActionMixin, BaseAgent):
+class PPO(OnPolicyAgent):
     """Proximal Policy Optimisation.
 
     Parameters
@@ -37,18 +34,22 @@ class PPO(OnPolicyActionMixin, BaseAgent):
         :class:`~srl.core.config.PPOConfig`.
     device:
         PyTorch device.
+    env:
+        Optional training env (raw Gymnasium envs are wrapped).
     """
+
+    algo_name = "ppo"
+    config_cls = PPOConfig
 
     def __init__(
         self,
         model: nn.Module,
         config: PPOConfig | None = None,
         device: str | torch.device = "cpu",
+        *,
+        env=None,
     ) -> None:
-        self.model = model
-        self.cfg = config or PPOConfig()
-        self._device = torch.device(device)
-        self.model.to(self._device)
+        super().__init__(model, config, device, env=env)
 
         # If a config exposes a separate encoder learning rate (VisualPPOConfig),
         # create a head-only optimizer (actor+critic) and optionally a separate
@@ -122,16 +123,8 @@ class PPO(OnPolicyActionMixin, BaseAgent):
         # signal -- detaching there silently froze them (verified dW == 0).
         self._detach_encoders = self.encoder_optimizer is not None
 
-        self.buffer = RolloutBuffer(
-            capacity=self.cfg.n_steps,
-            num_envs=getattr(self.cfg, "num_envs", 1),
-            gamma=self.cfg.gamma,
-            lam=self.cfg.gae_lambda,
-            device=self.device,
-        )
+        self.buffer = self._build_rollout_buffer()
 
-        self.checkpoint_manager: CheckpointManager | None = None
-        self._global_step = 0
         # Tracks the live LR under lr_schedule="adaptive" -- self.cfg.lr stays
         # the *initial* value (also what a fresh --resume with no checkpoint
         # would start from); this is what actually drives the optimizer once
@@ -213,7 +206,7 @@ class PPO(OnPolicyActionMixin, BaseAgent):
     def update_obs_normalizer(self, obs: dict[str, Any]) -> None:
         """Update the running obs statistics with one collected observation
         dict (numpy, unbatched (D,) or batched (N, D)). Call BEFORE
-        :meth:`predict` on that observation (VecNormalize order)."""
+        :meth:`act` on that observation (VecNormalize order)."""
         if not self.cfg.normalize_obs:
             return
         for key, value in self._obs_key_map(obs).items():
@@ -281,6 +274,10 @@ class PPO(OnPolicyActionMixin, BaseAgent):
         return {
             "obs": {k: v.state_dict() for k, v in self._obs_normalizers.items()},
             "ret": self._ret_normalizer.state_dict() if self._ret_normalizer is not None else None,
+            # Not needed by load (the config has them) -- lets srl.load_policy
+            # apply the obs transform without rebuilding the PPO config.
+            "clip_obs": float(self.cfg.clip_obs),
+            "norm_epsilon": float(self.cfg.norm_epsilon),
         }
 
     def _load_normalizer_payload(self, payload: dict[str, Any] | None) -> None:
@@ -300,36 +297,10 @@ class PPO(OnPolicyActionMixin, BaseAgent):
         if ret_state is not None and self._ret_normalizer is not None:
             self._ret_normalizer.load_state_dict(ret_state)
 
-    # ------------------------------------------------------------------
-    # BaseAgent interface
-    # ------------------------------------------------------------------
-
-    def predict(
-        self,
-        obs: dict[str, torch.Tensor],
-        hidden: dict | None = None,
-        deterministic: bool = False,
-    ) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None, dict]:
-        self.model.eval()
-        obs = self.normalize_obs(obs)
-        with torch.no_grad():
-            result = self.model(obs, hidden_states=hidden)
-        actor_out = result["actor_out"]
-
-        # Stochastic: the raw (unclipped) sample -- callers store it for the
-        # log-prob and clip with self.clip_action() only at env.step().
-        # Deterministic: the distribution mode clipped to the action bounds.
-        action, log_prob = select_action(actor_out, deterministic)
-        if deterministic:
-            action = self.clip_action(action)
-
-        value = result["value"]
-        return action, log_prob, value, result["new_hidden"]
-
-    def learn(self, total_timesteps: int) -> None:
-        raise NotImplementedError(
-            "Call PPO via a TrainingLoop or pass pre-collected batches to update()."
-        )
+    def _preprocess_obs(self, obs: dict) -> dict:
+        # act() applies the running obs normalisation itself, so eval and
+        # deployment see the same transform the policy was trained on.
+        return self.normalize_obs(obs)
 
     def _adapt_lr(self, kl_mean: float) -> None:
         """Adapt `self._current_lr` from this minibatch's measured KL and push
@@ -460,6 +431,18 @@ class PPO(OnPolicyActionMixin, BaseAgent):
                     )
                 info["approx_kl"] = float(approx_kl.item())
 
+                # target_kl: `approx_kl` is measured on this minibatch BEFORE
+                # its gradient step (old rollout policy vs. the current one),
+                # so once it exceeds the target the policy has already moved
+                # too far -- stop before applying another step (SB3/CleanRL
+                # order). Stepping first and breaking after, as this loop
+                # used to, always applied one extra update past the limit.
+                if self.cfg.target_kl is not None and approx_kl.item() > self.cfg.target_kl:
+                    for k, v in info.items():
+                        metrics_accum.setdefault(k, []).append(v)
+                    stop_early = True
+                    break
+
                 if self.cfg.lr_schedule == "adaptive":
                     self._adapt_lr(float(approx_kl.item()))
                 info["lr"] = self._current_lr
@@ -492,9 +475,6 @@ class PPO(OnPolicyActionMixin, BaseAgent):
                 for k, v in info.items():
                     metrics_accum.setdefault(k, []).append(v)
                 self._global_step += 1
-                if self.cfg.target_kl is not None and approx_kl.item() > self.cfg.target_kl:
-                    stop_early = True
-                    break
             if stop_early:
                 break
 
@@ -579,28 +559,15 @@ class PPO(OnPolicyActionMixin, BaseAgent):
         self.buffer.reset()
         return {k: sum(v) / len(v) for k, v in metrics_accum.items()}
 
-    def save(self, path: str) -> None:
-        import torch
-
-        torch.save(self.checkpoint_payload(), path)
-
-    def load(self, path: str) -> None:
-        import torch
-
-        ckpt = torch.load(path, map_location=self.device, weights_only=False)
-        self.load_checkpoint_payload(ckpt)
-
-    def checkpoint_payload(self) -> dict[str, Any]:
+    def _algo_payload(self) -> dict[str, Any]:
         return {
-            "model_state": self.model.state_dict(),
+            **self._base_payload(),
             "optimizer_state": self.optimizer.state_dict(),
             "encoder_optimizer_state": (
                 self.encoder_optimizer.state_dict()
                 if getattr(self, "encoder_optimizer", None) is not None
                 else None
             ),
-            "algo_step": self._global_step,
-            "action_bounds": self._action_bounds_payload(),
             "normalizers": self._normalizer_payload(),
             # optimizer_state above already carries each param group's
             # resumed "lr" -- this is saved/restored separately anyway
@@ -628,18 +595,14 @@ class PPO(OnPolicyActionMixin, BaseAgent):
             ),
         }
 
-    def load_checkpoint_payload(self, payload: dict[str, Any]) -> None:
-        model_state = payload.get("model_state", payload.get("model"))
-        if model_state is not None:
-            self.model.load_state_dict(model_state)
+    def _load_algo_payload(self, payload: dict[str, Any]) -> None:
+        self._load_base_payload(payload)
         optimizer_state = payload.get("optimizer_state")
         if optimizer_state is not None:
             self.optimizer.load_state_dict(optimizer_state)
         encoder_opt_state = payload.get("encoder_optimizer_state")
         if encoder_opt_state is not None and getattr(self, "encoder_optimizer", None) is not None:
             self.encoder_optimizer.load_state_dict(encoder_opt_state)
-        self._global_step = int(payload.get("algo_step", payload.get("step", 0)))
-        self._load_action_bounds_payload(payload.get("action_bounds"))
         self._load_normalizer_payload(payload.get("normalizers"))
         if "current_lr" in payload:
             self._current_lr = float(payload["current_lr"])

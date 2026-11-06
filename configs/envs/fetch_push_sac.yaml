@@ -1,24 +1,27 @@
-# SAC on FetchPush-v4  (obs_flat=31, act=4)
+# SAC on FetchPush-v4  (obs_flat=31, act=4; dims resolved from the env: `auto`)
 # Flat obs = [observation(25) | achieved_goal(3) | desired_goal(3)]
 # SAC + HER (future, k=4) with observation normalization.
 # Target: success_rate > 0.80 (convergence ~2M steps)
 
+schema_version: 1
+
 env_id: "FetchPush-v4"
 env_type: "goal"
+include_goal: true
 
 algo: sac
 
 encoders:
   - name: actor_state_enc
     type: mlp
-    input_dim: 31
+    input_dim: auto
     latent_dim: 256
     layers:
       - {out_features: 256, activation: relu, norm: layer_norm}
       - {out_features: 256, activation: relu, norm: layer_norm}
   - name: critic_state_enc
     type: mlp
-    input_dim: 31
+    input_dim: auto
     latent_dim: 256
     layers:
       - {out_features: 256, activation: relu, norm: layer_norm}
@@ -31,7 +34,7 @@ flows:
 actor:
   name: actor
   type: squashed_gaussian
-  action_dim: 4
+  action_dim: auto
   log_std_min: -5.0
   log_std_max: 2.0
   layers:
@@ -40,14 +43,9 @@ actor:
 critic:
   name: critic
   type: twin_q
-  action_dim: 4
+  action_dim: auto
   layers:
     - {out_features: 256, activation: relu, norm: layer_norm}
-
-losses:
-  - {name: sac_q,           weight: 1.0}
-  - {name: sac_policy,      weight: 1.0}
-  - {name: sac_temperature, weight: 1.0}
 
 train:
   total_steps: 2_000_000
@@ -76,6 +74,3 @@ train:
   # clipped to +-5 (as in the original HER implementation).
   normalize_obs: true
   obs_norm_clip: 5.0
-
-  env_id: "FetchPush-v4"
-  include_goal: true

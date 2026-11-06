@@ -1,7 +1,7 @@
 # YAML Configuration System
 
 YAML is SRL's central configuration language. The whole model architecture — encoders,
-flows, actor/critic heads, losses, and training hyperparameters — is declared in a
+flows, actor/critic heads, and training hyperparameters — is declared in a
 single YAML file, which `ModelBuilder` then materialises into a runtime model graph.
 
 ## Why SRL uses YAML
@@ -18,7 +18,8 @@ single YAML file, which `ModelBuilder` then materialises into a runtime model gr
 ```
 YAML file
   ↓ ModelBuilder.from_yaml(path)
-  ↓ parse → AgentModelConfig, EncoderConfig, HeadConfig, LossConfig
+  ↓ strict parse → AgentModelConfig, EncoderConfig, HeadConfig (unknown keys = error)
+  ↓ resolve `auto` dims from the env spaces (optional)
   ↓ instantiate encoders + heads
   ↓ FlowGraph parses the `flows` edges into a DAG
   ↓
@@ -32,6 +33,7 @@ actor(·), critic(·)
 
 ```yaml
 # configs/envs/halfcheetah_sac.yaml
+schema_version: 1
 env_id:   HalfCheetah-v5
 env_type: flat
 algo:     sac

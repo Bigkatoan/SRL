@@ -17,18 +17,23 @@ from __future__ import annotations
 import pytest
 import torch
 
-from srl.cli.train import (
-    _build_algo_config,
-    _resolve_algo_config_cls,
-    _train_section,
-)
+from srl.cli.train import _train_section
+from srl.config import build_algo_config, resolve_algo_config_cls
 from srl.core.config import (
     DDPGConfig,
     PPOConfig,
-    SACConfig,
     VisualPPOConfig,
     VisualSACConfig,
 )
+from srl.training.algo_config import report_aux_config
+
+
+def _resolve_algo_config_cls(algo: str, raw_cfg: dict, train_cfg: dict):
+    """srl.config's (silent) class selection + srl-train's console diagnostics."""
+    config_cls, extra = resolve_algo_config_cls(algo, train_cfg, raw_cfg)
+    report_aux_config(algo, raw_cfg)
+    return config_cls, extra
+
 
 _CNN_ENCODER = {
     "name": "visual_enc",
@@ -65,10 +70,10 @@ def test_shipped_car_racing_visual_config_builds_visual_ppo_config() -> None:
     """
     train_cfg, raw_cfg = _train_section("configs/envs/car_racing_ppo_visual.yaml")
 
-    config_cls, extra = _resolve_algo_config_cls("ppo", PPOConfig, raw_cfg, train_cfg)
+    config_cls, extra = _resolve_algo_config_cls("ppo", raw_cfg, train_cfg)
     assert config_cls is VisualPPOConfig
 
-    config = _build_algo_config(config_cls, train_cfg, num_envs=4, **extra)
+    config = build_algo_config("ppo", train_cfg, model=raw_cfg, overrides={"num_envs": 4})
     # This is the exact predicate srl/algorithms/ppo.py branches on.
     assert hasattr(config, "encoder_lr")
     # An autoencoder head needs the reconstruction ("ae") loss, not the
@@ -87,13 +92,13 @@ def test_shipped_car_racing_visual_config_builds_visual_ppo_config() -> None:
 def test_no_aux_type_anywhere_keeps_plain_config() -> None:
     train_cfg, raw_cfg = _cfg(aux_type=None, train={"lr": 3e-4})
 
-    config_cls, extra = _resolve_algo_config_cls("ppo", PPOConfig, raw_cfg, train_cfg)
+    config_cls, extra = _resolve_algo_config_cls("ppo", raw_cfg, train_cfg)
 
     assert config_cls is PPOConfig
     assert extra == {}
     # Guards the negative side of ppo.py's predicate: a state-based run must
     # not silently get a head-only optimizer.
-    assert not hasattr(_build_algo_config(config_cls, train_cfg), "encoder_lr")
+    assert not hasattr(build_algo_config("ppo", train_cfg, model=raw_cfg), "encoder_lr")
 
 
 @pytest.mark.parametrize(
@@ -110,11 +115,11 @@ def test_encoder_aux_type_maps_to_matching_aux_loss(aux_type: str, expected_loss
     """
     train_cfg, raw_cfg = _cfg(aux_type=aux_type)
 
-    config_cls, extra = _resolve_algo_config_cls("sac", SACConfig, raw_cfg, train_cfg)
+    config_cls, extra = _resolve_algo_config_cls("sac", raw_cfg, train_cfg)
 
     assert config_cls is VisualSACConfig
     assert extra["aux_loss_type"] == expected_loss
-    config = _build_algo_config(config_cls, train_cfg, **extra)
+    config = build_algo_config("sac", train_cfg, model=raw_cfg)
     assert isinstance(config, VisualSACConfig)  # sac.py's _is_visual predicate
     assert config.aux_weight > 0.0  # sac.py skips the aux loss when this is 0
 
@@ -123,10 +128,10 @@ def test_visual_only_train_field_opts_in_without_encoder_aux_type() -> None:
     """Setting e.g. encoder_lr in train: is enough on its own."""
     train_cfg, raw_cfg = _cfg(aux_type=None, train={"encoder_lr": 5e-5, "aux_weight": 0.25})
 
-    config_cls, _ = _resolve_algo_config_cls("ppo", PPOConfig, raw_cfg, train_cfg)
+    config_cls, _ = _resolve_algo_config_cls("ppo", raw_cfg, train_cfg)
 
     assert config_cls is VisualPPOConfig
-    config = _build_algo_config(config_cls, train_cfg)
+    config = build_algo_config("ppo", train_cfg, model=raw_cfg)
     assert config.encoder_lr == pytest.approx(5e-5)
     assert config.aux_weight == pytest.approx(0.25)
 
@@ -135,11 +140,11 @@ def test_explicit_aux_loss_type_in_train_block_is_not_overridden() -> None:
     """A user's explicit choice beats the aux_type-derived default."""
     train_cfg, raw_cfg = _cfg(aux_type="autoencoder", train={"aux_loss_type": "vae"})
 
-    config_cls, extra = _resolve_algo_config_cls("sac", SACConfig, raw_cfg, train_cfg)
+    config_cls, extra = _resolve_algo_config_cls("sac", raw_cfg, train_cfg)
 
     assert config_cls is VisualSACConfig
     assert "aux_loss_type" not in extra
-    assert _build_algo_config(config_cls, train_cfg, **extra).aux_loss_type == "vae"
+    assert build_algo_config("sac", train_cfg, model=raw_cfg).aux_loss_type == "vae"
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -147,24 +152,21 @@ def test_explicit_aux_loss_type_in_train_block_is_not_overridden() -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def test_aux_type_with_algo_that_has_no_visual_variant_warns_and_stays_plain(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
+def test_aux_type_with_algo_that_has_no_visual_variant_warns_and_stays_plain() -> None:
     """DDPG/TD3 have no Visual config; the run stays valid but says so."""
     train_cfg, raw_cfg = _cfg(aux_type="autoencoder")
 
-    config_cls, extra = _resolve_algo_config_cls("ddpg", DDPGConfig, raw_cfg, train_cfg)
+    with pytest.warns(UserWarning) as record:
+        config_cls, extra = _resolve_algo_config_cls("ddpg", raw_cfg, train_cfg)
 
     assert config_cls is DDPGConfig
     assert extra == {}
-    err = capsys.readouterr().err
+    err = " ".join(str(w.message) for w in record)
     assert "no visual config variant" in err
     assert "visual_enc" in err
 
 
-def test_unrecognized_aux_type_warns_and_does_not_switch_config(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
+def test_unrecognized_aux_type_warns_and_does_not_switch_config() -> None:
     """A typo'd aux_type builds no head, so it must not select Visual*.
 
     Switching on it would hand PPO a head-only optimizer with no aux modules,
@@ -172,16 +174,13 @@ def test_unrecognized_aux_type_warns_and_does_not_switch_config(
     """
     train_cfg, raw_cfg = _cfg(aux_type="ae")  # not a registered head name
 
-    config_cls, _ = _resolve_algo_config_cls("ppo", PPOConfig, raw_cfg, train_cfg)
+    with pytest.warns(UserWarning, match="not a known aux head"):
+        config_cls, _ = _resolve_algo_config_cls("ppo", raw_cfg, train_cfg)
 
     assert config_cls is PPOConfig
-    err = capsys.readouterr().err
-    assert "not a known aux head" in err
 
 
-def test_multiple_distinct_aux_types_warn_and_pick_the_first(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
+def test_multiple_distinct_aux_types_warn_and_pick_the_first() -> None:
     raw_cfg = {
         "encoders": [
             dict(_CNN_ENCODER, name="enc_a", aux_type="autoencoder"),
@@ -190,18 +189,18 @@ def test_multiple_distinct_aux_types_warn_and_pick_the_first(
         "train": {},
     }
 
-    config_cls, extra = _resolve_algo_config_cls("ppo", PPOConfig, raw_cfg["train"], {})
+    config_cls, extra = _resolve_algo_config_cls("ppo", raw_cfg["train"], {})
     assert config_cls is PPOConfig  # no encoders in the (empty) cfg passed above
 
-    config_cls, extra = _resolve_algo_config_cls("ppo", PPOConfig, raw_cfg, raw_cfg["train"])
+    with pytest.warns(UserWarning, match="multiple encoder aux_types"):
+        config_cls, extra = _resolve_algo_config_cls("ppo", raw_cfg, raw_cfg["train"])
     assert config_cls is VisualPPOConfig
     assert extra["aux_loss_type"] == "ae"
-    assert "multiple encoder aux_types" in capsys.readouterr().err
 
 
 def test_missing_or_malformed_encoders_section_is_tolerated() -> None:
     for raw_cfg in ({}, {"encoders": None}, {"encoders": ["not-a-dict"]}):
-        config_cls, extra = _resolve_algo_config_cls("ppo", PPOConfig, raw_cfg, {})
+        config_cls, extra = _resolve_algo_config_cls("ppo", raw_cfg, {})
         assert config_cls is PPOConfig
         assert extra == {}
 
@@ -268,11 +267,11 @@ def test_shipped_car_racing_sac_visual_config_computes_nonzero_aux_loss() -> Non
     path = "configs/envs/car_racing_sac_visual.yaml"
     train_cfg, raw_cfg = _train_section(path)
 
-    config_cls, extra = _resolve_algo_config_cls("sac", SACConfig, raw_cfg, train_cfg)
+    config_cls, extra = _resolve_algo_config_cls("sac", raw_cfg, train_cfg)
     assert config_cls is VisualSACConfig
     assert extra["aux_loss_type"] == "ae"
 
-    config = _build_algo_config(config_cls, train_cfg, action_dim=3, **extra)
+    config = build_algo_config("sac", train_cfg, model=raw_cfg, overrides={"action_dim": 3})
     model = ModelBuilder.from_yaml(path)
     agent = SAC(model, copy.deepcopy(model), config=config, device="cpu")
     assert agent._is_visual
