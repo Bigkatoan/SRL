@@ -12,6 +12,10 @@
 # SRL mapping: separate 256-256 ReLU encoders for actor and critic, linear
 # output heads (no extra hidden layers), state-independent log_std init -2.
 #
+# `latent_dim: null` on every encoder: no extra Linear projection after the
+# last hidden layer (the schema default, latent_dim 128, would silently add
+# one -- an architecture SB3 does not have).
+#
 # Used by scripts/benchmark/run_matrix.py. Do not tune these per-env: the point
 # is an apples-to-apples comparison against the SB3 / CleanRL reference numbers
 # in scripts/benchmark/reference.yaml.
@@ -27,12 +31,14 @@ encoders:
   - name: actor_state_enc
     type: mlp
     input_dim: 17
+    latent_dim: null
     layers:
       - {out_features: 256, activation: relu, norm: none}
       - {out_features: 256, activation: relu, norm: none}
   - name: critic_state_enc
     type: mlp
     input_dim: 17
+    latent_dim: null
     layers:
       - {out_features: 256, activation: relu, norm: none}
       - {out_features: 256, activation: relu, norm: none}

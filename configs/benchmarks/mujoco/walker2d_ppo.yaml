@@ -6,11 +6,20 @@
 # rl-zoo tuned MuJoCo PPO: normalize: true (VecNormalize obs + reward, clip 10),
 # n_envs 1, n_steps 512, batch_size 32, n_epochs 20, gamma 0.99,
 # gae_lambda 0.95, learning_rate 5.05041e-05, ent_coef 0.000585045, clip_range 0.1,
-# max_grad_norm 1.0, vf_coef 0.871923; policy_kwargs log_std_init=-2,
-# ortho_init=False, activation_fn=ReLU, net_arch pi=[256, 256], vf=[256, 256].
+# max_grad_norm 1.0, vf_coef 0.871923. Unlike the Hopper/HalfCheetah entries,
+# `Walker2d-v4` has NO policy_kwargs, so SB3's MlpPolicy defaults apply:
+# net_arch pi=[64, 64], vf=[64, 64], activation Tanh, ortho_init=True
+# (gain sqrt(2) hidden, 0.01 action_net, 1.0 value_net), log_std_init 0.
+# (Earlier versions of this file copied the Hopper policy_kwargs -- 256-256
+# ReLU, log_std_init -2, ortho_init=False -- which the source does not have.)
 #
-# SRL mapping: separate 256-256 ReLU encoders for actor and critic, linear
-# output heads (no extra hidden layers), state-independent log_std init -2.
+# SRL mapping: separate 64-64 Tanh encoders for actor and critic, linear
+# output heads (no extra hidden layers), state-independent log_std init 0,
+# `ortho_init: true` (SB3 gains).
+#
+# `latent_dim: null` on every encoder: no extra Linear projection after the
+# last hidden layer (the schema default, latent_dim 128, would silently add
+# one -- an architecture SB3 does not have).
 #
 # Used by scripts/benchmark/run_matrix.py. Do not tune these per-env: the point
 # is an apples-to-apples comparison against the SB3 / CleanRL reference numbers
@@ -23,19 +32,23 @@ env_type: "flat"
 
 algo: ppo
 
+ortho_init: true
+
 encoders:
   - name: actor_state_enc
     type: mlp
     input_dim: 17
+    latent_dim: null
     layers:
-      - {out_features: 256, activation: relu, norm: none}
-      - {out_features: 256, activation: relu, norm: none}
+      - {out_features: 64, activation: tanh, norm: none}
+      - {out_features: 64, activation: tanh, norm: none}
   - name: critic_state_enc
     type: mlp
     input_dim: 17
+    latent_dim: null
     layers:
-      - {out_features: 256, activation: relu, norm: none}
-      - {out_features: 256, activation: relu, norm: none}
+      - {out_features: 64, activation: tanh, norm: none}
+      - {out_features: 64, activation: tanh, norm: none}
 
 flows:
   - "actor_state_enc -> actor"
@@ -45,7 +58,7 @@ actor:
   name: actor
   type: gaussian
   action_dim: 6
-  log_std_init: -2.0
+  log_std_init: 0.0
   layers: []
 
 critic:

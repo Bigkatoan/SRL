@@ -14,6 +14,10 @@
 #
 # SRL mapping: identity critic encoder -> twin-Q heads are MLP(concat(s, a)).
 #
+# `latent_dim: null` on every encoder: no extra Linear projection after the
+# last hidden layer (the schema default, latent_dim 128, would silently add
+# one -- an architecture SB3 does not have).
+#
 # Used by scripts/benchmark/run_matrix.py. Do not tune these per-env: the point
 # is an apples-to-apples comparison against the SB3 / CleanRL reference numbers
 # in scripts/benchmark/reference.yaml.
@@ -29,12 +33,14 @@ encoders:
   - name: actor_state_enc
     type: mlp
     input_dim: 17
+    latent_dim: null
     layers:
       - {out_features: 400, activation: relu, norm: none}
       - {out_features: 300, activation: relu, norm: none}
   - name: critic_state_enc
     type: mlp
     input_dim: 17
+    latent_dim: null
     layers: []
 
 flows:
