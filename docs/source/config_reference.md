@@ -28,7 +28,8 @@ encoders:
     input_name: <str>     # optional explicit obs key mapping
     input_dim: <int> | auto       # mlp/lstm; omitted = auto
     input_shape: [C, H, W] | auto # cnn; omitted = auto
-    latent_dim: <int>     # output dimension
+    latent_dim: <int> | null  # output dimension (default 128: a final Linear
+                              # projection); null = no projection (mlp/lstm)
     aux_type: autoencoder | contrastive | byol   # optional
     aux_latent_dim: <int> # optional projection width
     use_momentum: <bool>
@@ -38,6 +39,10 @@ encoders:
     layers:
       - {out_features: <int>, activation: <str>, norm: <str>}
     extra: {<key>: <value>}  # free-form kwargs for custom encoder types
+
+# Optional: SB3 ortho_init=True (orthogonal weights, zero biases; gain
+# sqrt(2) hidden, 0.01 actor output, 1.0 critic output). Default false.
+ortho_init: <bool>
 
 # Data-flow graph (encoder → head)
 flows:
@@ -182,7 +187,7 @@ actor:
 | `input_name` | `str \| null` | Explicit observation key for this encoder |
 | `input_dim` | `int \| auto` | Vector encoders; omitted/`auto` = from the env |
 | `input_shape` | `list[int] \| auto` | CNN encoders (`[C, H, W]`); omitted/`auto` = from the env |
-| `latent_dim` | `int` | Encoder output width for non-recurrent paths |
+| `latent_dim` | `int \| null` | Encoder output width for non-recurrent paths. An `int` (default `128`) appends a Linear projection to that width after the last layer; `null` (mlp/lstm only) appends none, so the output is the last hidden layer -- or the raw input for `layers: []` (identity encoder). Use `null` to reproduce SB3/CleanRL networks exactly |
 | `layers` | `list` | Layer definitions passed to the encoder builder |
 | `aux_type` | `str \| null` | Auxiliary head family attached to this encoder |
 | `aux_latent_dim` | `int` | Projection size for contrastive or BYOL heads |

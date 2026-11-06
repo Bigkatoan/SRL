@@ -99,10 +99,23 @@ def _is_recurrent_type(enc_type: str) -> bool:
     return bool(getattr(EncoderRegistry.get(enc_type), "srl_is_recurrent", False))
 
 
-def _get_encoder_latent_dim(cfg: EncoderConfig) -> int:
-    """Return the output latent dimension of an encoder config."""
+def _get_encoder_latent_dim(cfg: EncoderConfig, encoder: Any = None) -> int:
+    """Return the output latent dimension of an encoder config.
+
+    ``latent_dim: null`` (no projection) has no size in the config itself;
+    it is read off the built *encoder* (``MLPEncoder.latent_dim`` = last
+    hidden size, or ``input_dim`` for an identity encoder).
+    """
     if cfg.recurrent or _is_recurrent_type(cfg.type):
         return cfg.lstm_hidden
+    if cfg.latent_dim is None:
+        dim = getattr(encoder, "latent_dim", None)
+        if dim is None:
+            raise ConfigError(
+                f"encoder '{cfg.name}': latent_dim is null but the built "
+                f"'{cfg.type}' encoder does not report its output size"
+            )
+        return int(dim)
     return cfg.latent_dim
 
 
@@ -173,7 +186,9 @@ class ModelBuilder:
             encoder_input_names[enc_cfg.name] = enc_cfg.input_name
             if enc_cfg.name not in encoder_map:
                 encoder_map[enc_cfg.name] = _build_encoder(enc_cfg)
-                latent_dims[enc_cfg.name] = _get_encoder_latent_dim(enc_cfg)
+                latent_dims[enc_cfg.name] = _get_encoder_latent_dim(
+                    enc_cfg, encoder_map[enc_cfg.name]
+                )
 
         # 2. Build flow graph
         node_names: list[str] = list(encoder_map.keys())
@@ -215,18 +230,22 @@ class ModelBuilder:
                         # Reconstruct the same (C, H, W) the encoder read in --
                         # ConvDecoderHead's job is to decode back to it.
                         aux_encoders[f"{enc_cfg.name}_aux"] = ConvDecoderHead(
-                            latent_dim=enc_cfg.latent_dim,
+                            latent_dim=enc_cfg.latent_dim or latent_dims[enc_cfg.name],
                             output_shape=tuple(enc_cfg.input_shape),
                         )
                 elif enc_cfg.aux_type in ("contrastive", "byol"):
                     from srl.networks.heads.aux_head import ProjectionHead
 
                     aux_encoders[f"{enc_cfg.name}_aux"] = ProjectionHead(
-                        input_dim=enc_cfg.latent_dim,
+                        input_dim=enc_cfg.latent_dim or latent_dims[enc_cfg.name],
                         proj_dim=enc_cfg.aux_latent_dim,
                     )
 
         # 5. Build and return AgentModel
+        if cfg.ortho_init:
+            from srl.networks.layers.init import apply_sb3_orthogonal_init
+
+            apply_sb3_orthogonal_init(encoder_map.values(), actor, critic)
         return AgentModel(
             encoders=encoder_map,
             flow_graph=flow_graph,

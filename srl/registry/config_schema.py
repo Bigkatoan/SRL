@@ -162,8 +162,11 @@ class EncoderConfig(_Validated):
     input_dim: int | None = None
     # cnn: [C, H, W]. None = "auto" (resolved from the env).
     input_shape: list[int] | None = None
-    # shared
-    latent_dim: int = 128
+    # shared. Output size of the encoder: a final Linear projection to this
+    # size is appended. ``null`` (mlp/lstm only) adds no projection: the
+    # encoder's output is its last hidden layer (or the raw input for
+    # ``layers: []``, i.e. an identity encoder).
+    latent_dim: int | None = 128
     layers: list[Any] = field(default_factory=list)
     # Auxiliary representation head built next to this encoder
     aux_type: AuxType | None = None
@@ -181,6 +184,16 @@ class EncoderConfig(_Validated):
         errors = []
         if self.input_shape is not None and any(int(d) <= 0 for d in self.input_shape):
             errors.append(("input_shape", f"dimensions must be positive, got {self.input_shape}"))
+        if self.latent_dim is None and self.type not in ("mlp", "lstm"):
+            errors.append(
+                (
+                    "latent_dim",
+                    f"null (no projection) is only supported by mlp/lstm encoders, "
+                    f"not type '{self.type}'",
+                )
+            )
+        if self.latent_dim is None and self.aux_type is not None:
+            errors.append(("latent_dim", "null is not supported together with aux_type"))
         return errors
 
     @classmethod
@@ -568,8 +581,13 @@ class AgentModelConfig:
     critic: HeadConfig | None = None
     visualization: VisualizationConfig = field(default_factory=VisualizationConfig)
     ros2: ROS2Config = field(default_factory=ROS2Config)
+    # SB3 ``ortho_init=True`` / CleanRL ``layer_init``: orthogonal weights,
+    # zero biases; gain sqrt(2) for hidden layers, 0.01 for the actor's
+    # output layer(s), 1.0 for the critic's. False keeps PyTorch's default
+    # init (SB3 off-policy policies and rl-zoo ``ortho_init=False``).
+    ortho_init: bool = False
 
-    MODEL_KEYS = ("encoders", "flows", "actor", "critic", "visualization", "ros2")
+    MODEL_KEYS = ("encoders", "flows", "actor", "critic", "visualization", "ros2", "ortho_init")
 
     @classmethod
     def _parse(
@@ -628,6 +646,9 @@ class AgentModelConfig:
 
         visualization = VisualizationConfig._parse(d.get("visualization"), "visualization", errors)
         ros2 = ROS2Config._parse(d.get("ros2"), "ros2", errors)
+        ortho_init = d.get("ortho_init", False)
+        if not isinstance(ortho_init, bool):
+            errors.append(f"ortho_init: expected true/false, got {ortho_init!r}")
         if errors:
             return None
         return cls(
@@ -637,6 +658,7 @@ class AgentModelConfig:
             critic=heads["critic"],
             visualization=visualization or VisualizationConfig(),
             ros2=ros2 or ROS2Config(),
+            ortho_init=bool(ortho_init),
         )
 
     @classmethod
@@ -681,6 +703,8 @@ class AgentModelConfig:
             out["visualization"] = self.visualization.to_dict()
         if self.ros2 != ROS2Config():
             out["ros2"] = self.ros2.to_dict()
+        if self.ortho_init:
+            out["ortho_init"] = True
         return out
 
 
