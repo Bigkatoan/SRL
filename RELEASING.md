@@ -6,9 +6,16 @@ that tag by [setuptools-scm](https://setuptools-scm.readthedocs.io/) — there i
 no version string to bump in the source tree.
 
 Pipeline: build sdist + wheel → `twine check --strict` → verify the built
-version equals the tag → smoke-test the wheel → publish to **TestPyPI** →
-publish to **PyPI** → create a **GitHub Release** with the dist files and the
-matching `CHANGELOG.md` section as notes.
+version equals the tag → smoke-test the wheel → *(optional)* publish to
+**TestPyPI** → **PyPI** → create a **GitHub Release** with the dist files and
+the matching `CHANGELOG.md` section as notes.
+
+> **Current status: PyPI publishing is disabled.** Releases are published as
+> GitHub Releases only; users install from GitHub, e.g.
+> `pip install "srl-rl @ git+https://github.com/Bigkatoan/SRL.git@v0.3.0"` or the
+> attached wheel. To enable PyPI later, complete the one-time setup below and
+> set the repository variable `PUBLISH_TO_PYPI=true`
+> (*Settings → Secrets and variables → Actions → Variables*).
 
 Publishing uses PyPI [trusted publishing](https://docs.pypi.org/trusted-publishers/)
 (OpenID Connect): no API tokens are stored in the repository.
