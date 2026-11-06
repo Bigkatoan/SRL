@@ -10,7 +10,7 @@ subprocess and lays results out as::
         stdout.log       # stdout/stderr of every attempt (appended, with markers)
         attempts.json    # one record per attempt (start/end, exit code)
         train/           # srl-train --logdir  (metrics.jsonl, TensorBoard, history.csv)
-        ckpt/            # srl-train --ckptdir
+        ckpt/            # srl-train --ckptdir (v1 checkpoint directories)
         summary.json     # written ONLY when the job finished successfully
 
 ``summary.json`` is the completion marker: a job with a summary whose spec
@@ -39,8 +39,17 @@ Usage::
         --envs HalfCheetah-v5 Hopper-v5 Walker2d-v5 --algos sac td3 ppo \\
         --seeds 0 1 2 --total-steps 1000000 --max-parallel 6 --device cuda
 
+    # quick smoke test; strictly validated configs mean an override that only
+    # exists for some algorithms has to be scoped to them
+    python scripts/benchmark/run_matrix.py run --envs Hopper-v5 --seeds 0 \\
+        --total-steps 3000 --eval-freq 1000 --eval-episodes 1 --device cpu \\
+        --set sac,td3:train.learning_starts=500 --out /tmp/bench-smoke
+
     # progress
     python scripts/benchmark/run_matrix.py status --out benchmarks/runs
+
+Every generated config is validated with ``srl.config.load_experiment`` (in
+the child interpreter) before any job starts.
 """
 
 from __future__ import annotations
@@ -57,6 +66,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -161,6 +171,71 @@ def _runtime_versions(python: str, threads: int) -> dict[str, Any]:
     info["platform"] = platform.platform()
     info["cpu_count"] = os.cpu_count()
     return info
+
+
+def overrides_for(algo: str, overrides: list[str]) -> list[str]:
+    """The ``--set`` overrides that apply to *algo*, with any scope prefix removed.
+
+    ``--set train.x=1`` applies to every algorithm; ``--set sac,td3:train.x=1``
+    only to the listed ones. Configs are strictly validated, so e.g.
+    ``train.learning_starts`` must be scoped away from PPO (it is not a PPO
+    hyperparameter and srl-train would refuse the config).
+    """
+    selected = []
+    for ov in overrides:
+        head, sep, rest = ov.partition(":")
+        if sep and "=" not in head:
+            algos = {a.strip().lower() for a in head.split(",") if a.strip()}
+            if algo.lower() in algos:
+                selected.append(rest)
+        else:
+            selected.append(ov)
+    return selected
+
+
+def validate_job_configs(python: str, threads: int, jobs: list[Job]) -> None:
+    """Strict-validate every job's generated config in the CHILD interpreter.
+
+    srl-train rejects unknown/misplaced keys (e.g. a ``--set`` that does not
+    belong to the algorithm); catching that here fails the whole launch in
+    seconds instead of burning a retry per job.
+    """
+    if not jobs:
+        return
+    code = (
+        "import json, sys, warnings\n"
+        "from srl.config import load_experiment\n"
+        "out = {}\n"
+        "for path, algo in json.loads(sys.argv[1]):\n"
+        "    try:\n"
+        "        with warnings.catch_warnings():\n"
+        "            warnings.simplefilter('ignore')\n"
+        "            exp = load_experiment(path)\n"
+        "        if exp.algo != algo:\n"
+        "            out[path] = f'algo: {exp.algo!r}, expected {algo!r}'\n"
+        "    except Exception as e:\n"
+        "        out[path] = f'{type(e).__name__}: {e}'\n"
+        "print(json.dumps(out))\n"
+    )
+    with tempfile.TemporaryDirectory(prefix="srl_bench_cfg_") as tmp:
+        items, names = [], {}
+        for i, job in enumerate(jobs):
+            path = Path(tmp) / f"{i}.yaml"
+            path.write_text(job.config_text, encoding="utf-8")
+            items.append([str(path), job.algo])
+            names[str(path)] = job.name
+        res = subprocess.run(
+            [python, "-c", code, json.dumps(items)],
+            capture_output=True,
+            text=True,
+            env=_child_env(threads),
+        )
+        if res.returncode != 0:
+            raise SystemExit(f"config validation failed to run:\n{res.stderr}")
+        errors = json.loads(res.stdout.strip().splitlines()[-1])
+    if errors:
+        lines = "\n".join(f"  {names[p]}: {msg}" for p, msg in sorted(errors.items()))
+        raise SystemExit(f"invalid generated config(s):\n{lines}")
 
 
 def _apply_override(cfg: dict, dotted: str) -> None:
@@ -390,7 +465,7 @@ def build_jobs(args: argparse.Namespace) -> list[Job]:
                     total_steps=int(args.total_steps),
                     eval_freq=int(args.eval_freq),
                     eval_episodes=int(args.eval_episodes),
-                    overrides=list(args.set or []),
+                    overrides=overrides_for(algo, list(args.set or [])),
                 )
                 job.config_text = job.build_config_text()
                 jobs.append(job)
@@ -509,6 +584,7 @@ class Runner:
             queue.append(job)
         done = sum(job_state(j) == "done" for j in self.jobs)
         print(f"[run_matrix] {len(self.jobs)} jobs: {done} done, {len(queue)} to run", flush=True)
+        validate_job_configs(self.python, self.threads, queue)
         if self.args.dry_run:
             for job in queue:
                 print("  " + " ".join(job.command(self.python, self.device_for(job))))
@@ -793,8 +869,9 @@ def _build_parser() -> argparse.ArgumentParser:
         "--set",
         action="append",
         metavar="KEY.PATH=VALUE",
-        help="override a config value, e.g. --set train.learning_starts=1000 (repeatable; "
-        "part of the spec hash)",
+        help="override a config value, e.g. --set train.learning_starts=1000; prefix with "
+        "ALGO[,ALGO]: to scope it, e.g. --set sac,td3:train.learning_starts=1000 "
+        "(repeatable; part of the spec hash)",
     )
     r.add_argument("--max-retries", type=int, default=1, help="retries per failed job per launch")
     r.add_argument(

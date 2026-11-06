@@ -43,6 +43,47 @@ def test_apply_override_parses_yaml_values() -> None:
     assert cfg["train"]["new"]["flag"] is True
 
 
+def test_overrides_can_be_scoped_per_algorithm() -> None:
+    ovs = ["train.eval_episodes=5", "sac,td3:train.learning_starts=1000", "ppo:train.n_steps=64"]
+    assert run_matrix.overrides_for("sac", ovs) == [
+        "train.eval_episodes=5",
+        "train.learning_starts=1000",
+    ]
+    assert run_matrix.overrides_for("PPO", ovs) == ["train.eval_episodes=5", "train.n_steps=64"]
+    # A ':' inside the value is not a scope prefix.
+    assert run_matrix.overrides_for("sac", ["env_id=mjlab:Foo"]) == ["env_id=mjlab:Foo"]
+
+
+@pytest.mark.parametrize("algo", run_matrix.DEFAULT_ALGOS)
+def test_generated_configs_pass_strict_validation(algo: str, tmp_path: Path) -> None:
+    from srl.config import load_experiment
+
+    configs = run_matrix.discover_configs(run_matrix.DEFAULT_CONFIG_DIR)
+    job = run_matrix.Job(
+        "Hopper-v5", algo, 0, configs[("Hopper-v5", algo)], tmp_path, 5000, 1000, 2
+    )
+    path = tmp_path / "config.yaml"
+    path.write_text(job.build_config_text())
+    exp = load_experiment(path)
+    assert exp.algo == algo
+    assert exp.trainer.total_steps == 5000 and exp.trainer.eval_episodes == 2
+
+
+def test_report_accepts_runs_dir(tmp_path: Path) -> None:
+    out = tmp_path / "bench.md"
+    rc = report.main(
+        [
+            "--runs-dir",
+            str(tmp_path / "empty"),
+            "--out-md",
+            str(out),
+            "--fig-dir",
+            str(tmp_path / "fig"),
+        ]
+    )
+    assert rc == 0 and "pending" in out.read_text()
+
+
 def test_spec_hash_tracks_overrides_and_steps(tmp_path: Path) -> None:
     src = run_matrix.DEFAULT_CONFIG_DIR / "hopper_sac.yaml"
 

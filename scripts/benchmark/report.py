@@ -16,7 +16,11 @@ runs, stratified per task for the aggregate) -- the page says which.
 
 Usage::
 
-    python scripts/benchmark/report.py --runs benchmarks/runs
+    python scripts/benchmark/report.py --runs-dir benchmarks/runs
+
+    # preview of a live / partial matrix without touching the docs tree
+    python scripts/benchmark/report.py --runs-dir benchmarks/runs --include-partial \\
+        --out-md /tmp/bench/benchmarks.md --fig-dir /tmp/bench/fig
 """
 
 from __future__ import annotations
@@ -469,7 +473,13 @@ def build_report(args: argparse.Namespace) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    p.add_argument("--runs", default=str(REPO_ROOT / "benchmarks" / "runs"))
+    p.add_argument(
+        "--runs-dir",
+        "--runs",
+        dest="runs",
+        default=str(REPO_ROOT / "benchmarks" / "runs"),
+        help="run_matrix.py --out directory to read (only read, never written)",
+    )
     p.add_argument("--reference", default=str(Path(__file__).resolve().parent / "reference.yaml"))
     p.add_argument("--out-md", default=str(REPO_ROOT / "docs" / "source" / "benchmarks.md"))
     p.add_argument(
